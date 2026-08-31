@@ -25,10 +25,12 @@ command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
 command -v nginx >/dev/null || apt-get install -y -qq nginx >/dev/null
 
 mkdir -p "$APP_DIR"
-if [[ -f "$APP_DIR/Dockerfile" ]]; then
-  git -C "$APP_DIR" pull --ff-only || true
+if [[ -d "$APP_DIR/.git" ]]; then
+  git -C "$APP_DIR" fetch origin
+  git -C "$APP_DIR" checkout -B main origin/main
+  git -C "$APP_DIR" reset --hard origin/main
 elif [[ -f ./Dockerfile && -f ./deploy/nginx-citefleet.app.conf ]]; then
-  rsync -a --delete --exclude .git --exclude node_modules --exclude .output ./ "$APP_DIR/"
+  tar -C . --exclude .git --exclude node_modules --exclude .output -cf - . | tar -C "$APP_DIR" -xf -
 else
   git clone "$REPO_URL" "$APP_DIR"
 fi

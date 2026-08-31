@@ -10,7 +10,9 @@ FROM node:22-slim AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+# npm ci rejects this lock (nested ajv 6 vs 8). install is equivalent for a
+# clean image layer and succeeds on Node 22 / npm 10.9.
+RUN npm install --ignore-scripts
 
 COPY . .
 
