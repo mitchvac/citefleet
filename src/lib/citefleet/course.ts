@@ -44,8 +44,58 @@ export const LESSONS: Lesson[] = [
     ],
   },
   {
-    slug: "command",
+    slug: "list-a-site",
     number: "02",
+    title: "Get a website listed (step by step)",
+    summary:
+      "The full CiteFleet path: onboard an origin, prove it crawls, list it on BotCentral, submit Google/Bing, then earn citations. Do not skip ahead.",
+    where: "Command → campaign → BotCentral",
+    steps: [
+      {
+        title: "1. Open Command",
+        body: "In the top nav click Command. This is the only place you add a site. You should see Onboard a property on the right of the board.",
+      },
+      {
+        title: "2. Fill Onboard a property",
+        body: "Site name = human label (Resonance, Acme Dating). Origin URL = https:// plus the host only — no /premium, no trailing slash required. Example: https://resonanse.app. IndexNow key is optional; leave blank unless the live site already serves /{key}.txt.",
+      },
+      {
+        title: "3. Click Assign Grok fleet",
+        body: "CiteFleet creates the property, copies the playbook into live tasks, and pins each task to one bot (Aether, Orion, Helios, Nimbus, Lyra, Vesper, Cassian, Forge, Sentinel). Properties on the KPI row increments. A new card appears for that domain.",
+      },
+      {
+        title: "4. Click Live audit on that card",
+        body: "CiteFleet fetches the origin for real: homepage and public routes with and without Accept: text/html, robots.txt, sitemap.xml, llms.txt. A JSON 404 without a special header is an SPA fallback bug — stop here and fix the site (Aether) before any listing.",
+      },
+      {
+        title: "5. Open campaign",
+        body: "Work P1 first: Repair SPA fallback, robots.txt AI crawlers, sitemap. Tick a box only when the live URL is actually fixed. Run bot on a technical card re-checks HTTP. Do not open Product Hunt while Aether is still blocked.",
+      },
+      {
+        title: "6. List on BotCentral",
+        body: "On Command or the campaign header click List on BotCentral. Orion publishes a BotCentral 1.0 card. This is the bot-search catalog at botcentral.org. Assistants do not fill a submit form. You never paste a ChatGPT URL to get listed here.",
+      },
+      {
+        title: "7. Confirm the listing",
+        body: "Command shows Listed on BotCentral. Click it — that is the Card Inspector (human page) at botcentral.org/site/{domain}. Machine card is the JSON at /v1/site/{domain}. Search botcentral.org/v1/search?q=your-topic and the domain should appear. Refresh listing updates the card without wiping existing topics.",
+      },
+      {
+        title: "8. Traditional search doors",
+        body: "Helios: verify the domain in Google Search Console, submit the sitemap, URL-inspect key pages. Nimbus: Bing Webmaster Tools + IndexNow. That feeds Google, Gemini, AI Overviews, Bing, ChatGPT search, and Copilot. There is no ChatGPT webmaster portal.",
+      },
+      {
+        title: "9. Mentions so answers cite you",
+        body: "Indexing finds you. Citations need third-party pages. Lyra: three X posts with the exact domain. Vesper: Trustpilot, SmartCustomer, Product Hunt (Tue–Thu AM), AlternativeTo, SaaSHub. Cassian: press kit, then pitch. Always write resonanse.app, not just “Resonance”. Tick the campaign boxes when each claim is actually live.",
+      },
+      {
+        title: "10. Monitor",
+        body: "Sentinel’s Local audit is the HTTP 200 sweep. Weekly: GSC + Bing AI Performance. If a route regresses to 404, re-dispatch Aether before more mentions. Listed on BotCentral plus GSC/Bing submitted = the site is in the CiteFleet pipeline. Mentions keep accumulating for months.",
+      },
+    ],
+  },
+  {
+    slug: "command",
+    number: "03",
     title: "Command Center",
     summary: "Home is the status board: workspace KPIs, properties, and the answer-engine matrix.",
     where: "Command (nav)",
@@ -70,7 +120,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     slug: "onboard",
-    number: "03",
+    number: "04",
     title: "Onboard a property",
     summary: "Add a customer origin so the dispatcher creates the 11-task playbook and assigns the fleet.",
     where: "Command → Onboard a property",
@@ -95,7 +145,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     slug: "audit",
-    number: "04",
+    number: "05",
     title: "Live audit",
     summary: "The only automated inspection today: HTTP reality of the origin, mapped onto bot tasks.",
     where: "Property card → Live audit",
@@ -116,7 +166,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     slug: "campaign",
-    number: "05",
+    number: "06",
     title: "Campaign board",
     summary: "One origin’s punch list. Every task has an owner bot, a checklist, and evidence.",
     where: "Open campaign",
@@ -137,7 +187,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     slug: "fleet",
-    number: "06",
+    number: "07",
     title: "Grok Fleet",
     summary: "Nine named agents. One lever each. No engine is left without an owner.",
     where: "Grok Fleet (nav)",
@@ -170,7 +220,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     slug: "playbook",
-    number: "07",
+    number: "08",
     title: "Playbook",
     summary: "The versioned runbook lifted from the Resonance campaign. Tasks are instances of these steps.",
     where: "Playbook (nav)",
@@ -187,7 +237,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     slug: "activity",
-    number: "08",
+    number: "09",
     title: "Audit log",
     summary: "Append-only ops trail: who assigned what, which audit ran, which mention shipped.",
     where: "Audit log (nav)",
@@ -200,7 +250,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     slug: "workflow",
-    number: "09",
+    number: "10",
     title: "Recommended operating sequence",
     summary: "Do the work in this order. Skipping ahead wastes mention effort on a site crawlers still 404.",
     where: "Every property",
@@ -229,7 +279,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     slug: "botcentral",
-    number: "10",
+    number: "11",
     title: "BotCentral listing",
     summary:
       "CiteFleet publishes a 1.0 card. Assistants read botcentral.org — they never fill a submit form.",
@@ -383,6 +433,19 @@ export const QUIZ: QuizQuestion[] = [
     explain:
       "Bots never publish. CiteFleet POSTs a 1.0 card. Assistants only GET /v1/search and /v1/site/{domain}.",
   },
+  {
+    id: "q12",
+    prompt: "Correct order to get a new website listed in CiteFleet?",
+    choices: [
+      "Product Hunt, then onboard, then audit",
+      "Onboard → Live audit (fix 404s) → List on BotCentral → GSC/Bing → mentions",
+      "Paste the URL into ChatGPT so it submits itself",
+      "Only add robots.txt; CiteFleet lists the site automatically",
+    ],
+    answer: 1,
+    explain:
+      "Command onboard, prove crawl with Live audit, publish the BotCentral card, then traditional search doors, then citations. Mentions on a 404 origin are wasted.",
+  },
 ];
 
-export const PASS_SCORE = 8;
+export const PASS_SCORE = 9;

@@ -291,10 +291,54 @@ export function MockOverview() {
   );
 }
 
+export function MockListSite() {
+  return (
+    <Frame label="List a website — the real buttons">
+      <ol className="space-y-2 text-sm">
+        {[
+          ["1", "Command", "Onboard a property → Assign Grok fleet"],
+          ["2", "Property card", "Live audit — stop if any route is JSON 404"],
+          ["3", "Open campaign", "P1: SPA fallback, robots.txt, sitemap"],
+          ["4", "List on BotCentral", "Inspector at /site/{domain}, JSON at /v1/site/{domain}"],
+          ["5", "Helios + Nimbus", "Google Search Console, Bing, IndexNow"],
+          ["6", "Lyra / Vesper / Cassian", "X posts, directories, press — exact domain"],
+          ["7", "Sentinel", "Local audit + weekly GSC/Bing. Re-dispatch if a 404 returns"],
+        ].map(([n, where, action]) => (
+          <li
+            key={n}
+            className="grid gap-1 rounded-2xl border border-white/8 px-3 py-2 sm:grid-cols-[2rem_9rem_1fr] sm:items-center"
+          >
+            <span className="mono text-[#e2c36d]">{n}</span>
+            <span className="font-medium">{where}</span>
+            <span className="text-[#cfc8e8]">{action}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <span className="rounded-full border border-[#9b7dff]/40 bg-[#9b7dff]/15 px-3 py-1 text-xs">
+          Live audit
+        </span>
+        <span className="rounded-full border border-emerald-400/40 px-3 py-1 text-xs text-emerald-200">
+          List on BotCentral
+        </span>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#07060f]">
+          Open campaign
+        </span>
+      </div>
+      <Callout>
+        Those three controls are the real Command buttons. Audit first. List on BotCentral
+        after crawl is clean. Mentions last.
+      </Callout>
+    </Frame>
+  );
+}
+
 export function LessonMock({ slug }: { slug: string }) {
   switch (slug) {
     case "overview":
       return <MockOverview />;
+    case "list-a-site":
+      return <MockListSite />;
     case "command":
       return <MockCommand />;
     case "onboard":
@@ -311,6 +355,8 @@ export function LessonMock({ slug }: { slug: string }) {
       return <MockLog />;
     case "workflow":
       return <MockWorkflow />;
+    case "botcentral":
+      return <MockListSite />;
     default:
       return null;
   }

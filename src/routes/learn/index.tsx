@@ -8,11 +8,18 @@ function LearnPage() {
   return (
     <Shell eyebrow="Operator academy" title="CiteFleet training">
       <p className="-mt-6 mb-8 max-w-2xl text-sm leading-6 text-[#b7b0cc]">
-        Start with the glossary so GSC, SPA, IndexNow, and the bot names are
-        not abstract. Each lesson includes a labeled mock of the real screen,
-        then the steps.
+        Start with lesson 02 — Get a website listed — for the click-by-click path.
+        Use the glossary for GSC, SPA, IndexNow, and bot names. Each lesson includes a
+        labeled mock of the real screen, then the steps.
       </p>
       <div className="mb-8 flex flex-wrap gap-3">
+        <Link
+          to="/learn/$slug"
+          params={{ slug: "list-a-site" }}
+          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07060f]"
+        >
+          Start: list a website
+        </Link>
         <Link
           to="/learn/glossary"
           className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07060f]"
