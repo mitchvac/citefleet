@@ -1,5 +1,5 @@
 import { askGrok, grokConfigured } from "./grokApi";
-import { dispatchSite, runAuditAndApply } from "./dispatcher";
+import { dispatchSite, publishSiteToBotCentral, runAuditAndApply } from "./dispatcher";
 import { getStore, logActivity, mutateStore, recalcScores } from "./store";
 
 const MENTION_TASKS = new Set(["x_mentions", "directories", "press"]);
@@ -15,6 +15,25 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
       `${site.domain}: audit ${audit.ok ? "ok" : "issues"} (${audit.findings.length} findings)`,
     );
     await dispatchSite(site.id);
+
+    const listingTask = (await getStore()).tasks.find(
+      (t) =>
+        t.siteId === site.id &&
+        t.playbookId === "botcentral_list" &&
+        t.status !== "done",
+    );
+    if (listingTask && audit.ok) {
+      try {
+        const listing = await publishSiteToBotCentral(site.id);
+        reports.push(
+          `${site.domain}: BotCentral ${listing.listed ? "listed" : "not listed"}`,
+        );
+      } catch (err) {
+        reports.push(
+          `${site.domain}: BotCentral ${err instanceof Error ? err.message : "publish failed"}`,
+        );
+      }
+    }
 
     if (!wantGrok) continue;
 

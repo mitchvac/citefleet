@@ -6,6 +6,7 @@ import {
   loadState,
   onboardProperty,
   patchTaskFn,
+  publishListingFn,
   resetState,
   runTaskFn,
   setAutopilotFn,
@@ -83,6 +84,10 @@ export function useFleet() {
     tickAutopilot: () =>
       run("tick", async () => {
         await tickAutopilotFn({ data: { grok: false } });
+      }),
+    publishListing: (siteId: string) =>
+      run("publish", async () => {
+        await publishListingFn({ data: { siteId } });
       }),
   };
 }

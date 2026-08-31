@@ -38,7 +38,8 @@ export type PlaybookId =
   | "x_mentions"
   | "directories"
   | "press"
-  | "monitor";
+  | "monitor"
+  | "botcentral_list";
 
 export interface ChecklistItem {
   id: string;
@@ -86,6 +87,13 @@ export interface Site {
   lastAuditAt?: string;
   scores: SiteScores;
   summary: string;
+  botcentral?: {
+    listed: boolean;
+    href?: string;
+    updated?: string;
+    summary?: string;
+    error?: string;
+  };
 }
 
 export interface Bot {

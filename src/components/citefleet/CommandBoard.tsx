@@ -93,7 +93,7 @@ export function CommandBoard() {
           <h2 className="mb-1 text-sm font-semibold">Onboard a property</h2>
           <p className="mb-4 text-sm text-[#9b95b3]">
             Grok Dispatcher will assign each specialist bot a playbook task for Google,
-            Bing, IndexNow, Grok, ChatGPT, and the other answer engines.
+            Bing, IndexNow, Grok, ChatGPT, and BotCentral bot-search listings.
           </p>
           <form
             className="space-y-3"
@@ -243,6 +243,18 @@ function SiteCard({
           <div className="mb-2 flex items-center gap-2">
             <Pill tone={statusTone(site.status)}>{site.status}</Pill>
             <span className="mono text-xs text-[#9b95b3]">{site.domain}</span>
+            {site.botcentral?.listed ? (
+              <a
+                href={site.botcentral.href || "https://botcentral.org/v1/search"}
+                target="_blank"
+                rel="noreferrer"
+                className="no-underline"
+              >
+                <Pill tone="good">Listed on BotCentral</Pill>
+              </a>
+            ) : (
+              <Pill tone="gold">Not on BotCentral</Pill>
+            )}
           </div>
           <h2 className="text-xl font-semibold">{site.name}</h2>
           <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">{site.summary}</p>

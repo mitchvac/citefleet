@@ -240,6 +240,23 @@ export const PLAYBOOK: PlaybookStep[] = [
     operatorHint: "Indexing gets you findable; third-party mentions get you listed in answers.",
   },
   {
+    id: "botcentral_list",
+    title: "List on BotCentral (bot search catalog)",
+    description:
+      "Publish a BotCentral 1.0 card so GPTBot, PerplexityBot, Bingbot, and Google-Extended can find the site via botcentral.org/v1/search. CiteFleet is the only publisher; bots never submit.",
+    botCallsign: "ORION",
+    priority: 2,
+    engines: ["chatgpt", "perplexity", "claude", "gemini", "grok"],
+    checklist: [
+      "Origin robots.txt and sitemap reachable",
+      "Card published to BotCentral",
+      "GET /v1/site/{domain} returns 200",
+      "Search hit appears for a topic keyword",
+    ],
+    operatorHint:
+      "This is the bot-search listing door. Mentions (Lyra/Vesper/Cassian) are a separate layer.",
+  },
+  {
     id: "press",
     title: "Press and high-authority citations",
     description:

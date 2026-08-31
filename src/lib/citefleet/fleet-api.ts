@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 
 export const loadState = createServerFn({ method: "GET" }).handler(async () => {
-  const { getStore } = await import("./ops.server");
-  return getStore();
+  const { hydrateListings } = await import("./ops.server");
+  return hydrateListings();
 });
 
 export const resetState = createServerFn({ method: "POST" }).handler(async () => {
@@ -82,4 +82,11 @@ export const tickAutopilotFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { runAutopilotTick } = await import("./ops.server");
     return runAutopilotTick({ grok: Boolean(data?.grok) });
+  });
+
+export const publishListingFn = createServerFn({ method: "POST" })
+  .validator((d: { siteId: string }) => d)
+  .handler(async ({ data }) => {
+    const { publishSiteToBotCentral } = await import("./ops.server");
+    return publishSiteToBotCentral(data.siteId);
   });

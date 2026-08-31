@@ -36,6 +36,13 @@ else
 fi
 cd "$APP_DIR"
 
+TOKEN_FILE="/root/citefleet-botcentral.token"
+if [[ ! -s "$TOKEN_FILE" ]]; then
+  openssl rand -hex 32 > "$TOKEN_FILE"
+  chmod 600 "$TOKEN_FILE"
+fi
+SERVICE_TOKEN="$(tr -d '\n' < "$TOKEN_FILE")"
+
 {
   echo "NODE_ENV=production"
   echo "HOST=0.0.0.0"
@@ -43,6 +50,8 @@ cd "$APP_DIR"
   echo "NITRO_HOST=0.0.0.0"
   echo "NITRO_PORT=3000"
   echo "VITE_AUTH_ENABLED=false"
+  echo "BOTCENTRAL_URL=https://botcentral.org"
+  printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
   if [[ -n "$DB_URL" ]]; then
     printf 'DATABASE_URL=%s\n' "$DB_URL"
   fi

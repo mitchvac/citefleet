@@ -88,6 +88,7 @@ export function recalcScores(store: StoreShape, siteId: string) {
     "gsc_submit",
     "bing_webmaster",
     "indexnow",
+    "botcentral_list",
   ]);
   site.scores.mentions = ratio(["x_mentions", "directories", "press"]);
   site.scores.overall = Math.round(

@@ -1,6 +1,7 @@
 import { PLAYBOOK, playbookToTaskDraft } from "./playbook";
 import { FLEET_TEMPLATE } from "./bots";
 import { auditSite } from "./auditor";
+import { lookupListing, publishListing } from "./botcentral";
 import {
   getStore,
   logActivity,
@@ -292,6 +293,10 @@ export async function runTask(taskId: string) {
     return { audit };
   }
 
+  if (snapshot.playbookId === "botcentral_list") {
+    return { audit: null, listing: await publishSiteToBotCentral(snapshot.siteId) };
+  }
+
   await mutateStore((store) => {
     const task = store.tasks.find((t) => t.id === taskId);
     if (!task) return;
@@ -331,6 +336,62 @@ export async function runTask(taskId: string) {
   });
 
   return { audit: null };
+}
+
+export async function publishSiteToBotCentral(siteId: string) {
+  const store = await getStore();
+  const site = store.sites.find((s) => s.id === siteId);
+  if (!site) throw new Error("Site not found");
+
+  const already = await lookupListing(site.domain);
+  const listing = already.listed ? already : await publishListing(site);
+
+  await mutateStore((s) => {
+    const current = s.sites.find((x) => x.id === siteId);
+    if (current) current.botcentral = listing;
+    const task = s.tasks.find(
+      (t) => t.siteId === siteId && t.playbookId === "botcentral_list",
+    );
+    if (task) {
+      task.evidence.unshift({
+        id: crypto.randomUUID(),
+        at: new Date().toISOString(),
+        kind: "http",
+        label: listing.listed ? "Published to BotCentral" : "BotCentral publish blocked",
+        detail: listing.href || listing.error,
+        url: listing.href,
+        ok: listing.listed,
+      });
+      if (listing.listed) {
+        task.status = "done";
+        task.completedAt = new Date().toISOString();
+        task.checklist = task.checklist.map((c) => ({ ...c, done: true }));
+        task.blockedReason = undefined;
+        if (task.botId) {
+          touchBot(s, task.botId, { status: "standby", currentTaskId: undefined });
+        }
+      } else {
+        task.status = "blocked";
+        task.blockedReason = listing.error || "catalog rejected the card";
+      }
+      task.updatedAt = new Date().toISOString();
+    }
+    recalcScores(s, siteId);
+    logActivity(s, {
+      actor: "Orion",
+      kind: "index",
+      siteId,
+      botId: "bot-orion",
+      message: listing.listed
+        ? `${site.domain} is live on BotCentral (${listing.href}).`
+        : `BotCentral did not list ${site.domain}: ${listing.error}`,
+    });
+  });
+
+  if (!listing.listed) {
+    throw new Error(listing.error || "BotCentral did not list the site");
+  }
+  return listing;
 }
 
 export async function patchTask(

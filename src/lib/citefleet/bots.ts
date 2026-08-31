@@ -38,7 +38,7 @@ export const FLEET_TEMPLATE: Omit<Bot, "currentTaskId" | "currentSiteId" | "last
       callsign: "ORION",
       role: "Crawler access control",
       specialty: "robots.txt allowlists for AI answer engines",
-      playbookIds: ["robots_ai"],
+      playbookIds: ["robots_ai", "botcentral_list"],
       engines: ["chatgpt", "perplexity", "claude", "google", "bing"],
       status: "idle",
     },
