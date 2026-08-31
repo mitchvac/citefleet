@@ -47,6 +47,15 @@ cd "$APP_DIR"
 } > .env
 chmod 600 .env
 
+BK="/root/nginx-backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$BK"
+cp -a /etc/nginx/sites-enabled/. "$BK"/ 2>/dev/null || true
+
+cp -f deploy/nginx-citefleet.app.conf /etc/nginx/sites-available/citefleet
+ln -sfn /etc/nginx/sites-available/citefleet /etc/nginx/sites-enabled/citefleet
+nginx -t
+systemctl reload nginx
+
 docker build -t "$IMAGE" .
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 docker run -d \
@@ -55,13 +64,6 @@ docker run -d \
   --env-file .env \
   -p "$HOST_PORT":3000 \
   "$IMAGE"
-
-BK="/root/nginx-backup-$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$BK"
-cp -a /etc/nginx/sites-enabled/. "$BK"/ 2>/dev/null || true
-
-cp -f deploy/nginx-citefleet.app.conf /etc/nginx/sites-available/citefleet
-
 CERT_DIR="$(ls -d /etc/letsencrypt/live/*citefleet* 2>/dev/null | head -1 || true)"
 if [[ -n "$CERT_DIR" && -f "$CERT_DIR/fullchain.pem" ]]; then
   cat > /etc/nginx/sites-available/citefleet <<NGX

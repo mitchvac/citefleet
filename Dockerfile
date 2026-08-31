@@ -17,14 +17,14 @@ COPY . .
 # node-server writes a standalone Node listener to .output/
 # (Vercel deploys keep the default preset — this ENV is Docker-only).
 ENV NITRO_PRESET=node-server
-ENV VITE_AUTH_ENABLED=false
 ENV NODE_ENV=production
 RUN npm run build \
   && mkdir -p .output/server/_libs \
-  && cp node_modules/@electric-sql/pglite/dist/pglite.data \
+  && (cp node_modules/@electric-sql/pglite/dist/pglite.data \
         node_modules/@electric-sql/pglite/dist/pglite.wasm \
         node_modules/@electric-sql/pglite/dist/initdb.wasm \
-        .output/server/_libs/ || true
+        .output/server/_libs/ || true) \
+  && npm prune --omit=dev --ignore-scripts
 
 # ---- Runtime stage ----
 FROM node:22-slim
@@ -39,11 +39,9 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV NITRO_HOST=0.0.0.0
 ENV NITRO_PORT=3000
-ENV VITE_AUTH_ENABLED=false
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts
-
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/migrations ./migrations
 COPY --from=build /app/scripts ./scripts
