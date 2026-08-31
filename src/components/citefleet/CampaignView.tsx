@@ -1,0 +1,169 @@
+import { Link } from "@tanstack/react-router";
+import { useFleet } from "@/lib/citefleet/client";
+import { Pill } from "./Shell";
+import { GrokHandoff } from "./GrokHandoff";
+import type { Site, Task } from "@/lib/citefleet/types";
+
+function tone(status: string) {
+  if (status === "done") return "good" as const;
+  if (status === "blocked" || status === "failed") return "bad" as const;
+  if (status === "running") return "violet" as const;
+  if (status === "assigned") return "gold" as const;
+  return "neutral" as const;
+}
+
+export function CampaignView({ siteId }: { siteId: string }) {
+  const fleet = useFleet();
+  if (fleet.loading || !fleet.store) {
+    return <p className="text-[#9b95b3]">Loading campaign…</p>;
+  }
+  const site = fleet.store.sites.find((s) => s.id === siteId);
+  if (!site) {
+    return <p className="text-rose-300">Property not found.</p>;
+  }
+  const tasks = fleet.store.tasks
+    .filter((t) => t.siteId === siteId)
+    .sort((a, b) => a.priority - b.priority);
+  const bots = fleet.store.bots;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Link to="/" className="text-xs text-[#9b95b3] hover:text-white">
+            ← Command
+          </Link>
+          <div className="mt-3 flex items-center gap-2">
+            <Pill tone="gold">{site.status}</Pill>
+            <span className="mono text-xs text-[#9b95b3]">{site.domain}</span>
+          </div>
+          <h1 className="mt-2 text-3xl font-semibold">{site.name}</h1>
+          <p className="mt-2 max-w-2xl text-sm text-[#b7b0cc]">{site.summary}</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+            onClick={() => fleet.audit(site.id)}
+            disabled={!!fleet.busy}
+          >
+            Run live audit
+          </button>
+          <button
+            className="btn-light rounded-full px-4 py-2 text-sm font-semibold"
+            onClick={() => fleet.dispatch(site.id)}
+            disabled={!!fleet.busy}
+          >
+            Grok re-assign
+          </button>
+        </div>
+      </div>
+
+      {fleet.error && (
+        <div className="glass rounded-2xl px-4 py-3 text-sm text-rose-300">{fleet.error}</div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Stat label="Overall" value={`${site.scores.overall}`} />
+        <Stat label="Technical" value={`${site.scores.technical}`} />
+        <Stat label="Submissions" value={`${site.scores.submissions}`} />
+        <Stat label="Mentions" value={`${site.scores.mentions}`} />
+      </div>
+
+      <div className="glass rounded-3xl p-2 md:p-4">
+        <div className="space-y-3">
+          {tasks.map((task) => (
+            <TaskRow
+              key={task.id}
+              site={site}
+              task={task}
+              botName={bots.find((b) => b.id === task.botId)?.callsign}
+              busy={fleet.busy}
+              onRun={() => fleet.runTask(task.id)}
+              onToggle={(checklistId, done) =>
+                fleet.patchTask(task.id, { checklistId, done })
+              }
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="glass rounded-3xl p-5">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">{label}</p>
+      <p className="mt-2 text-2xl font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function TaskRow({
+  site,
+  task,
+  botName,
+  busy,
+  onRun,
+  onToggle,
+}: {
+  site: Site;
+  task: Task;
+  botName?: string;
+  busy: string | null;
+  onRun: () => void;
+  onToggle: (id: string, done: boolean) => void;
+}) {
+  return (
+    <article className="rounded-2xl border border-white/8 bg-white/3 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Pill tone={tone(task.status)}>{task.status}</Pill>
+            <span className="mono text-[11px] text-[#9b95b3]">P{task.priority}</span>
+            {botName && <Pill tone="violet">{botName}</Pill>}
+            {task.assignedBy && (
+              <span className="text-[11px] text-[#9b95b3]">{task.assignedBy}</span>
+            )}
+          </div>
+          <h3 className="font-semibold">{task.title}</h3>
+          <p className="mt-1 max-w-3xl text-sm text-[#b7b0cc]">{task.description}</p>
+          {task.blockedReason && (
+            <p className="mt-2 text-sm text-rose-300">{task.blockedReason}</p>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <GrokHandoff site={site} task={task} botName={botName} />
+          <button
+            onClick={onRun}
+            disabled={!!busy || task.status === "done"}
+            className="rounded-full border border-white/10 px-3 py-1.5 text-xs hover:bg-white/5 disabled:opacity-40"
+          >
+            Local audit
+          </button>
+        </div>
+      </div>
+      <ul className="mt-4 grid gap-2 md:grid-cols-2">
+        {task.checklist.map((item) => (
+          <li key={item.id} className="flex items-start gap-2 text-sm text-[#d7d1ea]">
+            <input
+              type="checkbox"
+              checked={item.done}
+              onChange={(e) => onToggle(item.id, e.target.checked)}
+              className="mt-1"
+            />
+            <span className={item.done ? "text-[#9b95b3] line-through" : ""}>
+              {item.label}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {task.evidence[0] && (
+        <p className="mt-3 text-xs text-[#9b95b3]">
+          Latest evidence: {task.evidence[0].label}
+          {task.evidence[0].detail ? ` — ${task.evidence[0].detail}` : ""}
+        </p>
+      )}
+    </article>
+  );
+}
