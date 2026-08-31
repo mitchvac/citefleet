@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as HealthRouteImport } from './routes/health'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as PlaybookRouteImport } from './routes/playbook'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
 import { Route as LearnSlugRouteImport } from './routes/learn/$slug'
 import { Route as LearnGlossaryRouteImport } from './routes/learn/glossary'
@@ -40,9 +42,19 @@ const HealthRoute = HealthRouteImport.update({
   path: '/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlaybookRoute = PlaybookRouteImport.update({
   id: '/playbook',
   path: '/playbook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LearnIndexRoute = LearnIndexRouteImport.update({
@@ -76,7 +88,9 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/playbook': typeof PlaybookRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -88,7 +102,9 @@ export interface FileRoutesByTo {
   '/activity': typeof ActivityRoute
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/playbook': typeof PlaybookRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -101,7 +117,9 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/playbook': typeof PlaybookRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -115,7 +133,9 @@ export interface FileRouteTypes {
     | '/activity'
     | '/fleet'
     | '/health'
+    | '/llms.txt'
     | '/playbook'
+    | '/sitemap.xml'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -127,7 +147,9 @@ export interface FileRouteTypes {
     | '/activity'
     | '/fleet'
     | '/health'
+    | '/llms.txt'
     | '/playbook'
+    | '/sitemap.xml'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -139,7 +161,9 @@ export interface FileRouteTypes {
     | '/activity'
     | '/fleet'
     | '/health'
+    | '/llms.txt'
     | '/playbook'
+    | '/sitemap.xml'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -152,7 +176,9 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   FleetRoute: typeof FleetRoute
   HealthRoute: typeof HealthRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   PlaybookRoute: typeof PlaybookRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   LearnSlugRoute: typeof LearnSlugRoute
   LearnGlossaryRoute: typeof LearnGlossaryRoute
   LearnQuizRoute: typeof LearnQuizRoute
@@ -190,11 +216,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/playbook': {
       id: '/playbook'
       path: '/playbook'
       fullPath: '/playbook'
       preLoaderRoute: typeof PlaybookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/learn/': {
@@ -240,7 +280,9 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   FleetRoute: FleetRoute,
   HealthRoute: HealthRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   PlaybookRoute: PlaybookRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   LearnSlugRoute: LearnSlugRoute,
   LearnGlossaryRoute: LearnGlossaryRoute,
   LearnQuizRoute: LearnQuizRoute,

@@ -90,6 +90,7 @@ export interface Site {
   botcentral?: {
     listed: boolean;
     href?: string;
+    api?: string;
     updated?: string;
     summary?: string;
     error?: string;

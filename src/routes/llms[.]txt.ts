@@ -1,0 +1,24 @@
+import { createFileRoute } from "@tanstack/react-router";
+
+export const Route = createFileRoute("/llms.txt")({
+  server: {
+    handlers: {
+      GET: async () => {
+        const body = `# CiteFleet
+
+> CiteFleet is the ops console that lists websites in BotCentral, the standard for bot indexing.
+
+- [Command](https://citefleet.app/): onboard an origin, audit, dispatch
+- [Playbook](https://citefleet.app/playbook): Google, Bing, IndexNow, Grok, ChatGPT, BotCentral
+- [BotCentral catalog](https://botcentral.org/): public 1.0 cards assistants read
+- [Get listed](https://botcentral.org/docs/listing): CiteFleet publishes; bots do not
+
+CiteFleet never lets bots publish. After a live audit, Orion POSTs a BotCentral 1.0 card to https://botcentral.org/internal/publish.
+`;
+        return new Response(body, {
+          headers: { "content-type": "text/plain; charset=utf-8" },
+        });
+      },
+    },
+  },
+});

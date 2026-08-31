@@ -48,8 +48,22 @@ export function CampaignView({ siteId }: { siteId: string }) {
                 rel="noreferrer"
                 className="underline"
               >
-                {site.botcentral.href}
+                inspector
               </a>
+              {site.botcentral.api ? (
+                <>
+                  {" "}
+                  ·{" "}
+                  <a
+                    href={site.botcentral.api}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    machine card
+                  </a>
+                </>
+              ) : null}
             </p>
           ) : (
             <p className="mt-2 text-sm text-[#e2c36d]">

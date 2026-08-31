@@ -215,7 +215,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "3. Submit doors",
-        body: "Helios → Google Search Console. Nimbus → Bing + IndexNow. That covers ChatGPT, Copilot, Gemini, Meta AI.",
+        body: "Helios → Google Search Console. Nimbus → Bing + IndexNow. Orion → List on BotCentral so GPTBot and PerplexityBot can find the 1.0 card.",
       },
       {
         title: "4. Mentions",
@@ -224,6 +224,28 @@ export const LESSONS: Lesson[] = [
       {
         title: "5. Monitor",
         body: "Sentinel. Re-audit after each deploy. Re-dispatch if a check regresses.",
+      },
+    ],
+  },
+  {
+    slug: "botcentral",
+    number: "10",
+    title: "BotCentral listing",
+    summary:
+      "CiteFleet publishes a 1.0 card. Assistants read botcentral.org — they never fill a submit form.",
+    where: "Campaign → List on BotCentral, then botcentral.org/site/{domain}",
+    steps: [
+      {
+        title: "Human vs machine",
+        body: "The Card Inspector at /site/{domain} is for people. The machine card at /v1/site/{domain} is JSON for bots. Both are the same record.",
+      },
+      {
+        title: "How to list",
+        body: "Onboard the origin, run Live audit, click List on BotCentral. Orion POSTs to BotCentral with a service token. Bots cannot publish.",
+      },
+      {
+        title: "How to confirm",
+        body: "Command shows Listed on BotCentral. Search q=your-topic on botcentral.org. Open the inspector, not only the raw JSON tab.",
       },
     ],
   },
@@ -347,6 +369,19 @@ export const QUIZ: QuizQuestion[] = [
     answer: 1,
     explain:
       "Name collision is already visible in search. The domain is the disambiguator every bot should carry.",
+  },
+  {
+    id: "q11",
+    prompt: "Who is allowed to publish a site into BotCentral?",
+    choices: [
+      "Any crawler that finds a submit form",
+      "ChatGPT, if the user pastes the URL",
+      "CiteFleet only, via the private publish door after a live audit",
+      "Anyone with a Google account",
+    ],
+    answer: 2,
+    explain:
+      "Bots never publish. CiteFleet POSTs a 1.0 card. Assistants only GET /v1/search and /v1/site/{domain}.",
   },
 ];
 

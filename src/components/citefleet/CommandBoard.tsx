@@ -85,6 +85,7 @@ export function CommandBoard() {
               busy={fleet.busy}
               onDispatch={() => fleet.dispatch(site.id)}
               onAudit={() => fleet.audit(site.id)}
+              onPublish={() => fleet.publishListing(site.id)}
             />
           ))}
         </div>
@@ -228,12 +229,14 @@ function SiteCard({
   busy,
   onDispatch,
   onAudit,
+  onPublish,
 }: {
   site: Site;
   tasks: Task[];
   busy: string | null;
   onDispatch: () => void;
   onAudit: () => void;
+  onPublish: () => void;
 }) {
   const done = tasks.filter((t) => t.status === "done").length;
   return (
@@ -245,7 +248,7 @@ function SiteCard({
             <span className="mono text-xs text-[#9b95b3]">{site.domain}</span>
             {site.botcentral?.listed ? (
               <a
-                href={site.botcentral.href || "https://botcentral.org/v1/search"}
+                href={site.botcentral.href || "https://botcentral.org/"}
                 target="_blank"
                 rel="noreferrer"
                 className="no-underline"
@@ -266,6 +269,17 @@ function SiteCard({
             disabled={!!busy}
           >
             {busy === "audit" ? "Auditing…" : "Live audit"}
+          </button>
+          <button
+            onClick={onPublish}
+            className="rounded-full border border-emerald-400/40 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-50"
+            disabled={!!busy}
+          >
+            {busy === "publish"
+              ? "Publishing…"
+              : site.botcentral?.listed
+                ? "Refresh listing"
+                : "List on BotCentral"}
           </button>
           <button
             onClick={onDispatch}

@@ -42,11 +42,38 @@ export function Shell({
                 {item.label}
               </Link>
             ))}
+            <a
+              href="https://botcentral.org/"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full px-3 py-1.5 text-sm text-[#4ee0c3] hover:bg-white/5"
+            >
+              BotCentral
+            </a>
           </nav>
           <div className="mono text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
             Resonance Labs · Enterprise
           </div>
         </div>
+        <nav className="mx-auto flex max-w-7xl flex-wrap gap-1 px-6 pb-3 md:hidden">
+          {NAV.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="rounded-full px-3 py-1.5 text-sm text-[#cfc8e8] hover:bg-white/5 hover:text-white"
+            >
+              {item.label}
+            </Link>
+          ))}
+          <a
+            href="https://botcentral.org/"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full px-3 py-1.5 text-sm text-[#4ee0c3]"
+          >
+            BotCentral
+          </a>
+        </nav>
       </header>
       <main className="mx-auto w-full max-w-7xl px-6 py-8">
         {(eyebrow || title) && (

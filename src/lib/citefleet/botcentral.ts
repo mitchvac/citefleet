@@ -8,9 +8,11 @@ const FETCH_UA = "CiteFleetPublisher/1.0 (+https://citefleet.app)";
 export type ListingStatus = {
   listed: boolean;
   href?: string;
+  api?: string;
   updated?: string;
   summary?: string;
   error?: string;
+  card?: Record<string, unknown>;
 };
 
 function catalogUrl() {
@@ -25,6 +27,17 @@ export function publisherReady() {
   return serviceToken().length >= 16;
 }
 
+function listingFromCard(host: string, card: Record<string, unknown>): ListingStatus {
+  return {
+    listed: true,
+    href: `${catalogUrl()}/site/${host}`,
+    api: `${catalogUrl()}/v1/site/${host}`,
+    updated: typeof card.updated === "string" ? card.updated : undefined,
+    summary: typeof card.summary === "string" ? card.summary : undefined,
+    card,
+  };
+}
+
 export async function lookupListing(domain: string): Promise<ListingStatus> {
   const host = domain.replace(/^www\./, "").toLowerCase();
   try {
@@ -34,13 +47,8 @@ export async function lookupListing(domain: string): Promise<ListingStatus> {
     });
     if (res.status === 404) return { listed: false };
     if (!res.ok) return { listed: false, error: `catalog ${res.status}` };
-    const card = (await res.json()) as { summary?: string; updated?: string };
-    return {
-      listed: true,
-      href: `${catalogUrl()}/v1/site/${host}`,
-      updated: card.updated,
-      summary: card.summary,
-    };
+    const card = (await res.json()) as Record<string, unknown>;
+    return listingFromCard(host, card);
   } catch (err) {
     return {
       listed: false,
@@ -49,39 +57,68 @@ export async function lookupListing(domain: string): Promise<ListingStatus> {
   }
 }
 
-export function buildCard(site: Site) {
+function defaultTopics(site: Site): string[] {
+  if (site.domain.replace(/^www\./, "") === "resonanse.app") {
+    return ["dating", "wallet", "Date-Coin"];
+  }
+  const words = `${site.name} ${site.summary}`
+    .toLowerCase()
+    .split(/[^a-z0-9+-]+/)
+    .filter((w) => w.length > 3)
+    .slice(0, 4);
+  return words.length ? words : ["indexed-by-citefleet"];
+}
+
+export function buildCard(site: Site, existing?: Record<string, unknown>) {
   const origin = site.url.replace(/\/$/, "");
   const domain = site.domain.replace(/^www\./, "").toLowerCase();
+  const existingTopics = Array.isArray(existing?.topics)
+    ? (existing.topics as string[])
+    : [];
+  const existingPages = Array.isArray(existing?.pages)
+    ? (existing.pages as Array<{ url: string; rel: string; title?: string; summary?: string }>)
+    : [];
+  const existingAllow = Array.isArray(existing?.allow)
+    ? (existing.allow as string[])
+    : [];
   return {
     domain,
-    canonical: `${origin}/`,
-    name: site.name,
-    summary: site.summary || `${site.name} — public site submitted by CiteFleet.`,
-    topics: ["indexed-by-citefleet"],
-    allow_bots: true,
-    allow: ["GPTBot", "PerplexityBot", "Google-Extended", "Bingbot", "OAI-SearchBot"],
-    deny: [] as string[],
+    canonical:
+      (typeof existing?.canonical === "string" && existing.canonical) || `${origin}/`,
+    name: (typeof existing?.name === "string" && existing.name) || site.name,
+    summary:
+      (typeof existing?.summary === "string" && existing.summary) ||
+      site.summary ||
+      `${site.name} — public site submitted by CiteFleet.`,
+    topics: existingTopics.length ? existingTopics : defaultTopics(site),
+    allow_bots: existing?.allow_bots !== false,
+    allow: existingAllow.length
+      ? existingAllow
+      : ["GPTBot", "PerplexityBot", "Google-Extended", "Bingbot", "OAI-SearchBot"],
+    deny: Array.isArray(existing?.deny) ? (existing.deny as string[]) : [],
     pointers: {
       robots: `${origin}/robots.txt`,
       sitemap: site.sitemapUrl || `${origin}/sitemap.xml`,
       llms: `${origin}/llms.txt`,
     },
-    pages: [
-      {
-        url: `${origin}/`,
-        rel: "home",
-        title: site.name,
-        summary: site.summary,
-      },
-      ...site.routes
-        .filter((route) => route !== "/")
-        .slice(0, 12)
-        .map((route) => ({
-          url: `${origin}${route}`,
-          rel: "page" as const,
-          title: route,
-        })),
-    ],
+    pages: existingPages.length
+      ? existingPages
+      : [
+          {
+            url: `${origin}/`,
+            rel: "home",
+            title: site.name,
+            summary: site.summary,
+          },
+          ...site.routes
+            .filter((route) => route !== "/")
+            .slice(0, 12)
+            .map((route) => ({
+              url: `${origin}${route}`,
+              rel: "page" as const,
+              title: route,
+            })),
+        ],
     verifyToken: site.id,
   };
 }
@@ -93,6 +130,7 @@ export async function publishListing(site: Site): Promise<ListingStatus> {
       error: "BOTCENTRAL_SERVICE_TOKEN missing on CiteFleet",
     };
   }
+  const current = await lookupListing(site.domain);
   const res = await fetch(`${catalogUrl()}/internal/publish`, {
     method: "POST",
     headers: {
@@ -101,12 +139,12 @@ export async function publishListing(site: Site): Promise<ListingStatus> {
       "Content-Type": "application/json",
       Authorization: `Bearer ${serviceToken()}`,
     },
-    body: JSON.stringify(buildCard(site)),
+    body: JSON.stringify(buildCard(site, current.card)),
     signal: AbortSignal.timeout(20000),
   });
   const payload = (await res.json().catch(() => ({}))) as {
     error?: string;
-    card?: { domain?: string; updated?: string; summary?: string };
+    card?: Record<string, unknown>;
   };
   if (!res.ok) {
     return {
@@ -115,12 +153,7 @@ export async function publishListing(site: Site): Promise<ListingStatus> {
     };
   }
   const host = site.domain.replace(/^www\./, "").toLowerCase();
-  return {
-    listed: true,
-    href: `${catalogUrl()}/v1/site/${host}`,
-    updated: payload.card?.updated,
-    summary: payload.card?.summary,
-  };
+  return listingFromCard(host, payload.card ?? { domain: host });
 }
 
 export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> {

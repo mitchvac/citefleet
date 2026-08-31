@@ -28,7 +28,7 @@ export const GLOSSARY: Term[] = [
     id: "playbook",
     term: "Playbook",
     meaning:
-      "The fixed runbook of 11 jobs copied from the Resonance campaign. Campaign tasks are live instances of playbook steps.",
+      "The fixed runbook of jobs copied from the Resonance campaign. Campaign tasks are live instances of playbook steps. Includes the BotCentral listing door.",
   },
   {
     id: "spa",
@@ -141,5 +141,18 @@ export const GLOSSARY: Term[] = [
     term: "llms.txt",
     meaning:
       "Optional public file that explains the product in plain text for AI assistants. Helpful, not a substitute for GSC/Bing.",
+  },
+
+  {
+    id: "botcentral",
+    term: "BotCentral",
+    meaning:
+      "The public catalog at botcentral.org. Assistants read GET /v1/search and GET /v1/site/{domain}. CiteFleet is the only publisher. The Card Inspector is the human page; the machine card is the JSON bots fetch.",
+  },
+  {
+    id: "machine-card",
+    term: "Machine card",
+    meaning:
+      "The BotCentral 1.0 JSON at /v1/site/{domain}. Not a website. Use the inspector at /site/{domain} to read it as a page.",
   },
 ];
