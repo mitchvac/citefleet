@@ -29,10 +29,14 @@ async function bootStore(): Promise<StoreShape> {
   try {
     const saved = await loadSnapshot();
     cache = saved ? mergeSnapshot(seeded, saved) : seeded;
-    if (!saved) await saveSnapshot(cache);
   } catch (err) {
     console.error("[citefleet] snapshot load failed — seeding", err);
     cache = seeded;
+  }
+  try {
+    await saveSnapshot(cache);
+  } catch (err) {
+    console.error("[citefleet] snapshot save failed on boot", err);
   }
   return cache;
 }
