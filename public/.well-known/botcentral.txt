@@ -1,1 +1,6 @@
-botcentral-verify=citefleet-app
+# BotCentral origin proof — citefleet.app
+domain: citefleet.app
+canonical: https://citefleet.app
+publisher: citefleet
+catalog: https://botcentral.org/site/citefleet.app
+verify: citefleet-app
