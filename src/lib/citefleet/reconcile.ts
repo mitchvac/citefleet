@@ -33,12 +33,12 @@ export function buildChecks(
 
   checks.push({
     id: "ownership",
-    ok: snap.wellKnown || Boolean(snap.probes.find((p) => p.path === "/" && p.kind === "ok")),
+    ok: snap.wellKnown,
     severity: snap.wellKnown ? "ok" : "warn",
     title: "Origin proof",
     detail: snap.wellKnown
-      ? "/.well-known/botcentral.txt reachable"
-      : "No well-known proof file. Catalog publish will require live robots/sitemap instead.",
+      ? "/.well-known/botcentral.txt is plain text"
+      : "/.well-known/botcentral.txt is missing or HTML (SPA shell). Serve text/plain on the origin.",
   });
 
   const marketingOk = marketing.length

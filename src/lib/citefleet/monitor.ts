@@ -115,12 +115,19 @@ async function probeSite(site: Site): Promise<Omit<SiteMonitor, "checks" | "bloc
   const smUrl = site.sitemapUrl || `${origin}/sitemap.xml`;
   const sm = await probe(smUrl);
   const sitemapBody = sm.text || "";
-  const httpLeft = (sitemapBody.match(/http:\/\//g) || []).length;
-  const sitemapUrlCount = (sitemapBody.match(/<loc>/g) || []).length;
+  const locUrls = [...sitemapBody.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)].map(
+    (m) => m[1].trim(),
+  );
+  const locHttp = locUrls.filter((u) => /^http:\/\//i.test(u)).length;
+  const sitemapUrlCount = locUrls.length;
 
   const wk = await probe(`${origin}/.well-known/botcentral.txt`);
   const llms = await probe(`${origin}/llms.txt`);
   const listing = await lookupListing(site.domain);
+  const wellKnownText =
+    wk.status === 200 &&
+    !wk.contentType.includes("html") &&
+    /domain:\s*\S+/i.test(wk.text);
 
   return {
     siteId: site.id,
@@ -132,9 +139,9 @@ async function probeSite(site: Site): Promise<Omit<SiteMonitor, "checks" | "bloc
     catalogListed: listing.listed,
     catalogHref: listing.href,
     catalogError: listing.error,
-    sitemapHttps: sm.status === 200 && httpLeft === 0,
+    sitemapHttps: sm.status === 200 && locHttp === 0 && sitemapUrlCount > 0,
     sitemapUrlCount,
-    wellKnown: wk.status === 200 && wk.text.trim().length > 0,
+    wellKnown: wellKnownText,
     llms: llms.status === 200 && llms.text.trim().startsWith("#"),
   };
 }
