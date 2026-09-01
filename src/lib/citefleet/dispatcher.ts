@@ -1,4 +1,4 @@
-import { PLAYBOOK, playbookToTaskDraft } from "./playbook";
+import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook";
 import { FLEET_TEMPLATE } from "./bots";
 import { auditSite } from "./auditor";
 import { lookupListing, publishListing } from "./botcentral";
@@ -61,6 +61,7 @@ export async function onboardSite(input: {
         updatedAt: new Date().toISOString(),
       });
     }
+    applyPlaybookHrefs(store.tasks, store.sites);
     logActivity(store, {
       actor: "Operator",
       kind: "system",

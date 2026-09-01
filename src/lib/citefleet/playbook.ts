@@ -1,4 +1,6 @@
-import type { EngineCoverage, PlaybookId, Task } from "./types";
+import type { EngineCoverage, PlaybookId, Site, Task } from "./types";
+
+export type ChecklistSpec = string | { label: string; href: string };
 
 export interface PlaybookStep {
   id: PlaybookId;
@@ -7,8 +9,18 @@ export interface PlaybookStep {
   botCallsign: string;
   priority: 1 | 2 | 3 | 4 | 5;
   engines: EngineCoverage["engine"][];
-  checklist: string[];
+  checklist: ChecklistSpec[];
   operatorHint: string;
+}
+
+export function specLabel(spec: ChecklistSpec) {
+  return typeof spec === "string" ? spec : spec.label;
+}
+
+export function resolveDoorHref(href: string, site?: Pick<Site, "domain" | "url">) {
+  const origin = (site?.url || "").replace(/\/$/, "");
+  const domain = site?.domain || "";
+  return href.replaceAll("{domain}", domain).replaceAll("{origin}", origin);
 }
 
 export const ENGINE_MATRIX: EngineCoverage[] = [
@@ -104,10 +116,13 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 1,
     engines: ["google", "bing", "gemini", "chatgpt"],
     checklist: [
-      "Reproduce live fetch without Accept: text/html",
-      "Confirm deep routes return 200 HTML",
+      { label: "Reproduce live fetch without Accept: text/html", href: "{origin}/premium" },
+      { label: "Confirm deep routes return 200 HTML", href: "{origin}/guidelines" },
       "Deploy SPA fallback and re-verify 8+ public routes",
-      "Request Google URL Inspection recrawl",
+      {
+        label: "Request Google URL Inspection recrawl",
+        href: "https://search.google.com/search-console",
+      },
     ],
     operatorHint:
       "This was the V109 critical bug on resonanse.app — Google rejected /premium and /guidelines as Not found (404).",
@@ -121,11 +136,11 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 1,
     engines: ["chatgpt", "perplexity", "claude", "google", "bing"],
     checklist: [
-      "robots.txt reachable at origin",
+      { label: "robots.txt reachable at origin", href: "{origin}/robots.txt" },
       "OAI-SearchBot allowed",
       "PerplexityBot allowed",
       "Googlebot / Bingbot allowed",
-      "Sitemap declared",
+      { label: "Sitemap declared", href: "{origin}/sitemap.xml" },
     ],
     operatorHint: "Crawler access is table-stakes before mention campaigns matter.",
   },
@@ -138,10 +153,13 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 1,
     engines: ["google", "bing", "gemini", "chatgpt", "copilot"],
     checklist: [
-      "sitemap.xml returns 200",
+      { label: "sitemap.xml returns 200", href: "{origin}/sitemap.xml" },
       "All public marketing routes listed",
-      "Submitted in GSC",
-      "Submitted in Bing Webmaster Tools",
+      { label: "Submitted in GSC", href: "https://search.google.com/search-console" },
+      {
+        label: "Submitted in Bing Webmaster Tools",
+        href: "https://www.bing.com/webmasters",
+      },
     ],
     operatorHint: "Resonance sitemap: 8 URLs — / /premium /privacy /terms /cookies /guidelines /report /data",
   },
@@ -154,10 +172,13 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 2,
     engines: ["google", "gemini", "meta-ai"],
     checklist: [
-      "Domain property verified",
-      "Homepage confirmed indexed",
-      "Priority URLs in crawl queue",
-      "URL Inspection live test successful",
+      { label: "Domain property verified", href: "https://search.google.com/search-console" },
+      { label: "Homepage confirmed indexed", href: "https://search.google.com/search-console" },
+      { label: "Priority URLs in crawl queue", href: "https://search.google.com/search-console" },
+      {
+        label: "URL Inspection live test successful",
+        href: "https://search.google.com/search-console",
+      },
     ],
     operatorHint: "New URLs often sit in 'Crawled – currently not indexed' for days–weeks.",
   },
@@ -170,9 +191,12 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 2,
     engines: ["bing", "chatgpt", "copilot", "perplexity", "meta-ai"],
     checklist: [
-      "Webmaster Tools property active",
-      "Sitemap status Success, 0 errors",
-      "AI Performance (BETA) report bookmarked",
+      { label: "Webmaster Tools property active", href: "https://www.bing.com/webmasters" },
+      {
+        label: "Sitemap status Success, 0 errors",
+        href: "https://www.bing.com/webmasters/sitemaps",
+      },
+      { label: "AI Performance (BETA) report bookmarked", href: "https://www.bing.com/webmasters" },
     ],
     operatorHint: "Bing can be imported from GSC via OAuth to save a verification cycle.",
   },
@@ -185,8 +209,8 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 2,
     engines: ["indexnow", "bing", "chatgpt", "copilot"],
     checklist: [
-      "Key file live at /{key}.txt",
-      "POST all sitemap URLs → HTTP 202/200 Accepted",
+      { label: "Key file live at /{key}.txt", href: "https://www.indexnow.org/documentation" },
+      { label: "POST all sitemap URLs → HTTP 202/200 Accepted", href: "https://www.indexnow.org/" },
       "Ping hooked to deploy pipeline (non-fatal)",
     ],
     operatorHint: "IndexNow keys are public verification keys by design — not secrets.",
@@ -200,9 +224,9 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 3,
     engines: ["google", "gemini", "claude"],
     checklist: [
-      "Required tables/collections exist",
-      "Public routes render without server errors",
-      "Trust features backing press claims are live",
+      { label: "Required tables/collections exist", href: "{origin}/guidelines" },
+      { label: "Public routes render without server errors", href: "{origin}" },
+      { label: "Trust features backing press claims are live", href: "{origin}/guidelines" },
     ],
     operatorHint:
       "Resonance required 6 missing Supabase tables before SafeDate and guidelines could back the public story.",
@@ -216,9 +240,12 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 2,
     engines: ["grok"],
     checklist: [
-      "Draft #1 live from at least one account",
-      "Drafts #2 and #3 scheduled 1–2 days apart",
-      "Canonical URL present in each post",
+      { label: "Draft #1 live from at least one account", href: "https://x.com/compose/post" },
+      {
+        label: "Drafts #2 and #3 scheduled 1–2 days apart",
+        href: "https://x.com/compose/post",
+      },
+      { label: "Canonical URL present in each post", href: "{origin}" },
     ],
     operatorHint: "Vary wording per account. First mentions can surface in Grok within days.",
   },
@@ -231,11 +258,17 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 3,
     engines: ["chatgpt", "perplexity", "claude", "gemini", "grok"],
     checklist: [
-      "Trustpilot business claimed",
-      "SmartCustomer registered",
-      "Product Hunt launch queued (Tue–Thu AM)",
-      "AlternativeTo listing vs category incumbents",
-      "SaaSHub submitted",
+      { label: "Trustpilot business claimed", href: "https://business.trustpilot.com/" },
+      { label: "SmartCustomer registered", href: "https://www.smartcustomer.com/business" },
+      {
+        label: "Product Hunt launch queued (Tue–Thu AM)",
+        href: "https://www.producthunt.com/posts/new",
+      },
+      {
+        label: "AlternativeTo listing vs category incumbents",
+        href: "https://alternativeto.net/manage/new/",
+      },
+      { label: "SaaSHub submitted", href: "https://www.saashub.com/submit" },
     ],
     operatorHint: "Indexing gets you findable; third-party mentions get you listed in answers.",
   },
@@ -248,10 +281,13 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 2,
     engines: ["chatgpt", "perplexity", "claude", "gemini", "grok"],
     checklist: [
-      "Origin robots.txt and sitemap reachable",
-      "Card published to BotCentral",
-      "GET /v1/site/{domain} returns 200",
-      "Search hit appears for a topic keyword",
+      { label: "Origin robots.txt and sitemap reachable", href: "{origin}/robots.txt" },
+      { label: "Card published to BotCentral", href: "https://botcentral.org/site/{domain}" },
+      { label: "GET /v1/site/{domain} returns 200", href: "https://botcentral.org/v1/site/{domain}" },
+      {
+        label: "Search hit appears for a topic keyword",
+        href: "https://botcentral.org/v1/search?q=dating",
+      },
     ],
     operatorHint:
       "This is the bot-search listing door. Mentions (Lyra/Vesper/Cassian) are a separate layer.",
@@ -265,9 +301,12 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 3,
     engines: ["chatgpt", "claude", "gemini", "perplexity", "grok", "meta-ai"],
     checklist: [
-      "Press kit packaged",
-      "Vertical outlets pitched",
-      "At least one referring domain confirmed",
+      { label: "Press kit packaged", href: "{origin}/llms.txt" },
+      { label: "Vertical outlets pitched", href: "https://www.datingnews.com/" },
+      {
+        label: "At least one referring domain confirmed",
+        href: "https://search.google.com/search-console",
+      },
     ],
     operatorHint:
       "Resonance targets: DatingNews, Global Dating Insights, Courtland Brooks, Healthy Framework, Mashable.",
@@ -281,9 +320,15 @@ export const PLAYBOOK: PlaybookStep[] = [
     priority: 4,
     engines: ["google", "bing", "grok", "chatgpt"],
     checklist: [
-      "Weekly GSC + Bing AI Performance review",
-      "External HTTP 200 sweep on public routes",
-      "Inbound link / mention log updated",
+      {
+        label: "Weekly GSC + Bing AI Performance review",
+        href: "https://search.google.com/search-console",
+      },
+      { label: "External HTTP 200 sweep on public routes", href: "{origin}" },
+      {
+        label: "Inbound link / mention log updated",
+        href: "https://search.google.com/search-console",
+      },
     ],
     operatorHint: "After technical doors close, the campaign is a waiting phase driven by inbound links.",
   },
@@ -300,11 +345,27 @@ export function playbookToTaskDraft(
     description: step.description,
     status: "queued",
     priority: step.priority,
-    checklist: step.checklist.map((label, i) => ({
+    checklist: step.checklist.map((spec, i) => ({
       id: `${step.id}-${i + 1}`,
-      label,
+      label: specLabel(spec),
+      href: typeof spec === "string" ? undefined : spec.href,
       done: false,
     })),
     evidence: [],
   };
+}
+
+export function applyPlaybookHrefs(tasks: Task[], sites: Site[]) {
+  for (const task of tasks) {
+    const site = sites.find((s) => s.id === task.siteId);
+    const step = PLAYBOOK.find((p) => p.id === task.playbookId);
+    if (!step) continue;
+    for (let i = 0; i < task.checklist.length; i++) {
+      const item = task.checklist[i];
+      const spec =
+        step.checklist.find((s) => specLabel(s) === item.label) ?? step.checklist[i];
+      if (!spec || typeof spec === "string" || !spec.href) continue;
+      item.href = resolveDoorHref(spec.href, site);
+    }
+  }
 }

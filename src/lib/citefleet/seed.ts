@@ -1,5 +1,5 @@
 import { FLEET_TEMPLATE } from "./bots";
-import { ENGINE_MATRIX, PLAYBOOK, playbookToTaskDraft } from "./playbook";
+import { ENGINE_MATRIX, PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook";
 import { defaultControl } from "./control";
 import type { StoreShape, Task } from "./types";
 
@@ -196,7 +196,7 @@ export function seedStore(): StoreShape {
     };
   });
 
-  return {
+  const store: StoreShape = {
     workspace: {
       id: "ws-resonance-labs",
       name: "Resonance Labs",
@@ -305,4 +305,6 @@ export function seedStore(): StoreShape {
       },
     ],
   };
+  applyPlaybookHrefs(store.tasks, store.sites);
+  return store;
 }

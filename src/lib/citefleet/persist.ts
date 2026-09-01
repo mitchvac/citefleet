@@ -1,4 +1,5 @@
 import { getSql } from "../db";
+import { applyPlaybookHrefs } from "./playbook";
 import type { StoreShape } from "./types";
 
 const SNAPSHOT_ID = "default";
@@ -43,5 +44,6 @@ export function mergeSnapshot(seed: StoreShape, raw: unknown): StoreShape {
   if (!next.control.snapshots) next.control.snapshots = {};
   if (!next.control.jobs) next.control.jobs = [];
   if (!next.control.kill) next.control.kill = seed.control.kill;
+  applyPlaybookHrefs(next.tasks, next.sites);
   return next;
 }

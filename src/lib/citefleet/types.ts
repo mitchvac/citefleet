@@ -45,6 +45,7 @@ export interface ChecklistItem {
   id: string;
   label: string;
   done: boolean;
+  href?: string;
 }
 
 export interface Evidence {

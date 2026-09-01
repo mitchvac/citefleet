@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PLAYBOOK } from "@/lib/citefleet/playbook";
+import { PLAYBOOK, specLabel } from "@/lib/citefleet/playbook";
 import { Shell } from "@/components/citefleet/Shell";
 
 export const Route = createFileRoute("/playbook")({ component: PlaybookPage });
@@ -23,9 +23,26 @@ function PlaybookPage() {
             <h2 className="text-xl font-semibold">{step.title}</h2>
             <p className="mt-2 text-sm text-[#cfc8e8]">{step.description}</p>
             <ul className="mt-4 grid gap-1 text-sm text-[#b7b0cc] md:grid-cols-2">
-              {step.checklist.map((item) => (
-                <li key={item}>• {item}</li>
-              ))}
+              {step.checklist.map((item) => {
+                const label = specLabel(item);
+                const href = typeof item === "string" ? undefined : item.href;
+                return (
+                  <li key={label}>
+                    {href ? (
+                      <a
+                        href={href.replaceAll("{origin}", "https://resonanse.app").replaceAll("{domain}", "resonanse.app")}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#c4b5fd] underline decoration-white/20 underline-offset-2 hover:text-white"
+                      >
+                        {label} ↗
+                      </a>
+                    ) : (
+                      <>• {label}</>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             <p className="mt-4 text-xs text-[#9b95b3]">{step.operatorHint}</p>
           </article>

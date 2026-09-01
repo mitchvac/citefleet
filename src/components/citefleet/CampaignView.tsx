@@ -336,7 +336,19 @@ function TaskRow({
               className="mt-1"
             />
             <span className={item.done ? "text-[#9b95b3] line-through" : ""}>
-              {item.label}
+              {item.href ? (
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#c4b5fd] underline decoration-white/20 underline-offset-2 hover:text-white"
+                >
+                  {item.label}
+                  <span className="ml-1 text-[10px] no-underline opacity-70">↗</span>
+                </a>
+              ) : (
+                item.label
+              )}
             </span>
           </li>
         ))}
