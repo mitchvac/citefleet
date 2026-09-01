@@ -43,6 +43,40 @@ if [[ ! -s "$TOKEN_FILE" ]]; then
 fi
 SERVICE_TOKEN="$(tr -d '\n' < "$TOKEN_FILE")"
 
+PASS_FILE="/root/citefleet-postgres.pass"
+if [[ ! -s "$PASS_FILE" ]]; then
+  openssl rand -hex 24 > "$PASS_FILE"
+  chmod 600 "$PASS_FILE"
+fi
+PG_PASS="$(tr -d '\n' < "$PASS_FILE")"
+NET="citefleet-net"
+PG_NAME="citefleet-postgres"
+docker network inspect "$NET" >/dev/null 2>&1 || docker network create "$NET"
+docker volume inspect citefleet-pg >/dev/null 2>&1 || docker volume create citefleet-pg
+if docker ps -a --format '{{.Names}}' | grep -qx "$PG_NAME"; then
+  docker start "$PG_NAME" >/dev/null
+  docker network connect "$NET" "$PG_NAME" 2>/dev/null || true
+else
+  docker run -d \
+    --name "$PG_NAME" \
+    --restart unless-stopped \
+    --network "$NET" \
+    -e POSTGRES_USER=citefleet \
+    -e POSTGRES_PASSWORD="$PG_PASS" \
+    -e POSTGRES_DB=citefleet \
+    -v citefleet-pg:/var/lib/postgresql/data \
+    postgres:16-alpine
+fi
+for _ in $(seq 1 40); do
+  if docker exec "$PG_NAME" pg_isready -U citefleet >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+if [[ -z "${DB_URL}" ]]; then
+  DB_URL="postgres://citefleet:${PG_PASS}@${PG_NAME}:5432/citefleet"
+fi
+
 {
   echo "NODE_ENV=production"
   echo "HOST=0.0.0.0"
@@ -55,9 +89,7 @@ SERVICE_TOKEN="$(tr -d '\n' < "$TOKEN_FILE")"
   if [[ -s /root/citefleet-github.token ]]; then
     printf 'GITHUB_TOKEN=%s\n' "$(tr -d '\n' < /root/citefleet-github.token)"
   fi
-  if [[ -n "$DB_URL" ]]; then
-    printf 'DATABASE_URL=%s\n' "$DB_URL"
-  fi
+  printf 'DATABASE_URL=%s\n' "$DB_URL"
 } > .env
 chmod 600 .env
 
@@ -75,6 +107,7 @@ docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 docker run -d \
   --name "$CONTAINER" \
   --restart unless-stopped \
+  --network "$NET" \
   --env-file .env \
   -p "$HOST_PORT":3000 \
   "$IMAGE"

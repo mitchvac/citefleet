@@ -6,16 +6,41 @@ import type {
   Task,
 } from "./types";
 import { seedStore } from "./seed";
+import { loadSnapshot, mergeSnapshot, saveSnapshot } from "./persist";
 
 let cache: StoreShape | null = null;
+let boot: Promise<StoreShape> | null = null;
 
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-async function ensureLoaded(): Promise<StoreShape> {
-  if (!cache) cache = seedStore();
+async function persist(store: StoreShape) {
+  try {
+    await saveSnapshot(store);
+  } catch (err) {
+    console.error("[citefleet] snapshot save failed", err);
+    throw err;
+  }
+}
+
+async function bootStore(): Promise<StoreShape> {
+  const seeded = seedStore();
+  try {
+    const saved = await loadSnapshot();
+    cache = saved ? mergeSnapshot(seeded, saved) : seeded;
+    if (!saved) await saveSnapshot(cache);
+  } catch (err) {
+    console.error("[citefleet] snapshot load failed — seeding", err);
+    cache = seeded;
+  }
   return cache;
+}
+
+async function ensureLoaded(): Promise<StoreShape> {
+  if (cache) return cache;
+  boot ??= bootStore();
+  return boot;
 }
 
 export async function getStore(): Promise<StoreShape> {
@@ -26,11 +51,15 @@ export async function mutateStore<T>(
   fn: (store: StoreShape) => T,
 ): Promise<T> {
   const store = await ensureLoaded();
-  return fn(store);
+  const result = fn(store);
+  await persist(store);
+  return result;
 }
 
 export async function resetStore(): Promise<StoreShape> {
   cache = seedStore();
+  boot = Promise.resolve(cache);
+  await persist(cache);
   return clone(cache);
 }
 
