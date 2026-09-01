@@ -23,10 +23,21 @@ function Snapshot({ snap }: { snap: SiteMonitor }) {
     <article className="glass rounded-3xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="mono text-[11px] text-[#e2c36d]">{snap.domain}</p>
-          <h3 className="mt-1 text-lg font-semibold">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+            Origin
+          </p>
+          <h3 className="mt-1 text-lg font-semibold">{snap.name || snap.domain}</h3>
+          <a
+            href={snap.url || `https://${snap.domain}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mono mt-1 block break-all text-sm text-[#e2c36d] underline"
+          >
+            {snap.url || `https://${snap.domain}`}
+          </a>
+          <p className="mt-1 text-sm text-[#cfc8e8]">
             {snap.drift ? "Drift" : "In balance"}
-          </h3>
+          </p>
         </div>
         <div className="flex gap-2">
           <Pill tone={snap.catalogListed ? "good" : "warn"}>
@@ -49,7 +60,9 @@ function Snapshot({ snap }: { snap: SiteMonitor }) {
             key={p.path}
             className="flex items-center justify-between gap-2 rounded-2xl border border-white/8 px-3 py-2 text-sm"
           >
-            <span className="mono text-xs">{p.path}</span>
+            <span className="mono truncate text-xs" title={p.url}>
+              {p.url || p.path}
+            </span>
             <Pill
               tone={
                 p.kind === "ok"
@@ -88,7 +101,7 @@ export function ControlPlaneView() {
   if (!fleet.store) {
     return <p className="text-rose-300">{fleet.error || "Workspace unavailable"}</p>;
   }
-  const { control, workspace } = fleet.store;
+  const { control, workspace, sites } = fleet.store;
   const kill = control.kill;
   const snaps = Object.values(control.snapshots);
   const platform = control.platform;
@@ -98,6 +111,56 @@ export function ControlPlaneView() {
       {fleet.error && (
         <div className="glass rounded-2xl px-4 py-3 text-sm text-rose-300">{fleet.error}</div>
       )}
+
+      <section className="glass rounded-3xl p-5">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+          Origins this page is watching
+        </p>
+        <p className="mt-1 text-sm text-[#b7b0cc]">
+          Every probe, snapshot, and reconcile check belongs to one of these URLs —
+          not to the CiteFleet / BotCentral platform cards below.
+        </p>
+        <ul className="mt-4 space-y-3">
+          {sites.map((site) => {
+            const snap = control.snapshots[site.id];
+            return (
+              <li
+                key={site.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">{site.name}</p>
+                  <a
+                    href={site.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mono block truncate text-sm text-[#e2c36d] underline"
+                  >
+                    {site.url}
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Pill tone={snap ? (snap.drift ? "warn" : "good") : "neutral"}>
+                    {snap ? (snap.drift ? "drift" : "probed") : "not probed"}
+                  </Pill>
+                  <Link
+                    to="/sites/$id"
+                    params={{ id: site.id }}
+                    className="rounded-full border border-white/10 px-3 py-1 text-xs hover:bg-white/5"
+                  >
+                    Campaign
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        {sites.length === 0 && (
+          <p className="mt-3 text-sm text-[#9b95b3]">
+            No origins onboarded. Paste the URL on Command first.
+          </p>
+        )}
+      </section>
 
       <section className="glass rounded-3xl p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -187,17 +250,17 @@ export function ControlPlaneView() {
 
       <section className="grid gap-4 md:grid-cols-3">
         <Kpi
-          label="CiteFleet"
+          label="This console · citefleet.app"
           ok={platform?.citefleet.ok}
           value={platform ? String(platform.citefleet.status) : "—"}
         />
         <Kpi
-          label="BotCentral"
+          label="Catalog host · botcentral.org"
           ok={platform?.botcentral.ok}
           value={platform ? String(platform.botcentral.status) : "—"}
         />
         <Kpi
-          label="Catalog search"
+          label="Catalog search API"
           ok={platform?.catalogSearch.ok}
           value={platform ? String(platform.catalogSearch.status) : "—"}
         />

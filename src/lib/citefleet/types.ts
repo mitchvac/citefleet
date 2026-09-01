@@ -206,7 +206,9 @@ export interface ReconcileCheck {
 
 export interface SiteMonitor {
   siteId: string;
+  name: string;
   domain: string;
+  url: string;
   at: string;
   probes: ProbeRow[];
   catalogListed: boolean;

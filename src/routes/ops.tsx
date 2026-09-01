@@ -8,8 +8,9 @@ function OpsPage() {
   return (
     <Shell eyebrow="Control plane" title="Monitor · Reconcile · Kill">
       <p className="-mt-6 mb-8 max-w-2xl text-sm leading-6 text-[#b7b0cc]">
-        Ten checks per origin. Freeze acts without stopping observe. Ticks without
-        a proof URL fail reconcile.
+        This page is per origin URL. The list at the top is the customer site
+        (e.g. https://resonanse.app). The three platform cards are citefleet.app
+        and botcentral.org — not the customer.
       </p>
       <ControlPlaneView />
     </Shell>

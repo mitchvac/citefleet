@@ -124,7 +124,9 @@ async function probeSite(site: Site): Promise<Omit<SiteMonitor, "checks" | "bloc
 
   return {
     siteId: site.id,
+    name: site.name,
     domain: site.domain,
+    url: origin,
     at: new Date().toISOString(),
     probes,
     catalogListed: listing.listed,
