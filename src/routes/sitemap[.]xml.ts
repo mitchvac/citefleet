@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const PATHS = [
   "/",
+  "/ops",
   "/fleet",
   "/playbook",
   "/activity",

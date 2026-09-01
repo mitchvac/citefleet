@@ -19,7 +19,7 @@ export function CommandBoard() {
   const [url, setUrl] = useState("https://");
   const [key, setKey] = useState("");
   const [ghOwner, setGhOwner] = useState("mitchvac");
-  const [ghRepo, setGhRepo] = useState("");
+  const [ghRepo, setGhRepo] = useState("citefleet");
   const [ghToken, setGhToken] = useState("");
   const autopilotOn = Boolean(fleet.store?.workspace.autopilot);
 
@@ -172,7 +172,7 @@ export function CommandBoard() {
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[#9b7dff]"
                 value={ghRepo}
                 onChange={(e) => setGhRepo(e.target.value)}
-                placeholder="resonanse"
+                placeholder="citefleet"
               />
             </Field>
             <button

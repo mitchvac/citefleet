@@ -228,12 +228,6 @@ export function seedStore(): StoreShape {
         scores: { technical: 96, submissions: 94, mentions: 42, overall: 79 },
         summary:
           "Technical foundation complete. Campaign is in crawl → index → cite. Mentions and press still drive AI-answer listings.",
-        github: {
-          owner: "mitchvac",
-          repo: "resonanse",
-          branch: "main",
-          root: "public",
-        },
       },
     ],
     bots,
