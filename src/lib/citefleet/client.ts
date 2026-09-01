@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AuditResult, StoreShape } from "./types";
 import {
+  attachGithubFn,
   auditProperty,
   dispatchProperty,
   loadState,
   onboardProperty,
   patchTaskFn,
   publishListingFn,
+  pushOriginPackFn,
   resetState,
   runControlCycleFn,
   runTaskFn,
   setAutopilotFn,
+  setGithubTokenFn,
   setKillFn,
   tickAutopilotFn,
 } from "./fleet-api";
@@ -52,7 +55,12 @@ export function useFleet() {
     error,
     busy,
     refresh,
-    onboard: (body: { name: string; url: string; indexNowKey?: string }) =>
+    onboard: (body: {
+      name: string;
+      url: string;
+      indexNowKey?: string;
+      github?: { owner: string; repo: string; branch?: string; root?: string };
+    }) =>
       run("onboard", async () => {
         await onboardProperty({ data: body });
       }),
@@ -103,6 +111,24 @@ export function useFleet() {
     }) =>
       run("kill", async () => {
         await setKillFn({ data: body });
+      }),
+    attachGithub: (body: {
+      siteId: string;
+      owner: string;
+      repo: string;
+      branch?: string;
+      root?: string;
+    }) =>
+      run("github", async () => {
+        await attachGithubFn({ data: body });
+      }),
+    pushOriginPack: (siteId: string) =>
+      run("origin", async () => {
+        await pushOriginPackFn({ data: { siteId } });
+      }),
+    setGithubToken: (token: string) =>
+      run("ghtoken", async () => {
+        await setGithubTokenFn({ data: { token } });
       }),
   };
 }

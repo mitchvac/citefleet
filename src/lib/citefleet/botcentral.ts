@@ -1,6 +1,7 @@
 import type { Site, StoreShape } from "./types";
 import { PLAYBOOK, playbookToTaskDraft } from "./playbook";
 import { getStore, mutateStore, recalcScores } from "./store";
+import { stripSecrets } from "./github";
 
 const DEFAULT_URL = "https://botcentral.org";
 const FETCH_UA = "CiteFleetPublisher/1.0 (+https://citefleet.app)";
@@ -201,5 +202,5 @@ export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> 
       }
     }
   });
-  return getStore();
+  return stripSecrets(await getStore());
 }

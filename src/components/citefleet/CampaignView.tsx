@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useFleet } from "@/lib/citefleet/client";
 import { Pill } from "./Shell";
 import { GrokHandoff } from "./GrokHandoff";
@@ -120,6 +121,8 @@ export function CampaignView({ siteId }: { siteId: string }) {
         <Stat label="Mentions" value={`${site.scores.mentions}`} />
       </div>
 
+      <GithubPanel site={site} fleet={fleet} />
+
       <div className="glass rounded-3xl p-2 md:p-4">
         <div className="space-y-3">
           {tasks.map((task) => (
@@ -138,6 +141,101 @@ export function CampaignView({ siteId }: { siteId: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function GithubPanel({
+  site,
+  fleet,
+}: {
+  site: Site;
+  fleet: ReturnType<typeof useFleet>;
+}) {
+  const [owner, setOwner] = useState(site.github?.owner || "mitchvac");
+  const [repo, setRepo] = useState(site.github?.repo || "");
+  const [branch, setBranch] = useState(site.github?.branch || "main");
+  const [root, setRoot] = useState(site.github?.root || "public");
+  const connected = Boolean(site.github?.owner && site.github.repo);
+  return (
+    <section className="glass rounded-3xl p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+            Origin files → GitHub
+          </p>
+          <h2 className="mt-1 text-lg font-semibold">
+            {connected
+              ? `${site.github!.owner}/${site.github!.repo}`
+              : "Attach this site’s repo"}
+          </h2>
+          <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
+            Every property needs its own repo. CiteFleet writes robots.txt, sitemap.xml,
+            llms.txt, and .well-known/botcentral.txt into <span className="mono">{root || "public"}/</span>.
+            Then you deploy that repo. Files are not created on citefleet.app.
+          </p>
+          {site.github?.lastPushUrl && (
+            <p className="mt-2 text-xs text-[#9b95b3]">
+              Last push{" "}
+              <a href={site.github.lastPushUrl} className="underline" target="_blank" rel="noreferrer">
+                {site.github.lastPushSha?.slice(0, 7) || "commit"}
+              </a>
+              {site.github.lastPushAt
+                ? ` · ${new Date(site.github.lastPushAt).toLocaleString()}`
+                : ""}
+            </p>
+          )}
+        </div>
+        <Pill tone={connected ? "good" : "warn"}>{connected ? "repo attached" : "no repo"}</Pill>
+      </div>
+      <form
+        className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void fleet.attachGithub({ siteId: site.id, owner, repo, branch, root });
+        }}
+      >
+        <input
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+          value={owner}
+          onChange={(e) => setOwner(e.target.value)}
+          placeholder="owner"
+        />
+        <input
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+          value={repo}
+          onChange={(e) => setRepo(e.target.value)}
+          placeholder="repo"
+        />
+        <input
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+          value={branch}
+          onChange={(e) => setBranch(e.target.value)}
+          placeholder="main"
+        />
+        <input
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+          value={root}
+          onChange={(e) => setRoot(e.target.value)}
+          placeholder="public"
+        />
+        <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
+          <button
+            className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+            disabled={!!fleet.busy || !owner || !repo}
+          >
+            Save repo
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07060f]"
+            disabled={!!fleet.busy || !connected}
+            onClick={() => fleet.pushOriginPack(site.id)}
+          >
+            {fleet.busy === "origin" ? "Pushing…" : "Push origin files"}
+          </button>
+        </div>
+      </form>
+    </section>
   );
 }
 

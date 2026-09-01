@@ -168,9 +168,9 @@ export const GLOSSARY: Term[] = [
       "A check that origin, sitemap, BotCentral card, and campaign ticks still agree. Drift means they do not. A tick without a proof URL is invalid.",
   },
   {
-    id: "x402",
-    term: "HTTP 402 / x402",
+    id: "origin-pack",
+    term: "Origin pack",
     meaning:
-      "Payment Required. Agents pay (often via a facilitator like PayAI) and retry. Marketing pages must stay 200 — never 402 the homepage. 402 is not a 404.",
+      "The files CiteFleet writes into a customer GitHub repo: public/robots.txt, public/sitemap.xml, public/llms.txt, public/.well-known/botcentral.txt, and the IndexNow key file. They only go live after that repo is deployed to the customer domain. CiteFleet does not host them.",
   },
 ];

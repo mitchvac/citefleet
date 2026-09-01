@@ -21,6 +21,7 @@ export async function onboardSite(input: {
   url: string;
   routes?: string[];
   indexNowKey?: string;
+  github?: { owner: string; repo: string; branch?: string; root?: string };
 }): Promise<Site> {
   const url = input.url.replace(/\/$/, "");
   const domain = new URL(url).hostname;
@@ -39,6 +40,15 @@ export async function onboardSite(input: {
     createdAt: new Date().toISOString(),
     scores: { technical: 0, submissions: 0, mentions: 0, overall: 0 },
     summary: "Onboarded. Awaiting Grok Dispatcher assignment.",
+    github:
+      input.github?.owner && input.github.repo
+        ? {
+            owner: input.github.owner.replace(/^@/, ""),
+            repo: input.github.repo.replace(/\.git$/, ""),
+            branch: input.github.branch || "main",
+            root: input.github.root ?? "public",
+          }
+        : undefined,
   };
 
   await mutateStore((store) => {

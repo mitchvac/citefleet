@@ -87,6 +87,15 @@ export interface Site {
   lastAuditAt?: string;
   scores: SiteScores;
   summary: string;
+  github?: {
+    owner: string;
+    repo: string;
+    branch: string;
+    root: string;
+    lastPushAt?: string;
+    lastPushSha?: string;
+    lastPushUrl?: string;
+  };
   botcentral?: {
     listed: boolean;
     href?: string;
@@ -157,6 +166,7 @@ export interface Workspace {
   region: string;
   autopilot?: boolean;
   autopilotLastTickAt?: string;
+  githubToken?: string;
 }
 
 export type ActDoor =

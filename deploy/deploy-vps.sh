@@ -52,6 +52,9 @@ SERVICE_TOKEN="$(tr -d '\n' < "$TOKEN_FILE")"
   echo "VITE_AUTH_ENABLED=false"
   echo "BOTCENTRAL_URL=https://botcentral.org"
   printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
+  if [[ -s /root/citefleet-github.token ]]; then
+    printf 'GITHUB_TOKEN=%s\n' "$(tr -d '\n' < /root/citefleet-github.token)"
+  fi
   if [[ -n "$DB_URL" ]]; then
     printf 'DATABASE_URL=%s\n' "$DB_URL"
   fi

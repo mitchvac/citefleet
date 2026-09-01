@@ -18,6 +18,9 @@ export function CommandBoard() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("https://");
   const [key, setKey] = useState("");
+  const [ghOwner, setGhOwner] = useState("mitchvac");
+  const [ghRepo, setGhRepo] = useState("");
+  const [ghToken, setGhToken] = useState("");
   const autopilotOn = Boolean(fleet.store?.workspace.autopilot);
 
   useEffect(() => {
@@ -125,6 +128,10 @@ export function CommandBoard() {
                 name,
                 url,
                 indexNowKey: key || undefined,
+                github:
+                  ghOwner && ghRepo
+                    ? { owner: ghOwner, repo: ghRepo, branch: "main", root: "public" }
+                    : undefined,
               });
             }}
           >
@@ -152,6 +159,22 @@ export function CommandBoard() {
                 placeholder="public verification key"
               />
             </Field>
+            <Field label="GitHub owner">
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[#9b7dff]"
+                value={ghOwner}
+                onChange={(e) => setGhOwner(e.target.value)}
+                placeholder="mitchvac"
+              />
+            </Field>
+            <Field label="GitHub repo (origin files land in public/)">
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[#9b7dff]"
+                value={ghRepo}
+                onChange={(e) => setGhRepo(e.target.value)}
+                placeholder="resonanse"
+              />
+            </Field>
             <button
               className="w-full rounded-xl bg-gradient-to-r from-[#6d4aff] to-[#4ee0c3] px-4 py-2.5 text-sm font-semibold text-[#07060f] disabled:opacity-50"
               disabled={!!fleet.busy || !url.startsWith("http")}
@@ -160,6 +183,41 @@ export function CommandBoard() {
             </button>
           </form>
         </aside>
+      </section>
+
+      <section className="glass rounded-3xl p-5">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+          GitHub token — all properties
+        </p>
+        <p className="mt-1 text-sm text-[#b7b0cc]">
+          One classic PAT with <span className="mono">repo</span> scope. CiteFleet uses it
+          to push robots.txt, sitemap.xml, llms.txt, and .well-known/botcentral.txt into
+          each site’s repo. Token is not shown back.
+          {workspace.githubToken ? " Status: stored." : " Status: missing."}
+        </p>
+        <form
+          className="mt-3 flex flex-wrap gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!ghToken.trim()) return;
+            void fleet.setGithubToken(ghToken.trim()).then(() => setGhToken(""));
+          }}
+        >
+          <input
+            type="password"
+            autoComplete="off"
+            className="min-w-[16rem] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[#9b7dff]"
+            value={ghToken}
+            onChange={(e) => setGhToken(e.target.value)}
+            placeholder="ghp_…"
+          />
+          <button
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07060f]"
+            disabled={!!fleet.busy || !ghToken.trim()}
+          >
+            Save token
+          </button>
+        </form>
       </section>
 
       <section className="glass rounded-3xl p-5">

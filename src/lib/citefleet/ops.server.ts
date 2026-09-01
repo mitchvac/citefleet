@@ -13,3 +13,9 @@ export { hydrateListings, lookupListing, publisherReady } from "./botcentral";
 export { runMonitorCycle } from "./monitor";
 export { applyKill, ensureControl } from "./control";
 export { defaultControl } from "./control";
+export {
+  attachGithub,
+  pushOriginPack,
+  setGithubToken,
+  githubConfigured,
+} from "./github";

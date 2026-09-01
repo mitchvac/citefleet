@@ -11,7 +11,14 @@ export const resetState = createServerFn({ method: "POST" }).handler(async () =>
 });
 
 export const onboardProperty = createServerFn({ method: "POST" })
-  .validator((d: { name: string; url: string; indexNowKey?: string }) => d)
+  .validator(
+    (d: {
+      name: string;
+      url: string;
+      indexNowKey?: string;
+      github?: { owner: string; repo: string; branch?: string; root?: string };
+    }) => d,
+  )
   .handler(async ({ data }) => {
     if (!data.url || data.url === "https://") {
       throw new Error("url required");
@@ -114,4 +121,33 @@ export const setKillFn = createServerFn({ method: "POST" })
       applyKill(store, { ...data, by: "Operator" });
     });
     return (await getStore()).control.kill;
+  });
+
+export const attachGithubFn = createServerFn({ method: "POST" })
+  .validator(
+    (d: {
+      siteId: string;
+      owner: string;
+      repo: string;
+      branch?: string;
+      root?: string;
+    }) => d,
+  )
+  .handler(async ({ data }) => {
+    const { attachGithub } = await import("./ops.server");
+    return attachGithub(data.siteId, data);
+  });
+
+export const pushOriginPackFn = createServerFn({ method: "POST" })
+  .validator((d: { siteId: string }) => d)
+  .handler(async ({ data }) => {
+    const { pushOriginPack } = await import("./ops.server");
+    return pushOriginPack(data.siteId);
+  });
+
+export const setGithubTokenFn = createServerFn({ method: "POST" })
+  .validator((d: { token: string }) => d)
+  .handler(async ({ data }) => {
+    const { setGithubToken } = await import("./ops.server");
+    return setGithubToken(data.token);
   });
