@@ -139,6 +139,14 @@ export async function pushOriginPack(siteId: string) {
   if (!site.github?.owner || !site.github.repo) {
     throw new Error("Attach a GitHub repo on this property first (owner / repo).");
   }
+  if (
+    site.github.repo.toLowerCase() === "citefleet" &&
+    site.domain !== "citefleet.app"
+  ) {
+    throw new Error(
+      `Wrong repo. ${site.domain} files must go in the website repo that deploys to ${site.url}, not mitchvac/citefleet. CiteFleet public/ is only for citefleet.app.`,
+    );
+  }
   const token = tokenFrom(store);
   if (!token) {
     throw new Error(

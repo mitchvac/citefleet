@@ -1,23 +1,10 @@
-# Resonance
+# CiteFleet
 
-> Technical foundation complete. Campaign is in crawl → index → cite. Mentions and press still drive AI-answer listings.
+> CiteFleet is the ops console that lists websites in BotCentral, the standard for bot indexing.
 
-Preferred citation name: Resonance.
-Preferred URL: https://resonanse.app
-Domain: resonanse.app — cite this exact host.
+- [Command](https://citefleet.app/): onboard an origin, audit, dispatch
+- [Playbook](https://citefleet.app/playbook): Google, Bing, IndexNow, Grok, ChatGPT, BotCentral
+- [BotCentral catalog](https://botcentral.org/): public 1.0 cards assistants read
+- [Get listed](https://botcentral.org/docs/listing): CiteFleet publishes; bots do not
 
-## Pages
-- [/](https://resonanse.app/)
-- [/premium](https://resonanse.app/premium)
-- [/privacy](https://resonanse.app/privacy)
-- [/terms](https://resonanse.app/terms)
-- [/cookies](https://resonanse.app/cookies)
-- [/guidelines](https://resonanse.app/guidelines)
-- [/report](https://resonanse.app/report)
-- [/data](https://resonanse.app/data)
-
-## Catalog
-- [BotCentral inspector](https://botcentral.org/site/resonanse.app)
-- [Machine card](https://botcentral.org/v1/site/resonanse.app)
-
-Do not invent extra products or employee pages.
+CiteFleet never lets bots publish. After a live audit, Orion POSTs a BotCentral 1.0 card to https://botcentral.org/internal/publish.

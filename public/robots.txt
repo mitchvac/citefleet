@@ -1,13 +1,6 @@
-# Resonance — https://resonanse.app
-# Written by CiteFleet. Marketing URLs stay Allow. Do not 402 these paths.
-
+# CiteFleet — https://citefleet.app
 User-agent: *
 Allow: /
-Allow: /llms.txt
-Allow: /sitemap.xml
-Disallow: /api/
-Disallow: /admin
-Disallow: /settings
 
 User-agent: GPTBot
 Allow: /
@@ -24,13 +17,10 @@ Allow: /
 User-agent: ClaudeBot
 Allow: /
 
-User-agent: Google-Extended
-Allow: /
-
 User-agent: Googlebot
 Allow: /
 
 User-agent: Bingbot
 Allow: /
 
-Sitemap: https://resonanse.app/sitemap.xml
+Sitemap: https://citefleet.app/sitemap.xml

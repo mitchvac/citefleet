@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://resonanse.app/</loc></url>
-  <url><loc>https://resonanse.app/premium</loc></url>
-  <url><loc>https://resonanse.app/privacy</loc></url>
-  <url><loc>https://resonanse.app/terms</loc></url>
-  <url><loc>https://resonanse.app/cookies</loc></url>
-  <url><loc>https://resonanse.app/guidelines</loc></url>
-  <url><loc>https://resonanse.app/report</loc></url>
-  <url><loc>https://resonanse.app/data</loc></url>
-  <url><loc>https://resonanse.app/llms.txt</loc></url>
+  <url><loc>https://citefleet.app/</loc></url>
+  <url><loc>https://citefleet.app/ops</loc></url>
+  <url><loc>https://citefleet.app/fleet</loc></url>
+  <url><loc>https://citefleet.app/playbook</loc></url>
+  <url><loc>https://citefleet.app/activity</loc></url>
+  <url><loc>https://citefleet.app/learn</loc></url>
+  <url><loc>https://citefleet.app/learn/glossary</loc></url>
+  <url><loc>https://citefleet.app/learn/quiz</loc></url>
 </urlset>

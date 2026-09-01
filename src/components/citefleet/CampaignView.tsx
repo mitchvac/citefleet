@@ -206,31 +206,42 @@ function GithubPanel({
           void fleet.attachGithub({ siteId: site.id, owner, repo, branch, root });
         }}
       >
-        <input
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
-          value={owner}
-          onChange={(e) => setOwner(e.target.value)}
-          placeholder="owner"
-        />
-        <input
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
-          value={repo}
-          onChange={(e) => setRepo(e.target.value)}
-          placeholder="repo"
-        />
-        <input
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
-          value={branch}
-          onChange={(e) => setBranch(e.target.value)}
-          placeholder="main"
-        />
-        <input
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
-          value={root}
-          onChange={(e) => setRoot(e.target.value)}
-          placeholder="public"
-        />
-        <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
+        <label className="block text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
+          GitHub owner
+          <input
+            className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case tracking-normal text-white"
+            value={owner}
+            onChange={(e) => setOwner(e.target.value)}
+            placeholder="mitchvac"
+          />
+        </label>
+        <label className="block text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
+          GitHub repo
+          <input
+            className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case tracking-normal text-white"
+            value={repo}
+            onChange={(e) => setRepo(e.target.value)}
+            placeholder="website-repo"
+          />
+        </label>
+        <label className="block text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
+          Branch
+          <input
+            className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case tracking-normal text-white"
+            value={branch}
+            onChange={(e) => setBranch(e.target.value)}
+            placeholder="main"
+          />
+        </label>
+        <label className="block text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
+          Folder
+          <input
+            className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case tracking-normal text-white"
+            value={root}
+            onChange={(e) => setRoot(e.target.value)}
+            placeholder="public"
+          />
+        </label>        <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
           <button
             className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
             disabled={!!fleet.busy || !canPush}
