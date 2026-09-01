@@ -10,3 +10,6 @@ export {
 export { runAutopilotTick, setAutopilot } from "./autopilot";
 export { grokConfigured } from "./grokApi";
 export { hydrateListings, lookupListing, publisherReady } from "./botcentral";
+export { runMonitorCycle } from "./monitor";
+export { applyKill, ensureControl } from "./control";
+export { defaultControl } from "./control";

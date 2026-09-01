@@ -155,4 +155,22 @@ export const GLOSSARY: Term[] = [
     meaning:
       "The BotCentral 1.0 JSON at /v1/site/{domain}. Not a website. Use the inspector at /site/{domain} to read it as a page.",
   },
+  {
+    id: "kill",
+    term: "Kill switch",
+    meaning:
+      "Freezes acts (publish, mentions, spend, autopilot) without stopping observe (audit, monitor, reconcile). Global or per door. Open Monitor to freeze or thaw.",
+  },
+  {
+    id: "reconcile",
+    term: "Reconcile / drift",
+    meaning:
+      "A check that origin, sitemap, BotCentral card, and campaign ticks still agree. Drift means they do not. A tick without a proof URL is invalid.",
+  },
+  {
+    id: "x402",
+    term: "HTTP 402 / x402",
+    meaning:
+      "Payment Required. Agents pay (often via a facilitator like PayAI) and retry. Marketing pages must stay 200 — never 402 the homepage. 402 is not a 404.",
+  },
 ];

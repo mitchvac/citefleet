@@ -333,6 +333,35 @@ export function MockListSite() {
   );
 }
 
+export function MockControl() {
+  return (
+    <Frame label="Monitor · kill switch">
+      <div className="flex flex-wrap gap-2">
+        {["Catalog open", "Mentions open", "Spend frozen", "Autopilot open"].map((l) => (
+          <span
+            key={l}
+            className={`rounded-full px-3 py-1 text-xs ${
+              l.includes("frozen")
+                ? "border border-rose-400/40 text-rose-200"
+                : "border border-white/10"
+            }`}
+          >
+            {l}
+          </span>
+        ))}
+      </div>
+      <div className="mt-3 space-y-1 text-sm">
+        <p className="text-emerald-300">PASS · Marketing URLs 200</p>
+        <p className="text-amber-200">WARN · Tick without proof URL (Trustpilot)</p>
+        <p className="text-emerald-300">PASS · BotCentral card listed</p>
+      </div>
+      <Callout>
+        Observe still runs when frozen. List on BotCentral will refuse until you thaw Catalog.
+      </Callout>
+    </Frame>
+  );
+}
+
 export function LessonMock({ slug }: { slug: string }) {
   switch (slug) {
     case "overview":
@@ -357,6 +386,8 @@ export function LessonMock({ slug }: { slug: string }) {
       return <MockWorkflow />;
     case "botcentral":
       return <MockListSite />;
+    case "control":
+      return <MockControl />;
     default:
       return null;
   }

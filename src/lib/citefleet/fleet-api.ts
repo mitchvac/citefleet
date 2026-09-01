@@ -90,3 +90,28 @@ export const publishListingFn = createServerFn({ method: "POST" })
     const { publishSiteToBotCentral } = await import("./ops.server");
     return publishSiteToBotCentral(data.siteId);
   });
+
+export const runControlCycleFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const { runMonitorCycle } = await import("./ops.server");
+    return runMonitorCycle();
+  },
+);
+
+export const setKillFn = createServerFn({ method: "POST" })
+  .validator(
+    (d: {
+      global?: boolean;
+      door?: "catalog" | "mentions" | "submissions" | "spend" | "autopilot";
+      frozen?: boolean;
+      reason?: string;
+    }) => d,
+  )
+  .handler(async ({ data }) => {
+    const { applyKill, getStore } = await import("./ops.server");
+    const { mutateStore } = await import("./store");
+    await mutateStore((store) => {
+      applyKill(store, { ...data, by: "Operator" });
+    });
+    return (await getStore()).control.kill;
+  });

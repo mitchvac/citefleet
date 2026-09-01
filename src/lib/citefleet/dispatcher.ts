@@ -9,6 +9,7 @@ import {
   recalcScores,
   touchBot,
 } from "./store";
+import { assertCanAct, doorForPlaybook, freezeReason, isFrozen } from "./control";
 import type { AuditResult, PlaybookId, Site, Task } from "./types";
 
 function botForPlaybook(playbookId: PlaybookId) {
@@ -214,6 +215,14 @@ export async function runAuditAndApply(siteId: string): Promise<AuditResult> {
 }
 
 export async function runTask(taskId: string) {
+  const preview = await getStore();
+  const existing = preview.tasks.find((t) => t.id === taskId);
+  if (!existing) throw new Error("Task not found");
+  const door = doorForPlaybook(existing.playbookId);
+  if (door !== "observe" && isFrozen(preview, door)) {
+    throw new Error(freezeReason(preview, door));
+  }
+
   let snapshot: Task | undefined;
   await mutateStore((store) => {
     const task = store.tasks.find((t) => t.id === taskId);
@@ -339,6 +348,8 @@ export async function runTask(taskId: string) {
 }
 
 export async function publishSiteToBotCentral(siteId: string) {
+  const preview = await getStore();
+  assertCanAct(preview, "catalog");
   const store = await getStore();
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
@@ -404,6 +415,14 @@ export async function patchTask(
   await mutateStore((store) => {
     const task = store.tasks.find((t) => t.id === taskId);
     if (!task) throw new Error("Task not found");
+    const door = doorForPlaybook(task.playbookId);
+    if (
+      door !== "observe" &&
+      isFrozen(store, door) &&
+      (patch.status === "done" || patch.done === true)
+    ) {
+      throw new Error(freezeReason(store, door));
+    }
     if (patch.status) task.status = patch.status;
     if (patch.blockedReason !== undefined) task.blockedReason = patch.blockedReason;
     if (patch.checklistId && typeof patch.done === "boolean") {

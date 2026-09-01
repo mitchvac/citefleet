@@ -75,13 +75,24 @@ export async function auditSite(site: Site): Promise<AuditResult> {
       status: bare.status,
       ms: bare.ms,
       spaFallbackRisk,
+      kind:
+        bare.status === 402
+          ? "payment402"
+          : spaFallbackRisk
+            ? "spa404"
+            : !bare.status
+              ? "error"
+              : bare.status >= 400
+                ? "dead"
+                : "ok",
       error: bare.error,
     });
   }
 
   const spaHits = routeChecks.filter((r) => r.spaFallbackRisk);
+  const paid = routeChecks.filter((r) => r.kind === "payment402");
   const dead = routeChecks.filter(
-    (r) => r.status && r.status >= 400 && !r.spaFallbackRisk,
+    (r) => r.status && r.status >= 400 && !r.spaFallbackRisk && r.kind !== "payment402",
   );
   if (spaHits.length) {
     findings.push({
@@ -107,6 +118,21 @@ export async function auditSite(site: Site): Promise<AuditResult> {
       severity: "warn",
       title: "Some public routes error",
       detail: dead.map((r) => `${r.path} → ${r.status}`).join(", "),
+      playbookId: "spa_fallback",
+    });
+  }
+
+  if (paid.length) {
+    const onHome = paid.some((r) => r.path === "/" || r.path === "/premium");
+    findings.push({
+      id: "http-402",
+      severity: onHome ? "critical" : "info",
+      title: onHome
+        ? "HTTP 402 on a marketing URL"
+        : "HTTP 402 payment challenge (agent API)",
+      detail: onHome
+        ? `Crawlers will not pay: ${paid.map((r) => r.path).join(", ")}. Keep 402 off /, /premium, trust pages.`
+        : `402 on ${paid.map((r) => r.path).join(", ")} — treat as a paid door, not a 404.`,
       playbookId: "spa_fallback",
     });
   }

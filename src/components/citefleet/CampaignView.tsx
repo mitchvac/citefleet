@@ -25,9 +25,18 @@ export function CampaignView({ siteId }: { siteId: string }) {
     .filter((t) => t.siteId === siteId)
     .sort((a, b) => a.priority - b.priority);
   const bots = fleet.store.bots;
+  const frozen = fleet.store.control?.kill.global;
 
   return (
     <div className="space-y-6">
+      {frozen ? (
+        <Link
+          to="/ops"
+          className="block rounded-3xl border border-rose-400/30 bg-rose-400/10 px-5 py-4 text-sm text-rose-100"
+        >
+          Kill switch is on — Run bot / List on BotCentral will refuse until you thaw on Monitor.
+        </Link>
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link to="/" className="text-xs text-[#9b95b3] hover:text-white">

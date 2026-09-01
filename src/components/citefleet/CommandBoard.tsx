@@ -52,6 +52,19 @@ export function CommandBoard() {
         <div className="glass rounded-2xl px-4 py-3 text-sm text-rose-300">{fleet.error}</div>
       )}
 
+      {workspace && fleet.store.control.kill.global && (
+        <Link
+          to="/ops"
+          className="block rounded-3xl border border-rose-400/30 bg-rose-400/10 px-5 py-4"
+        >
+          <p className="text-sm font-semibold text-rose-200">Kill switch is on</p>
+          <p className="mt-1 text-sm text-[#cfc8e8]">
+            Observe still runs. Publish, mentions, spend, and autopilot acts are frozen.
+            Open Monitor to thaw.
+          </p>
+        </Link>
+      )}
+
       <section className="glass flex flex-wrap items-center justify-between gap-4 rounded-3xl p-5">
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">Autopilot</p>
@@ -64,15 +77,23 @@ export function CommandBoard() {
             Set XAI_API_KEY in .env.local to have Grok write mention drafts into task evidence. Autopilot does not log into Bing or X.
           </p>
         </div>
-        <button
-          className={`rounded-full px-4 py-2 text-sm font-semibold ${
-            workspace.autopilot ? "bg-emerald-300 text-[#07060f]" : "btn-light"
-          }`}
-          disabled={!!fleet.busy}
-          onClick={() => fleet.setAutopilot(!workspace.autopilot)}
-        >
-          {workspace.autopilot ? "Stop autopilot" : "Start autopilot"}
-        </button>
+        <div className="flex gap-2">
+          <Link
+            to="/ops"
+            className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+          >
+            Open Monitor
+          </Link>
+          <button
+            className={`rounded-full px-4 py-2 text-sm font-semibold ${
+              workspace.autopilot ? "bg-emerald-300 text-[#07060f]" : "btn-light"
+            }`}
+            disabled={!!fleet.busy}
+            onClick={() => fleet.setAutopilot(!workspace.autopilot)}
+          >
+            {workspace.autopilot ? "Stop autopilot" : "Start autopilot"}
+          </button>
+        </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">

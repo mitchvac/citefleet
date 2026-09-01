@@ -50,7 +50,7 @@ export interface ChecklistItem {
 export interface Evidence {
   id: string;
   at: string;
-  kind: "http" | "console" | "mention" | "note" | "dispatch";
+  kind: "http" | "console" | "mention" | "note" | "dispatch" | "control";
   label: string;
   detail?: string;
   url?: string;
@@ -140,7 +140,10 @@ export interface ActivityEvent {
     | "mention"
     | "system"
     | "index"
-    | "security";
+    | "security"
+    | "control"
+    | "monitor"
+    | "reconcile";
   message: string;
   siteId?: string;
   botId?: string;
@@ -156,6 +159,83 @@ export interface Workspace {
   autopilotLastTickAt?: string;
 }
 
+export type ActDoor =
+  | "catalog"
+  | "mentions"
+  | "submissions"
+  | "spend"
+  | "autopilot";
+
+export interface KillSwitch {
+  global: boolean;
+  doors: Record<ActDoor, boolean>;
+  reason: string;
+  setBy: string;
+  setAt: string | null;
+}
+
+export type ProbeKind = "ok" | "spa404" | "dead" | "payment402" | "error";
+
+export interface ProbeRow {
+  url: string;
+  path: string;
+  status: number | null;
+  ms: number;
+  kind: ProbeKind;
+  contentType: string;
+  note?: string;
+}
+
+export interface ReconcileCheck {
+  id: string;
+  ok: boolean;
+  severity: "critical" | "warn" | "ok" | "info";
+  title: string;
+  detail: string;
+}
+
+export interface SiteMonitor {
+  siteId: string;
+  domain: string;
+  at: string;
+  probes: ProbeRow[];
+  catalogListed: boolean;
+  catalogHref?: string;
+  catalogError?: string;
+  sitemapHttps: boolean;
+  sitemapUrlCount: number;
+  wellKnown: boolean;
+  llms: boolean;
+  drift: boolean;
+  checks: ReconcileCheck[];
+  blockedByKill: boolean;
+}
+
+export interface PlatformHealth {
+  at: string;
+  citefleet: { ok: boolean; status: number | null; body?: string };
+  botcentral: { ok: boolean; status: number | null; body?: string };
+  catalogSearch: { ok: boolean; status: number | null };
+}
+
+export interface ControlJob {
+  id: string;
+  kind: "monitor" | "reconcile" | "cycle";
+  at: string;
+  ok: boolean;
+  summary: string;
+}
+
+export interface ControlPlane {
+  kill: KillSwitch;
+  lastCycleAt?: string;
+  lastMonitorAt?: string;
+  lastReconcileAt?: string;
+  snapshots: Record<string, SiteMonitor>;
+  platform?: PlatformHealth;
+  jobs: ControlJob[];
+}
+
 export interface StoreShape {
   workspace: Workspace;
   sites: Site[];
@@ -163,6 +243,7 @@ export interface StoreShape {
   tasks: Task[];
   activity: ActivityEvent[];
   engines: EngineCoverage[];
+  control: ControlPlane;
 }
 
 export interface AuditFinding {
@@ -183,6 +264,7 @@ export interface AuditResult {
     status: number | null;
     ms: number;
     spaFallbackRisk: boolean;
+    kind?: ProbeKind;
     error?: string;
   }>;
   robots?: {

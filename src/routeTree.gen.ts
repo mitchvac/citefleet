@@ -14,6 +14,7 @@ import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as OpsRouteImport } from './routes/ops'
 import { Route as PlaybookRouteImport } from './routes/playbook'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
@@ -45,6 +46,11 @@ const HealthRoute = HealthRouteImport.update({
 const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
   id: '/llms.txt',
   path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpsRoute = OpsRouteImport.update({
+  id: '/ops',
+  path: '/ops',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlaybookRoute = PlaybookRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/learn/$slug': typeof LearnSlugRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/learn/$slug': typeof LearnSlugRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/learn/$slug': typeof LearnSlugRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/health'
     | '/llms.txt'
+    | '/ops'
     | '/playbook'
     | '/sitemap.xml'
     | '/learn/$slug'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/health'
     | '/llms.txt'
+    | '/ops'
     | '/playbook'
     | '/sitemap.xml'
     | '/learn/$slug'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/health'
     | '/llms.txt'
+    | '/ops'
     | '/playbook'
     | '/sitemap.xml'
     | '/learn/$slug'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   FleetRoute: typeof FleetRoute
   HealthRoute: typeof HealthRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
+  OpsRoute: typeof OpsRoute
   PlaybookRoute: typeof PlaybookRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   LearnSlugRoute: typeof LearnSlugRoute
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/llms.txt'
       fullPath: '/llms.txt'
       preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ops': {
+      id: '/ops'
+      path: '/ops'
+      fullPath: '/ops'
+      preLoaderRoute: typeof OpsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/playbook': {
@@ -281,6 +301,7 @@ const rootRouteChildren: RootRouteChildren = {
   FleetRoute: FleetRoute,
   HealthRoute: HealthRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
+  OpsRoute: OpsRoute,
   PlaybookRoute: PlaybookRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   LearnSlugRoute: LearnSlugRoute,

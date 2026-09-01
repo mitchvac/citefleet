@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 const NAV = [
   { to: "/", label: "Command" },
+  { to: "/ops", label: "Monitor" },
   { to: "/fleet", label: "Grok Fleet" },
   { to: "/playbook", label: "Playbook" },
   { to: "/activity", label: "Audit log" },

@@ -1,6 +1,7 @@
 import { askGrok, grokConfigured } from "./grokApi";
 import { dispatchSite, publishSiteToBotCentral, runAuditAndApply } from "./dispatcher";
 import { getStore, logActivity, mutateStore, recalcScores } from "./store";
+import { assertCanAct, isFrozen } from "./control";
 
 const MENTION_TASKS = new Set(["x_mentions", "directories", "press"]);
 
@@ -8,12 +9,17 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
   const before = await getStore();
   const reports: string[] = [];
   const wantGrok = Boolean(opts.grok) && grokConfigured();
+  const actsFrozen = isFrozen(before, "autopilot");
 
   for (const site of before.sites) {
     const audit = await runAuditAndApply(site.id);
     reports.push(
       `${site.domain}: audit ${audit.ok ? "ok" : "issues"} (${audit.findings.length} findings)`,
     );
+    if (actsFrozen) {
+      reports.push(`${site.domain}: acts frozen — skip dispatch/publish`);
+      continue;
+    }
     await dispatchSite(site.id);
 
     const listingTask = (await getStore()).tasks.find(
@@ -22,7 +28,7 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
         t.playbookId === "botcentral_list" &&
         t.status !== "done",
     );
-    if (listingTask && audit.ok) {
+    if (listingTask && audit.ok && !isFrozen(await getStore(), "catalog")) {
       try {
         const listing = await publishSiteToBotCentral(site.id);
         reports.push(
@@ -35,7 +41,7 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
       }
     }
 
-    if (!wantGrok) continue;
+    if (!wantGrok || isFrozen(await getStore(), "mentions")) continue;
 
     const latest = await getStore();
     const open = latest.tasks.find(
@@ -101,6 +107,10 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
 }
 
 export async function setAutopilot(enabled: boolean) {
+  if (enabled) {
+    const store = await getStore();
+    assertCanAct(store, "autopilot");
+  }
   await mutateStore((store) => {
     store.workspace.autopilot = enabled;
     logActivity(store, {

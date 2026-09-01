@@ -299,6 +299,32 @@ export const LESSONS: Lesson[] = [
       },
     ],
   },
+  {
+    slug: "control",
+    number: "12",
+    title: "Monitor, reconcile, kill switch",
+    summary:
+      "The control plane. Watch the origin, prove the card still matches, freeze acts if anything drifts.",
+    where: "Monitor (nav)",
+    steps: [
+      {
+        title: "Observe vs act",
+        body: "Audit, monitor, and reconcile always run. Publish, mentions, spend, and autopilot are acts — the kill switch can freeze them.",
+      },
+      {
+        title: "Run monitor + reconcile",
+        body: "Probes each property (200 / 404 / SPA 404 / 402), pings citefleet.app and botcentral.org health, then scores ten checks. Drift blocks the next mention spike in policy even if a checkbox is ticked.",
+      },
+      {
+        title: "Freeze",
+        body: "Freeze all acts, or freeze one door (catalog, mentions, submissions, spend, autopilot). Thaw from the same page. Command and Campaign show a banner while frozen.",
+      },
+      {
+        title: "Proof",
+        body: "A done task with no evidence URL fails “Ticks have proof.” Do not tick Trustpilot without a live listing URL.",
+      },
+    ],
+  },
 ];
 
 export const QUIZ: QuizQuestion[] = [
@@ -445,6 +471,19 @@ export const QUIZ: QuizQuestion[] = [
     answer: 1,
     explain:
       "Command onboard, prove crawl with Live audit, publish the BotCentral card, then traditional search doors, then citations. Mentions on a 404 origin are wasted.",
+  },
+  {
+    id: "q13",
+    prompt: "The kill switch on Monitor is designed to:",
+    choices: [
+      "Take the website offline",
+      "Stop observe and act equally",
+      "Freeze acts (publish, mentions, spend, autopilot) while monitor still runs",
+      "Delete the BotCentral card",
+    ],
+    answer: 2,
+    explain:
+      "Observe always runs. Acts stop. That is the control-plane freeze, not a DNS take-down.",
   },
 ];
 

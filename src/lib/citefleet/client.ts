@@ -8,8 +8,10 @@ import {
   patchTaskFn,
   publishListingFn,
   resetState,
+  runControlCycleFn,
   runTaskFn,
   setAutopilotFn,
+  setKillFn,
   tickAutopilotFn,
 } from "./fleet-api";
 
@@ -88,6 +90,19 @@ export function useFleet() {
     publishListing: (siteId: string) =>
       run("publish", async () => {
         await publishListingFn({ data: { siteId } });
+      }),
+    runControlCycle: () =>
+      run("control", async () => {
+        await runControlCycleFn();
+      }),
+    setKill: (body: {
+      global?: boolean;
+      door?: "catalog" | "mentions" | "submissions" | "spend" | "autopilot";
+      frozen?: boolean;
+      reason?: string;
+    }) =>
+      run("kill", async () => {
+        await setKillFn({ data: body });
       }),
   };
 }

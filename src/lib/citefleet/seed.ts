@@ -1,5 +1,6 @@
 import { FLEET_TEMPLATE } from "./bots";
 import { ENGINE_MATRIX, PLAYBOOK, playbookToTaskDraft } from "./playbook";
+import { defaultControl } from "./control";
 import type { StoreShape, Task } from "./types";
 
 function isoHoursAgo(hours: number) {
@@ -232,6 +233,7 @@ export function seedStore(): StoreShape {
     bots,
     tasks,
     engines: ENGINE_MATRIX.map((e) => ({ ...e })),
+    control: defaultControl(),
     activity: [
       {
         id: crypto.randomUUID(),
