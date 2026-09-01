@@ -45,5 +45,6 @@ export function mergeSnapshot(seed: StoreShape, raw: unknown): StoreShape {
   if (!next.control.jobs) next.control.jobs = [];
   if (!next.control.kill) next.control.kill = seed.control.kill;
   applyPlaybookHrefs(next.tasks, next.sites);
+  if (next.workspace.name === "Resonance Labs") next.workspace.name = "CiteFleet";
   return next;
 }

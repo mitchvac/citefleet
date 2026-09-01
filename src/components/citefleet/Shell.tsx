@@ -53,7 +53,7 @@ export function Shell({
             </a>
           </nav>
           <div className="mono text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
-            Resonance Labs · Enterprise
+            CiteFleet · Enterprise
           </div>
         </div>
         <nav className="mx-auto flex max-w-7xl flex-wrap gap-1 px-6 pb-3 md:hidden">

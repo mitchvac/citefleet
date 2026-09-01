@@ -7,7 +7,7 @@ export const Route = createFileRoute("/")({ component: Home });
 function Home() {
   return (
     <Shell
-      eyebrow="Resonance Labs · Command center"
+      eyebrow="CiteFleet · Command center"
       title="Get every customer site indexed — and cited."
     >
       <p className="-mt-6 mb-8 max-w-2xl text-sm leading-6 text-[#b7b0cc]">

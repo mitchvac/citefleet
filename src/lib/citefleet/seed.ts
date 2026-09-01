@@ -199,7 +199,7 @@ export function seedStore(): StoreShape {
   const store: StoreShape = {
     workspace: {
       id: "ws-resonance-labs",
-      name: "Resonance Labs",
+      name: "CiteFleet",
       plan: "enterprise",
       region: "us-east-1",
     },

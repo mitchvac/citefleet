@@ -33,7 +33,7 @@ export function MockCommand() {
     <Frame label="Command Center">
       <div className="grid gap-2 sm:grid-cols-4">
         {[
-          ["Workspace", "Resonance Labs"],
+          ["Workspace", "CiteFleet"],
           ["Properties", "1"],
           ["Bots assigned", "2/9"],
           ["Open tasks", "4"],
