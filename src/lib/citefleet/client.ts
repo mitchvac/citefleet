@@ -122,9 +122,16 @@ export function useFleet() {
       run("github", async () => {
         await attachGithubFn({ data: body });
       }),
-    pushOriginPack: (siteId: string) =>
+    pushOriginPack: (body: {
+      siteId: string;
+      owner: string;
+      repo: string;
+      branch?: string;
+      root?: string;
+    }) =>
       run("origin", async () => {
-        await pushOriginPackFn({ data: { siteId } });
+        await attachGithubFn({ data: body });
+        await pushOriginPackFn({ data: { siteId: body.siteId } });
       }),
     setGithubToken: (token: string) =>
       run("ghtoken", async () => {

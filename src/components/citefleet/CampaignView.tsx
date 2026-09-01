@@ -156,6 +156,8 @@ function GithubPanel({
   const [branch, setBranch] = useState(site.github?.branch || "main");
   const [root, setRoot] = useState(site.github?.root || "public");
   const connected = Boolean(site.github?.owner && site.github.repo);
+  const tokenReady = Boolean(fleet.store?.workspace.githubToken);
+  const canPush = Boolean(owner.trim() && repo.trim());
   return (
     <section className="glass rounded-3xl p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -169,9 +171,10 @@ function GithubPanel({
               : "Attach this site’s repo"}
           </h2>
           <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
-            Every property needs its own repo. CiteFleet writes robots.txt, sitemap.xml,
-            llms.txt, and .well-known/botcentral.txt into <span className="mono">{root || "public"}/</span>.
-            Then you deploy that repo. Files are not created on citefleet.app.
+            Writes robots.txt, sitemap.xml, llms.txt, and .well-known/botcentral.txt
+            into <span className="mono">{root || "public"}/</span> on{" "}
+            <span className="mono">{owner || "owner"}/{repo || "repo"}</span>.
+            Push saves the repo first, then commits.
           </p>
           {site.github?.lastPushUrl && (
             <p className="mt-2 text-xs text-[#9b95b3]">
@@ -187,6 +190,15 @@ function GithubPanel({
         </div>
         <Pill tone={connected ? "good" : "warn"}>{connected ? "repo attached" : "no repo"}</Pill>
       </div>
+      {!tokenReady && (
+        <p className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+          No GitHub token on this workspace. Open{" "}
+          <Link to="/" className="underline">
+            Command
+          </Link>{" "}
+          and save a classic PAT with repo scope, then push again.
+        </p>
+      )}
       <form
         className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
         onSubmit={(e) => {
@@ -218,21 +230,32 @@ function GithubPanel({
           onChange={(e) => setRoot(e.target.value)}
           placeholder="public"
         />
-        <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
+        <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
           <button
-            className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
-            disabled={!!fleet.busy || !owner || !repo}
+            className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
+            disabled={!!fleet.busy || !canPush}
           >
-            Save repo
+            {fleet.busy === "github" ? "Saving…" : "Save repo"}
           </button>
           <button
             type="button"
-            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07060f]"
-            disabled={!!fleet.busy || !connected}
-            onClick={() => fleet.pushOriginPack(site.id)}
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07060f] disabled:opacity-40"
+            disabled={!!fleet.busy || !canPush}
+            onClick={() =>
+              fleet.pushOriginPack({
+                siteId: site.id,
+                owner,
+                repo,
+                branch,
+                root,
+              })
+            }
           >
             {fleet.busy === "origin" ? "Pushing…" : "Push origin files"}
           </button>
+          {fleet.busy === "origin" && (
+            <span className="text-xs text-[#9b95b3]">Saving repo, then committing to GitHub…</span>
+          )}
         </div>
       </form>
     </section>
