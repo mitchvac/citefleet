@@ -1,6 +1,6 @@
-# BotCentral origin proof — citefleet.app
-domain: citefleet.app
-canonical: https://citefleet.app
+# BotCentral origin proof — resonanse.app
+domain: resonanse.app
+canonical: https://resonanse.app
 publisher: citefleet
-catalog: https://botcentral.org/site/citefleet.app
+catalog: https://botcentral.org/site/resonanse.app
 verify: citefleet-app
