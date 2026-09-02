@@ -33,6 +33,7 @@ async function bootStore(): Promise<StoreShape> {
     console.error("[citefleet] snapshot load failed — seeding", err);
     cache = seeded;
   }
+  for (const site of cache.sites) recalcScores(cache, site.id);
   try {
     await saveSnapshot(cache);
   } catch (err) {

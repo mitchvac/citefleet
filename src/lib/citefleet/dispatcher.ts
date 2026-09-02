@@ -93,9 +93,15 @@ export async function dispatchSite(siteId: string) {
     for (const task of open) {
       const spec = botForPlaybook(task.playbookId);
       if (!spec) continue;
-      if (usedBots.has(spec.id) && task.status === "queued") continue;
       const bot = store.bots.find((b) => b.id === spec.id);
       if (!bot) continue;
+      if (
+        usedBots.has(spec.id) &&
+        task.status === "queued" &&
+        bot.currentSiteId &&
+        bot.currentSiteId !== siteId
+      )
+        continue;
 
       task.botId = bot.id;
       task.status = task.status === "queued" ? "assigned" : task.status;
@@ -365,8 +371,7 @@ export async function publishSiteToBotCentral(siteId: string) {
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
 
-  const already = await lookupListing(site.domain);
-  const listing = already.listed ? already : await publishListing(site);
+  const listing = await publishListing(site);
 
   await mutateStore((s) => {
     const current = s.sites.find((x) => x.id === siteId);

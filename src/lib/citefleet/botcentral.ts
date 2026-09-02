@@ -1,5 +1,5 @@
 import type { Site, StoreShape } from "./types";
-import { PLAYBOOK, playbookToTaskDraft } from "./playbook";
+import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook";
 import { getStore, mutateStore, recalcScores } from "./store";
 import { stripSecrets } from "./github";
 
@@ -132,29 +132,36 @@ export async function publishListing(site: Site): Promise<ListingStatus> {
     };
   }
   const current = await lookupListing(site.domain);
-  const res = await fetch(`${catalogUrl()}/internal/publish`, {
-    method: "POST",
-    headers: {
-      "User-Agent": FETCH_UA,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${serviceToken()}`,
-    },
-    body: JSON.stringify(buildCard(site, current.card)),
-    signal: AbortSignal.timeout(20000),
-  });
-  const payload = (await res.json().catch(() => ({}))) as {
-    error?: string;
-    card?: Record<string, unknown>;
-  };
-  if (!res.ok) {
+  try {
+    const res = await fetch(`${catalogUrl()}/internal/publish`, {
+      method: "POST",
+      headers: {
+        "User-Agent": FETCH_UA,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceToken()}`,
+      },
+      body: JSON.stringify(buildCard(site, current.card)),
+      signal: AbortSignal.timeout(20000),
+    });
+    const payload = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      card?: Record<string, unknown>;
+    };
+    if (!res.ok) {
+      return {
+        listed: false,
+        error: payload.error || `publish ${res.status}`,
+      };
+    }
+    const host = site.domain.replace(/^www\./, "").toLowerCase();
+    return listingFromCard(host, payload.card ?? { domain: host });
+  } catch (err) {
     return {
       listed: false,
-      error: payload.error || `publish ${res.status}`,
+      error: err instanceof Error ? err.message : "catalog unreachable",
     };
   }
-  const host = site.domain.replace(/^www\./, "").toLowerCase();
-  return listingFromCard(host, payload.card ?? { domain: host });
 }
 
 export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> {
@@ -168,6 +175,10 @@ export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> 
   await mutateStore((store) => {
     for (const update of updates) {
       const site = store.sites.find((s) => s.id === update.id);
+      if (site && update.listing.error && !update.listing.listed && site.botcentral?.listed) {
+        site.botcentral = { ...site.botcentral, error: update.listing.error };
+        continue;
+      }
       if (!site) continue;
       site.botcentral = update.listing;
       let task = store.tasks.find(
@@ -201,6 +212,7 @@ export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> 
         recalcScores(store, site.id);
       }
     }
+    applyPlaybookHrefs(store.tasks, store.sites);
   });
   return stripSecrets(await getStore());
 }

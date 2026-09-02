@@ -97,6 +97,11 @@ export async function attachGithub(
   await mutateStore((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
+    if (repo.toLowerCase() === "citefleet" && site.domain !== "citefleet.app") {
+      throw new Error(
+        `Wrong repo. ${site.domain} files must go in the website repo that deploys to ${site.url}, not mitchvac/citefleet.`,
+      );
+    }
     site.github = {
       owner,
       repo,

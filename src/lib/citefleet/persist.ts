@@ -32,9 +32,9 @@ export function mergeSnapshot(seed: StoreShape, raw: unknown): StoreShape {
     ...p,
     workspace: { ...seed.workspace, ...(p.workspace || {}) },
     control: p.control?.kill ? p.control : seed.control,
-    sites: Array.isArray(p.sites) && p.sites.length ? p.sites : seed.sites,
-    bots: Array.isArray(p.bots) && p.bots.length ? p.bots : seed.bots,
-    tasks: Array.isArray(p.tasks) && p.tasks.length ? p.tasks : seed.tasks,
+    sites: Array.isArray(p.sites) ? p.sites : seed.sites,
+    bots: Array.isArray(p.bots) ? p.bots : seed.bots,
+    tasks: Array.isArray(p.tasks) ? p.tasks : seed.tasks,
     engines:
       Array.isArray(p.engines) && p.engines.length ? p.engines : seed.engines,
     activity: Array.isArray(p.activity) ? p.activity : seed.activity,
