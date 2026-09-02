@@ -105,7 +105,7 @@ test("training: read every lesson, the glossary, and pass the operator test", as
   await expect(page.getByRole("heading", { name: "Indexing playbook" })).toBeVisible();
 });
 
-test("lesson 02 steps 1–3: onboard wflowprocess.app on Command", async ({ page }) => {
+test(`lesson 02 steps 1–3: onboard ${DOMAIN} on Command`, async ({ page }) => {
   await page.goto("/");
   await page.getByText("Onboard a property").waitFor();
   await page.waitForTimeout(600);
@@ -149,7 +149,7 @@ test("lesson 02 step 4: Live audit on the property card", async ({ page }) => {
   await expect(card).toContainText("playbook tasks complete");
 });
 
-test("lesson 02 steps 5–6: campaign board, attach mitchvac/wflowprocess, List on BotCentral", async ({
+test(`lesson 02 steps 5–6: campaign board, attach ${GH_OWNER}/${GH_REPO}, List on BotCentral`, async ({
   page,
 }) => {
   await page.goto("/");
