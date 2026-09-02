@@ -104,11 +104,22 @@ fi
   echo "NITRO_HOST=0.0.0.0"
   echo "NITRO_PORT=3000"
   echo "VITE_AUTH_ENABLED=false"
+  echo "CITEFLEET_PUBLIC_URL=https://citefleet.app"
   echo "BOTCENTRAL_URL=https://botcentral.org"
   printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
   printf 'CITEFLEET_OPERATOR_TOKEN=%s\n' "$OPERATOR_TOKEN"
   if [[ -s /root/citefleet-github.token ]]; then
     printf 'GITHUB_TOKEN=%s\n' "$(tr -d '\n' < /root/citefleet-github.token)"
+  fi
+  if [[ -s /root/citefleet-google.oauth ]]; then
+    mapfile -t _g < /root/citefleet-google.oauth
+    printf 'GOOGLE_CLIENT_ID=%s\n' "${_g[0]//$'\r'/}"
+    printf 'GOOGLE_CLIENT_SECRET=%s\n' "${_g[1]//$'\r'/}"
+  fi
+  if [[ -s /root/citefleet-github.oauth ]]; then
+    mapfile -t _h < /root/citefleet-github.oauth
+    printf 'GITHUB_OAUTH_CLIENT_ID=%s\n' "${_h[0]//$'\r'/}"
+    printf 'GITHUB_OAUTH_CLIENT_SECRET=%s\n' "${_h[1]//$'\r'/}"
   fi
   printf 'DATABASE_URL=%s\n' "$DB_URL"
 } > .env

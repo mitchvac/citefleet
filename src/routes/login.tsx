@@ -10,14 +10,25 @@ const MESSAGES: Record<string, string> = {
   "bad-token": "That sign-in was not accepted.",
   locked: "Too many attempts. Wait a minute, then try again.",
   "not-configured": "This server is not ready for sign-in yet.",
+  "google-not-configured": "Google sign-in is not enabled on this server yet.",
+  "github-not-configured": "GitHub sign-in is not enabled on this server yet.",
+  "oauth-denied": "Sign-in was cancelled or expired. Try again.",
+  "oauth-failed": "That provider could not complete sign-in. Try email, or try again.",
 };
 
 function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [error, setError] = useState<string | null>(null);
+  const [oauth, setOauth] = useState<{ google: boolean; github: boolean }>({ google: true, github: true });
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("error");
     setError(code ? (MESSAGES[code] ?? "Sign-in failed.") : null);
+    fetch("/api/oauth/providers")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && typeof d.google === "boolean") setOauth({ google: d.google, github: d.github });
+      })
+      .catch(() => undefined);
   }, []);
 
   return (
@@ -49,10 +60,41 @@ function LoginPage() {
             {error}
           </p>
         )}
+
+        <div className="mt-6 space-y-2">
+          <a
+            href="/api/oauth/google"
+            className="flex w-full items-center justify-center rounded-xl border border-white/10 px-4 py-2.5 text-sm hover:bg-white/5"
+          >
+            Continue with Google
+          </a>
+          <a
+            href="/api/oauth/github"
+            className="flex w-full items-center justify-center rounded-xl border border-white/10 px-4 py-2.5 text-sm hover:bg-white/5"
+          >
+            Continue with GitHub
+          </a>
+        </div>
+        {(!oauth.google || !oauth.github) && (
+          <p className="mt-2 text-center text-[11px] text-[#9b95b3]">
+            {!oauth.google && !oauth.github
+              ? "Google and GitHub need OAuth apps on this server. Email still works."
+              : !oauth.google
+                ? "Google is not enabled yet. GitHub and email still work."
+                : "GitHub is not enabled yet. Google and email still work."}
+          </p>
+        )}
+
+        <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+          <span className="h-px flex-1 bg-white/10" />
+          or email
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
+
         <form
           method="post"
           action={mode === "signup" ? "/api/signup" : "/api/login"}
-          className="mt-6 space-y-3"
+          className="space-y-3"
         >
           {mode === "signup" && (
             <label className="block text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
