@@ -10,7 +10,8 @@ Everything the single operator does day to day. Customer-facing steps are in
 The console (every page that shows workspace data, and every action) is behind
 a session. Accounts are **invite-only**: only emails listed in
 `CITEFLEET_OPERATOR_EMAILS` (on the VPS: `/root/citefleet-operator.emails`,
-comma-separated) can sign up or sign in, by email/password, Google, or GitHub.
+comma-separated on a single line) can sign up or sign in, by email/password,
+Google, or GitHub; the provider email must be verified.
 Any other email is refused, and an empty list refuses everyone.
 
 - `https://citefleet.app/login`: email/password (create the account once),
@@ -24,7 +25,7 @@ Any other email is refused, and an empty list refuses everyone.
   signs in through the same form (paste it in the token field).
 - The cookie holds a random session id. Sessions live in memory: a container
   restart or redeploy signs everyone out. Five wrong attempts from one address
-  lock that address out for 60 seconds.
+  (token or password) lock that address out for 60 seconds.
 - Public without sign-in: `/health`, `/llms.txt`, `/sitemap.xml`, the
   Training pages, `/login`, and the two hook endpoints.
 

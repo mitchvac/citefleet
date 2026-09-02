@@ -15,6 +15,7 @@ const MESSAGES: Record<string, string> = {
   "oauth-denied": "Sign-in was cancelled or expired. Try again.",
   "oauth-failed": "That provider could not complete sign-in. Try email, or try again.",
   "not-allowed": "That email is not on this console's operator allow-list. Ask the operator to add it.",
+  "email-unverified": "That provider account has no verified email address, so it cannot be matched to the allow-list.",
 };
 
 function LoginPage() {

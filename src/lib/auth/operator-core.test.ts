@@ -5,7 +5,10 @@ import {
   MAX_FAILURES,
   OPERATOR_COOKIE,
   attemptLogin,
+  clearFailures,
   clearedCookie,
+  isLocked,
+  noteFailure,
   hasSession,
   operatorTokenConfigured,
   pruneFailures,
@@ -105,4 +108,18 @@ test("failure records are pruned after an hour and capped, so anonymous traffic 
   assert.equal(trackedClients(), 1, "recent locked record kept");
   pruneFailures(t0 + 60 * 60 * 1000 + 1);
   assert.equal(trackedClients(), 0, "stale record with expired lockout dropped");
+});
+
+test("shared lockout helpers: five failures lock, success clears, other clients unaffected", () => {
+  resetOperatorState();
+  const t0 = 9_000_000;
+  assert.equal(isLocked("pw-client", t0), 0);
+  for (let i = 0; i < MAX_FAILURES; i++) noteFailure("pw-client", t0);
+  const wait = isLocked("pw-client", t0 + 1);
+  assert.ok(wait > 0 && wait <= LOCKOUT_MS, "locked after MAX_FAILURES");
+  assert.equal(isLocked("other-client", t0 + 1), 0, "positive control: other client free");
+  assert.equal(isLocked("pw-client", t0 + LOCKOUT_MS + 1), 0, "released after the window");
+  noteFailure("pw-client", t0 + LOCKOUT_MS + 2);
+  clearFailures("pw-client");
+  assert.equal(isLocked("pw-client", t0 + LOCKOUT_MS + 3), 0);
 });

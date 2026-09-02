@@ -106,6 +106,7 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
   try {
     if (provider === "google") {
       const profile = await googleProfile(code, publicOrigin(request));
+      if (!profile.verified) return loginError("email-unverified");
       if (!isAllowedEmail(profile.email)) return loginError("not-allowed");
       const { upsertOAuthUser } = await import("./users.server");
       await upsertOAuthUser({
@@ -118,6 +119,7 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
     }
     const profile = await githubProfile(code, publicOrigin(request));
     // Checked BEFORE the workspace GitHub token is touched.
+    if (!profile.verified) return loginError("email-unverified");
     if (!isAllowedEmail(profile.email)) return loginError("not-allowed");
     const { upsertOAuthUser } = await import("./users.server");
     await upsertOAuthUser({
@@ -137,7 +139,7 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
   }
 }
 
-async function googleProfile(code: string, origin: string): Promise<{ id: string; email: string; name: string }> {
+async function googleProfile(code: string, origin: string): Promise<{ id: string; email: string; name: string; verified: boolean }> {
   const body = new URLSearchParams({
     code,
     client_id: env("GOOGLE_CLIENT_ID"),
@@ -157,15 +159,15 @@ async function googleProfile(code: string, origin: string): Promise<{ id: string
     headers: { Authorization: `Bearer ${tokenJson.access_token}` },
   });
   if (!me.ok) throw new Error("google userinfo");
-  const profile = (await me.json()) as { id?: string; email?: string; name?: string };
+  const profile = (await me.json()) as { id?: string; email?: string; name?: string; verified_email?: boolean };
   if (!profile.id || !profile.email) throw new Error("google profile");
-  return { id: profile.id, email: profile.email, name: profile.name || profile.email };
+  return { id: profile.id, email: profile.email, name: profile.name || profile.email, verified: profile.verified_email === true };
 }
 
 async function githubProfile(
   code: string,
   origin: string,
-): Promise<{ id: string; email: string; name: string; token: string }> {
+): Promise<{ id: string; email: string; name: string; token: string; verified: boolean }> {
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
@@ -185,24 +187,22 @@ async function githubProfile(
   });
   if (!me.ok) throw new Error("github user");
   const user = (await me.json()) as { id?: number; login?: string; name?: string; email?: string | null };
-  let email = (user.email || "").trim();
-  if (!email) {
-    const emailsRes = await fetch("https://api.github.com/user/emails", {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "citefleet" },
-    });
-    if (emailsRes.ok) {
-      const emails = (await emailsRes.json()) as Array<{ email: string; primary?: boolean; verified?: boolean }>;
-      email =
-        emails.find((e) => e.primary && e.verified)?.email ||
-        emails.find((e) => e.verified)?.email ||
-        emails[0]?.email ||
-        "";
-    }
+  // Only a VERIFIED address may match the allow-list: the public profile email
+  // and the noreply fallback are not proof of anything.
+  let email = "";
+  const emailsRes = await fetch("https://api.github.com/user/emails", {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "citefleet" },
+  });
+  if (emailsRes.ok) {
+    const emails = (await emailsRes.json()) as Array<{ email: string; primary?: boolean; verified?: boolean }>;
+    email = emails.find((e) => e.primary && e.verified)?.email || emails.find((e) => e.verified)?.email || "";
   }
   if (!user.id) throw new Error("github profile");
+  const verified = Boolean(email);
   if (!email) email = `${user.login || user.id}@users.noreply.github.com`;
   return {
     id: String(user.id),
+    verified,
     email,
     name: user.name || user.login || email,
     token,

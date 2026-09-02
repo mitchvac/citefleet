@@ -48,7 +48,15 @@ Set it to Neon/Postgres for durable workspaces.
 
 Optional: `XAI_API_KEY` for live Grok briefs. Never commit it.
 
-## 2b. Operator sign-in
+## 2b. Sign-in (invite-only accounts + operator token)
+
+Accounts are invite-only: put the allowed emails, comma-separated on ONE line,
+in `/root/citefleet-operator.emails`; `deploy-vps.sh` injects
+`CITEFLEET_OPERATOR_EMAILS`. Google/GitHub OAuth apps go in
+`/root/citefleet-google.oauth` / `/root/citefleet-github.oauth` (line 1 id,
+line 2 secret; redirect URIs `/api/oauth/google-callback`,
+`/api/oauth/github-callback`). Sign-up, sign-in and OAuth refuse any other
+email; an empty list refuses everyone.
 
 `deploy/deploy-vps.sh` generates `/root/citefleet-operator.token` once and
 injects it as `CITEFLEET_OPERATOR_TOKEN`. Open `https://citefleet.app/login`

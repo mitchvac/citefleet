@@ -4,8 +4,11 @@ import { isAllowedEmail } from "./operator-allowlist.ts";
 import {
   OPERATOR_COOKIE,
   attemptLogin,
+  clearFailures,
   clearedCookie,
   createSession,
+  isLocked,
+  noteFailure,
   hasSession,
   operatorTokenConfigured,
   readCookie,
@@ -86,12 +89,21 @@ async function readFields(request: Request): Promise<{
 export async function handleLogin(request: Request): Promise<Response> {
   const fields = await readFields(request);
   if (fields.email && fields.password) {
+    const key = clientKey(request);
+    const wait = isLocked(key);
+    if (wait > 0) return loginError("locked", wait);
+    const { verifyUser, burnPasswordTime } = await import("./users.server");
     // Invite-only console: an email outside CITEFLEET_OPERATOR_EMAILS gets the
-    // same answer as a wrong password (no account enumeration).
-    if (!isAllowedEmail(fields.email)) return loginError("bad-credentials");
-    const { verifyUser } = await import("./users.server");
-    const user = await verifyUser(fields.email, fields.password);
-    if (!user) return loginError("bad-credentials");
+    // same answer — and the same scrypt cost — as a wrong password, so neither
+    // the response nor its timing says whether an address is listed or registered.
+    let user = null;
+    if (isAllowedEmail(fields.email)) user = await verifyUser(fields.email, fields.password);
+    else await burnPasswordTime(fields.password);
+    if (!user) {
+      noteFailure(key);
+      return loginError("bad-credentials");
+    }
+    clearFailures(key);
     return signedInResponse(request, createSession());
   }
   const result = attemptLogin(fields.token, clientKey(request));

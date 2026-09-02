@@ -34,9 +34,10 @@ npm ci
 CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) npm run dev   # then sign in at http://localhost:8080/login with that value
 ```
 
-The console is behind a single-operator gate (`/login`). Without
-`CITEFLEET_OPERATOR_TOKEN` every action refuses. Customer webhooks and
-`/health` stay public.
+The console is behind a session gate (`/login`): invite-only accounts
+(email/password, Google, GitHub) for the emails in `CITEFLEET_OPERATOR_EMAILS`,
+plus the server token as an ops fallback. Without either, every action refuses.
+Customer webhooks and `/health` stay public.
 
 ## Production (shared VPS)
 

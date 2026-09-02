@@ -48,6 +48,21 @@ export function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(da, db);
 }
 
+/** Per-client failure tracking shared by the token and password paths. */
+export function isLocked(clientKey: string, now = Date.now()): number {
+  pruneFailures(now);
+  const f = failures.get(clientKey);
+  return f && f.lockedUntil > now ? f.lockedUntil - now : 0;
+}
+export function noteFailure(clientKey: string, now = Date.now()): void {
+  const f = failures.get(clientKey);
+  const count = (f && f.lockedUntil <= now && f.count >= MAX_FAILURES ? 0 : (f?.count ?? 0)) + 1;
+  failures.set(clientKey, { count, lockedUntil: count >= MAX_FAILURES ? now + LOCKOUT_MS : 0, lastAt: now });
+}
+export function clearFailures(clientKey: string): void {
+  failures.delete(clientKey);
+}
+
 export type LoginResult =
   | { ok: true; sessionId: string }
   | { ok: false; reason: "not-configured" | "locked" | "bad-token"; retryAfterMs?: number };
@@ -61,15 +76,13 @@ export function attemptLogin(
   const token = (opts.token ?? process.env.CITEFLEET_OPERATOR_TOKEN ?? "").trim();
   const now = opts.now ?? Date.now();
   if (!operatorTokenConfigured(token)) return { ok: false, reason: "not-configured" };
-  pruneFailures(now);
-  const f = failures.get(clientKey);
-  if (f && f.lockedUntil > now) return { ok: false, reason: "locked", retryAfterMs: f.lockedUntil - now };
+  const wait = isLocked(clientKey, now);
+  if (wait > 0) return { ok: false, reason: "locked", retryAfterMs: wait };
   if (!safeEqual(presented.trim(), token)) {
-    const count = (f && f.lockedUntil <= now && f.count >= MAX_FAILURES ? 0 : (f?.count ?? 0)) + 1;
-    failures.set(clientKey, { count, lockedUntil: count >= MAX_FAILURES ? now + LOCKOUT_MS : 0, lastAt: now });
+    noteFailure(clientKey, now);
     return { ok: false, reason: "bad-token" };
   }
-  failures.delete(clientKey);
+  clearFailures(clientKey);
   return { ok: true, sessionId: createSession(now) };
 }
 

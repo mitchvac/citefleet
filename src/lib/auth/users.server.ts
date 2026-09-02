@@ -27,6 +27,13 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
 
 export type CiteFleetUser = { id: string; email: string; name: string };
 
+// A real scrypt hash of an unguessable value, used so that "no such account"
+// and "not allow-listed" cost the same time as a wrong password.
+const DUMMY_HASH = "5f0b1a4e6d2c9f8a7b3e1d0c2a9b8f7e:3f9a2c1e8b7d6f5a4c3b2a1908f7e6d5c4b3a2918f7e6d5c4b3a291807f6e5d4";
+export async function burnPasswordTime(password: string): Promise<void> {
+  await verifyPassword(password || "x", DUMMY_HASH);
+}
+
 export async function createUser(input: {
   email: string;
   name: string;
@@ -63,7 +70,10 @@ export async function verifyUser(
     [email],
   );
   const row = rows[0];
-  if (!row?.password_hash) return null;
+  if (!row?.password_hash) {
+    await burnPasswordTime(password);
+    return null;
+  }
   if (!(await verifyPassword(password, row.password_hash))) return null;
   return { id: row.id, email: row.email, name: row.name };
 }
