@@ -11,7 +11,7 @@ import {
 } from "./store";
 import { assertCanAct, doorForPlaybook, freezeReason, isFrozen } from "./control";
 import type { AuditResult, PlaybookId, Site, Task } from "./types";
-import { siteVerifyToken, verifyTokenFor } from "./verify-token.ts";
+import { siteVerifyToken } from "./verify-token.ts";
 
 function botForPlaybook(playbookId: PlaybookId) {
   return FLEET_TEMPLATE.find((b) => b.playbookIds.includes(playbookId));
@@ -36,7 +36,7 @@ export async function onboardSite(input: {
     status: "auditing",
     sitemapUrl: `${url}/sitemap.xml`,
     indexNowKey: input.indexNowKey,
-    verifyToken: verifyTokenFor(domain),
+    verifyToken: siteVerifyToken({ domain }),
     routes: input.routes?.length
       ? input.routes
       : ["/", "/privacy", "/terms", "/about"],
@@ -407,8 +407,8 @@ export async function publishSiteToBotCentral(siteId: string) {
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
 
-  // Backfill sites onboarded before verifyToken existed; the card and the
-  // origin pack must carry the same value.
+  // Persist the token the card carries so the campaign page can show the line
+  // the origin must serve.
   const verifyToken = siteVerifyToken(site);
   const listing = await publishListing({ ...site, verifyToken });
 

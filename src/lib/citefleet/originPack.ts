@@ -1,4 +1,5 @@
 import type { Site } from "./types";
+import { siteVerifyToken, verifyLine } from "./verify-token.ts";
 
 const AI_AGENTS = [
   "GPTBot",
@@ -83,8 +84,10 @@ export function buildOriginPack(site: Site): OriginFile[] {
     `canonical: ${origin}`,
     `publisher: citefleet`,
     `catalog: https://botcentral.org/site/${site.domain}`,
-    `verify: citefleet-app`,
-    `botcentral-verify=citefleet-app`,
+    // Legacy line kept for files/readers of the old format; the next line is the
+    // BotCentral SPEC §4.2 form. Both carry the same shared publisher token.
+    `verify: ${siteVerifyToken(site)}`,
+    verifyLine(siteVerifyToken(site)),
     "",
   ].join("\n");
 

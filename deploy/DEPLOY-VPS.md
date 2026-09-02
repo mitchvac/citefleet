@@ -86,12 +86,13 @@ Open https://citefleet.app
 
 ## 5. Rollout of the BotCentral proof token (one-time, after deploying 09d0ef4 or later)
 
-CiteFleet now sends a per-domain `verifyToken` (HMAC keyed by
-`BOTCENTRAL_SERVICE_TOKEN`) and writes the matching `botcentral-verify=<token>`
-line into each origin's `/.well-known/botcentral.txt`. Files deployed before
-this still say `verify: citefleet-app`, and BotCentral rejects a publish (422,
-"ownership not proven") until the new line is live. The catalog row of an
-already-listed site is untouched by a rejected refresh.
+CiteFleet sends the shared publisher token `citefleet-app` as the card's
+`verifyToken` and writes it into each origin's `/.well-known/botcentral.txt`
+(`verify: citefleet-app` plus `botcentral-verify=citefleet-app`). Every file
+CiteFleet wrote before already contains it, so origins that serve one pass
+without a redeploy. A new origin needs the file (Push origin files, then deploy)
+or an apex DNS TXT record `botcentral-verify=citefleet-app`. The catalog row of
+an already-listed site is untouched by a rejected refresh.
 
 Order:
 

@@ -73,7 +73,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "6. List on BotCentral",
-        body: "First prove control: Push origin files from the campaign (or paste the botcentral-verify line shown there into a DNS TXT record) and deploy, so /.well-known/botcentral.txt serves the token as plain text. Then on Command or the campaign header click List on BotCentral. Orion publishes a BotCentral 1.0 card. This is the bot-search catalog at botcentral.org. Assistants do not fill a submit form. You never paste a ChatGPT URL to get listed here.",
+        body: "First prove control: the origin must serve /.well-known/botcentral.txt as plain text containing botcentral-verify=citefleet-app (Push origin files from the campaign and deploy, or put that same line in an apex DNS TXT record). Files CiteFleet wrote before already pass. Then on Command or the campaign header click List on BotCentral. Orion publishes a BotCentral 1.0 card. This is the bot-search catalog at botcentral.org. Assistants do not fill a submit form. You never paste a ChatGPT URL to get listed here.",
       },
       {
         title: "7. Confirm the listing",
