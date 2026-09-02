@@ -25,6 +25,9 @@ export interface HostingDeps {
   now?: () => Date;
 }
 
+// Apex addresses observed for Vercel-hosted domains (xrptokenizer.app, 2026-09-02) plus
+// Vercel's documented 76.76.21.21. Only consulted when no header/CNAME signature exists;
+// expect drift and treat a match as medium confidence.
 const VERCEL_A = new Set(["76.76.21.21", "216.150.1.193", "216.150.16.129", "216.150.1.1", "216.150.16.1"]);
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
@@ -68,6 +71,7 @@ export async function detectHosting(
   }
   const sameServerAsCiteFleet = a.some((ip) => ourIps.includes(ip));
   if (sameServerAsCiteFleet) evidence.push("same address as citefleet.app");
+  if (!ourIps.length) evidence.push("citefleet.app address unknown (could not compare)");
 
   const done = (provider: HostingProvider, confidence: HostingResult["confidence"], deploysOnPush: boolean): HostingResult => ({
     provider,
@@ -79,18 +83,24 @@ export async function detectHosting(
     checkedAt,
   });
 
+  // Headers prove the site answered, so header rules come first. Then: no
+  // answer at all is "unreachable" no matter where DNS points (a Vercel CNAME
+  // with no deployment must not read as "deploys on push"). DNS-only rules last.
   if (server.includes("vercel") || h["x-vercel-id"]) return done("vercel", "high", true);
   if (server.includes("netlify") || h["x-nf-request-id"]) return done("netlify", "high", true);
   if (server.includes("github.com") || h["x-github-request-id"]) return done("github-pages", "high", true);
+  if (input.status === null && !input.headers) {
+    evidence.push(a.length ? "no HTTP response" : "no A record");
+    if (cnames.some((c) => c.includes("vercel-dns.com") || c.endsWith("vercel.app")) || a.some((ip) => VERCEL_A.has(ip))) {
+      evidence.push("DNS points at Vercel but nothing answers (no deployment or domain not assigned)");
+    }
+    return done("unreachable", "high", false);
+  }
   if (cnames.some((c) => c.includes("vercel-dns.com") || c.endsWith("vercel.app"))) return done("vercel", "medium", true);
   if (cnames.some((c) => c.includes("netlify"))) return done("netlify", "medium", true);
   if (cnames.some((c) => c.endsWith("github.io"))) return done("github-pages", "medium", true);
   if (a.some((ip) => VERCEL_A.has(ip))) return done("vercel", "medium", true);
   if (server.includes("cloudflare") || h["cf-ray"]) return done("cloudflare", "medium", false);
-  if (input.status === null && !input.headers) {
-    evidence.push(a.length ? "no HTTP response" : "no A record");
-    return done("unreachable", "high", false);
-  }
   if (/nginx|apache|caddy|openresty|litespeed/.test(server)) return done("self-hosted", "high", false);
   return done("unknown", "low", false);
 }

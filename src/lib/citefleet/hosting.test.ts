@@ -56,3 +56,24 @@ test("unknown when reachable with no signature; DNS failures never throw", async
   assert.match(hostingHint(undefined, "u.app"), /well-known\/botcentral\.txt/);
   assert.match(hostingHint(r, "u.app"), /DNS TXT/);
 });
+
+test("DNS at Vercel but nothing answers is Unreachable, never 'deploys on push'", async () => {
+  const r = await detectHosting({ domain: "v.app", headers: null, status: null }, { resolve4: async () => ["216.150.1.193"], resolveCname: async () => ["cname.vercel-dns.com."], citefleetIps: ours, now });
+  assert.equal(r.provider, "unreachable");
+  assert.equal(r.deploysOnPush, false);
+  assert.ok(r.evidence.some((e) => e.includes("DNS points at Vercel")));
+  assert.match(hostingHint(r, "v.app"), /Deploy the site first/);
+});
+
+test("hint branches: deploys-on-push providers, Cloudflare, self-hosted elsewhere; unknown own address is noted", async () => {
+  const deps = { resolve4: none, resolveCname: none, citefleetIps: ours, now };
+  const v = await detectHosting({ domain: "x.app", headers: { server: "Vercel" }, status: 200 }, deps);
+  assert.match(hostingHint(v, "x.app"), /Vercel deploys on push/);
+  const cf = await detectHosting({ domain: "c.app", headers: { "cf-ray": "1" }, status: 200 }, deps);
+  assert.match(hostingHint(cf, "c.app"), /Behind Cloudflare/);
+  const sh = await detectHosting({ domain: "s.app", headers: { server: "Apache/2.4" }, status: 200 }, { resolve4: async () => ["203.0.113.5"], resolveCname: none, citefleetIps: ours, now });
+  assert.equal(sh.sameServerAsCiteFleet, false);
+  assert.match(hostingHint(sh, "s.app"), /redeploy s\.app/);
+  const unknownOwn = await detectHosting({ domain: "s.app", headers: { server: "nginx" }, status: 200 }, { resolve4: async () => ["203.0.113.5"], resolveCname: none, citefleetIps: async () => [], now });
+  assert.ok(unknownOwn.evidence.some((e) => e.includes("citefleet.app address unknown")));
+});

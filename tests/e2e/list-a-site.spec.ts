@@ -149,6 +149,7 @@ test("lesson 02 step 4: Live audit on the property card", async ({ page }) => {
   await expect(card).toContainText("playbook tasks complete");
   // The audit names the hosting provider (Vercel / Netlify / GitHub Pages / Self-hosted / Unreachable …).
   await expect(card.getByTestId("hosting")).toBeVisible();
+  await expect(card.getByTestId("hosting")).toHaveText(/^(Vercel|Netlify|GitHub Pages|Behind Cloudflare|Self-hosted|Unreachable|Unknown host)$/);
   test.info().annotations.push({ type: "hosting", description: await card.getByTestId("hosting").innerText() });
 });
 
@@ -162,6 +163,7 @@ test(`lesson 02 steps 5–6: campaign board, attach ${GH_OWNER}/${GH_REPO}, List
 
   // P1 crawl-integrity tasks are on the board (lesson 06 priority order).
   await expect(page.getByRole("heading", { name: SITE_NAME, exact: true })).toBeVisible();
+  await expect(page.getByTestId("hosting-line")).toContainText("Hosting:"); // persisted by the audit
   await expect(page.getByRole("heading", { name: "Repair SPA fallback 404s" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Welcome AI crawlers in robots.txt" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Publish and submit sitemap.xml" })).toBeVisible();

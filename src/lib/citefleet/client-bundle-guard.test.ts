@@ -7,6 +7,8 @@ import { test } from "node:test";
 // crashes the route in the browser (seen 2026-09-02: node:dns via hosting.ts).
 // Walk the direct imports of every component/route file and refuse any that
 // resolve to a module importing `node:` at top level.
+// Known limits: direct imports only (not two hops deep), `node:`-prefixed
+// specifiers only (a bare "dns/promises" is not flagged), static imports only.
 const SRC = path.resolve(import.meta.dirname, "..", "..");
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
