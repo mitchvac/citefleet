@@ -1,4 +1,4 @@
-# CiteFleet — shared-VPS layout on 144.91.66.158:
+# CiteFleet — same layout as Resonance / BotCentral on 144.91.66.158:
 # multi-stage Node image, listen 3000, host binds 127.0.0.1:3021:3000, nginx TLS.
 #
 # Build:  docker build -t citefleet .
@@ -20,6 +20,7 @@ COPY . .
 # (Vercel deploys keep the default preset — this ENV is Docker-only).
 ENV NITRO_PRESET=node-server
 ENV NODE_ENV=production
+ENV VITE_AUTH_ENABLED=true
 RUN npm run build \
   && mkdir -p .output/server/_libs \
   && (cp node_modules/@electric-sql/pglite/dist/pglite.data \

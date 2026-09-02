@@ -53,7 +53,7 @@ export const LESSONS: Lesson[] = [
     steps: [
       {
         title: "1. Open Command",
-        body: "Sign in at /login with the operator token if you are not already (the console is gated; customer hooks and /health are not). Then in the top nav click Command. This is the only place you add a site. You should see Onboard a property on the right of the board.",
+        body: "Sign in at /login with Google, X, or email if you are not already (the console is gated; customer hooks and /health are not). Then in the top nav click Command. This is the only place you add a site. You should see Onboard a property on the right of the board.",
       },
       {
         title: "2. Fill Onboard a property",

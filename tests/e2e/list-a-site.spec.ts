@@ -42,20 +42,18 @@ function siteCard(page: Page) {
     .first();
 }
 
-test.describe("operator gate (signed out)", () => {
+test.describe("user gate (signed out)", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
-  test("the console redirects to /login and a wrong token is refused; hooks still answer", async ({ page, baseURL }) => {
+  test("the console redirects to /login; a wrong password is refused; hooks still answer", async ({ page, baseURL }) => {
     await page.goto("/");
     await page.waitForURL(/\/login/, { timeout: 30000 });
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-    await page.getByLabel("Operator token").fill("definitely-not-the-token-000000000000");
+    await page.getByLabel("Email").fill("nobody@example.com");
+    await page.getByLabel("Password").fill("definitely-wrong-password");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.waitForURL(/\/login\?error=/, { timeout: 30000 });
-    await expect(page.getByTestId("login-error")).toBeVisible();
-    // Signed-out hook call is still answered by the hook (401 from the signature check, not a redirect).
+    await expect(page.getByText(/wrong|invalid|failed|could not/i)).toBeVisible({ timeout: 15000 });
     const r = await page.request.post(`${baseURL}/api/hooks/github`, { data: "{}", headers: { "content-type": "application/json" } });
     expect(r.status()).toBe(401);
-    // Public surface stays public.
     const health = await page.request.get(`${baseURL}/health`);
     expect(health.status()).toBe(200);
   });

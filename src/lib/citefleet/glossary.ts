@@ -188,8 +188,8 @@ export const GLOSSARY: Term[] = [
   },
   {
     id: "operator",
-    term: "Operator token",
+    term: "User account",
     meaning:
-      "The one shared sign-in for this console, set as CITEFLEET_OPERATOR_TOKEN on the server and exchanged at /login for a session cookie. Every action and the workspace data are behind it; customer hooks and /health are not.",
+      "A CiteFleet login (Google, X, or email and password). The console, every action, and workspace data sit behind a signed-in session. Customer webhooks and /health do not — they authenticate by signature or stay public.",
   },
 ];
