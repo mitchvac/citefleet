@@ -12,6 +12,8 @@ import {
 import { assertCanAct, doorForPlaybook, freezeReason, isFrozen } from "./control";
 import type { AuditResult, PlaybookId, Site, Task } from "./types";
 import { siteVerifyToken } from "./verify-token.ts";
+import { checkOriginProof, waitForProof } from "./proof.ts";
+import { deployedUrl, newWebhookSecret, payloadUrl } from "./webhook.ts";
 
 function botForPlaybook(playbookId: PlaybookId) {
   return FLEET_TEMPLATE.find((b) => b.playbookIds.includes(playbookId));
@@ -410,7 +412,16 @@ export async function publishSiteToBotCentral(siteId: string) {
   // Persist the token the card carries so the campaign page can show the line
   // the origin must serve.
   const verifyToken = siteVerifyToken(site);
-  const listing = await publishListing({ ...site, verifyToken });
+  // Pre-flight: apply BotCentral's own proof rules first, so a missing proof is
+  // reported with the exact line to add instead of as a 422 from the registry.
+  const proof = await checkOriginProof({ ...site, verifyToken });
+  await mutateStore((s) => {
+    const current = s.sites.find((x) => x.id === siteId);
+    if (current) current.proof = proof;
+  });
+  const listing = proof.proven
+    ? await publishListing({ ...site, verifyToken })
+    : { listed: false, error: `Proof not live yet — ${proof.note}` };
 
   await mutateStore((s) => {
     const current = s.sites.find((x) => x.id === siteId);
@@ -470,6 +481,86 @@ export async function publishSiteToBotCentral(siteId: string) {
   // return. Callers only need the status fields.
   const { card: _card, ...status } = listing;
   return status;
+}
+
+/** Store the last proof check on the site and return it (the "Verify proof" button). */
+export async function verifySiteProof(siteId: string) {
+  const store = await getStore();
+  const site = store.sites.find((s) => s.id === siteId);
+  if (!site) throw new Error("Site not found");
+  const proof = await checkOriginProof(site);
+  await mutateStore((s) => {
+    const current = s.sites.find((x) => x.id === siteId);
+    if (current) current.proof = proof;
+    logActivity(s, {
+      actor: "Sentinel",
+      kind: "audit",
+      siteId,
+      message: proof.proven
+        ? `Origin proof for ${site.domain} verified (${proof.method}).`
+        : `Origin proof for ${site.domain} not live: ${proof.note}`,
+    });
+  });
+  return proof;
+}
+
+/** Create (or rotate) the property's GitHub webhook secret; returns what the operator pastes into GitHub. */
+export async function ensureWebhookSecret(siteId: string, rotate = false) {
+  let secret = "";
+  await mutateStore((store) => {
+    const site = store.sites.find((s) => s.id === siteId);
+    if (!site) throw new Error("Site not found");
+    if (!site.webhook?.secret || rotate) {
+      site.webhook = { ...(site.webhook ?? {}), secret: newWebhookSecret(), createdAt: new Date().toISOString() };
+      logActivity(store, {
+        actor: "Operator",
+        kind: "control",
+        siteId,
+        message: `${rotate ? "Rotated" : "Created"} the GitHub webhook secret for ${site.domain}.`,
+      });
+    }
+    secret = site.webhook.secret;
+  });
+  return { secret, payloadUrl: payloadUrl(), deployedUrl: deployedUrl(), events: ["push", "deployment_status"] as const };
+}
+
+/**
+ * What a webhook triggers: wait for the proof to appear (deploys lag pushes),
+ * then run the normal publish. Runs in the background of the request.
+ */
+export async function runWebhookListing(
+  siteId: string,
+  reason: string,
+  opts: { attempts?: number; delayMs?: number } = {},
+) {
+  const store = await getStore();
+  const site = store.sites.find((s) => s.id === siteId);
+  if (!site) return { ok: false, error: "Site not found" };
+  const proof = await waitForProof(site, { attempts: opts.attempts ?? 10, delayMs: opts.delayMs ?? 30_000 });
+  await mutateStore((s) => {
+    const current = s.sites.find((x) => x.id === siteId);
+    if (current) {
+      current.proof = proof;
+      if (current.webhook) current.webhook.lastResult = proof.proven ? `proof ${proof.method} after ${proof.attempts} check(s)` : `proof not live after ${proof.attempts} check(s)`;
+    }
+  });
+  if (!proof.proven) {
+    await mutateStore((s) =>
+      logActivity(s, {
+        actor: "Sentinel",
+        kind: "audit",
+        siteId,
+        message: `Webhook (${reason}): origin proof for ${site.domain} did not appear after ${proof.attempts} checks. ${proof.note}`,
+      }),
+    );
+    return { ok: false, error: proof.note };
+  }
+  try {
+    const listing = await publishSiteToBotCentral(siteId);
+    return { ok: true, listed: listing.listed, href: listing.href };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "publish failed" };
+  }
 }
 
 export async function patchTask(

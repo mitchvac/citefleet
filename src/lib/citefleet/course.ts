@@ -329,6 +329,32 @@ export const LESSONS: Lesson[] = [
       },
     ],
   },
+  {
+    slug: "webhook",
+    number: "13",
+    title: "Automate listing with a webhook",
+    summary:
+      "Prove control once, then let every deploy re-check the proof and refresh the card without anyone clicking.",
+    where: "Campaign → Automatic listing",
+    steps: [
+      {
+        title: "Verify proof first",
+        body: "Click Verify proof on the campaign. CiteFleet applies BotCentral’s own rules: /.well-known/botcentral.txt must be plain text containing botcentral-verify=citefleet-app, or an apex DNS TXT record must carry that line. If it fails you get the exact line to add, and nothing is sent to BotCentral.",
+      },
+      {
+        title: "Generate the secret",
+        body: "Generate webhook secret creates a per-property secret. Copy the Payload URL and the secret into the website repo: Settings → Webhooks → Add webhook, content type application/json, events push and deployment_status.",
+      },
+      {
+        title: "What a delivery does",
+        body: "A push to the attached branch or a successful deployment_status makes CiteFleet re-check the proof (retrying for a few minutes while the deploy lands) and then List or Refresh the card. Anything else is answered and ignored. Every delivery shows under Last delivery and in the Audit log.",
+      },
+      {
+        title: "Customers you do not host",
+        body: "They do not need the webhook. A DNS TXT record proves control with no deploy at all, and Verify proof or autopilot will pick it up. Any CI that is not GitHub can POST {domain} to /api/hooks/deployed with the same secret after a deploy. The webhook only makes listing immediate.",
+      },
+    ],
+  },
 ];
 
 export const QUIZ: QuizQuestion[] = [

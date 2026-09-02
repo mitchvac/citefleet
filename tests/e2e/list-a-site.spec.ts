@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { typeSlow } from "./typeSlow";
 import { LESSONS, QUIZ } from "../../src/lib/citefleet/course";
@@ -172,7 +173,7 @@ test("lesson 02 steps 5–6: campaign board, attach mitchvac/wflowprocess, List 
   await page.screenshot({ path: "test-results/wflowprocess-campaign.png", fullPage: true });
   // Soft so the remaining lessons still run; the suite still reports red if listing failed.
   expect.soft(errorText, "BotCentral publish error banner").toBe("");
-  await expect.soft(page.getByText("Live on BotCentral")).toBeVisible({ timeout: 10000 });
+  await expect.soft(page.getByText("Live on BotCentral").first()).toBeVisible({ timeout: 10000 });
   // The proof line the origin must serve (verify-token.ts); shown once the site has a token.
   const proof = gh.getByText(/botcentral-verify=\S+/);
   await expect.soft(proof, "proof token line in Origin files panel").toBeVisible({ timeout: 10000 });
@@ -198,6 +199,66 @@ test("lesson 02 step 7: confirm the listing on Command and at botcentral.org", a
     description: `HTTP ${machine.status()}`,
   });
   expect.soft(machine.status(), "GET /v1/site/{domain}").toBe(200);
+});
+
+test("lesson 13: Automatic listing — verify proof, generate the webhook secret, signed deliveries", async ({
+  page,
+  baseURL,
+}) => {
+  await page.goto("/");
+  const card = siteCard(page);
+  await card.waitFor({ timeout: 30000 });
+  await card.getByRole("link", { name: "Open campaign" }).click();
+  const panel = page.getByTestId("auto-listing");
+  await panel.scrollIntoViewIfNeeded();
+  await expect(panel.getByTestId("webhook-url")).toHaveText(/\/api\/hooks\/github$/);
+
+  // Verify proof applies BotCentral's rules locally and records the result.
+  await panel.getByRole("button", { name: "Verify proof" }).click();
+  await expect(panel.getByRole("button", { name: "Verify proof" })).toBeEnabled({ timeout: 60000 });
+  await expect(panel.getByTestId("proof-note")).toBeVisible();
+  test.info().annotations.push({ type: "proof", description: await panel.getByTestId("proof-note").innerText() });
+
+  // Generate the secret the customer pastes into GitHub.
+  await panel.getByRole("button", { name: /Generate webhook secret|Rotate webhook secret/ }).click();
+  await expect(panel.getByTestId("webhook-secret")).toHaveText(/^[0-9a-f]{48}$/, { timeout: 30000 });
+  const secret = (await panel.getByTestId("webhook-secret").innerText()).trim();
+  const hooks = `${baseURL}/api/hooks/github`;
+  const sign = (body: string) => `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
+  const repo = { full_name: `${GH_OWNER}/${GH_REPO}` };
+
+  // Unsigned delivery is refused.
+  const bad = JSON.stringify({ ref: "refs/heads/main", repository: repo });
+  const unsigned = await page.request.post(hooks, { data: bad, headers: { "content-type": "application/json", "x-github-event": "push" } });
+  expect(unsigned.status()).toBe(401);
+
+  // GitHub's ping is answered 200.
+  const ping = JSON.stringify({ zen: "Keep it logically awesome.", repository: repo });
+  const pinged = await page.request.post(hooks, { data: ping, headers: { "content-type": "application/json", "x-github-event": "ping", "x-github-delivery": "e2e-ping", "x-hub-signature-256": sign(ping) } });
+  expect(pinged.status()).toBe(200);
+
+  // A push to another branch is acknowledged and ignored; a push to main queues the check.
+  const feature = JSON.stringify({ ref: "refs/heads/feature", repository: repo });
+  const ignored = await page.request.post(hooks, { data: feature, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": "e2e-feature", "x-hub-signature-256": sign(feature) } });
+  expect(ignored.status()).toBe(202);
+  expect((await ignored.json()).action).toBe("ignore");
+  const main = JSON.stringify({ ref: "refs/heads/main", repository: repo });
+  const accepted = await page.request.post(hooks, { data: main, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": "e2e-main", "x-hub-signature-256": sign(main) } });
+  expect(accepted.status()).toBe(202);
+  expect((await accepted.json()).action).toBe("check");
+
+  // Any other CI: the generic deployed hook with the same secret.
+  const deployedBody = JSON.stringify({ domain: DOMAIN });
+  const deployed = await page.request.post(`${baseURL}/api/hooks/deployed`, { data: deployedBody, headers: { "content-type": "application/json", "x-citefleet-delivery": "e2e-ci", "x-citefleet-signature": sign(deployedBody) } });
+  expect(deployed.status()).toBe(202);
+  expect((await deployed.json()).action).toBe("check");
+  await expect(panel.getByTestId("deployed-url")).toHaveText(/\/api\/hooks\/deployed$/);
+
+  await page.reload();
+  await panel.scrollIntoViewIfNeeded();
+  await expect(panel.getByTestId("webhook-last")).toContainText("deploy reported", { timeout: 30000 });
+  await page.goto("/activity");
+  await expect(page.getByText(`Webhook received for ${DOMAIN} (push to main)`).first()).toBeVisible();
 });
 
 test("lesson 12: Monitor — run monitor + reconcile (observe only, no freeze)", async ({

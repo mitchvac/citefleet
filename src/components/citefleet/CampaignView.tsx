@@ -140,6 +140,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
       </div>
 
       <GithubPanel site={site} fleet={fleet} />
+      <AutoListingPanel site={site} fleet={fleet} />
 
       <div className="glass rounded-3xl p-2 md:p-4">
         <div className="space-y-3">
@@ -159,6 +160,87 @@ export function CampaignView({ siteId }: { siteId: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function AutoListingPanel({
+  site,
+  fleet,
+}: {
+  site: Site;
+  fleet: ReturnType<typeof useFleet>;
+}) {
+  const proof = site.proof;
+  const hook = site.webhook;
+  const payload = "https://citefleet.app/api/hooks/github";
+  const deployed = "https://citefleet.app/api/hooks/deployed";
+  return (
+    <section className="glass rounded-3xl p-5" data-testid="auto-listing">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+            Automatic listing
+          </p>
+          <h2 className="mt-1 text-lg font-semibold">Origin proof and GitHub webhook</h2>
+          <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
+            CiteFleet checks the proof with BotCentral’s own rules before it publishes. A
+            webhook from the website repo triggers that check and the listing automatically
+            after every deploy.
+          </p>
+        </div>
+        <Pill tone={proof?.proven ? "good" : "warn"}>
+          {proof ? (proof.proven ? `proof ${proof.method}` : "proof not live") : "proof unchecked"}
+        </Pill>
+      </div>
+      {proof && (
+        <p className="mt-3 text-xs text-[#9b95b3]" data-testid="proof-note">
+          {proof.note} · checked {new Date(proof.checkedAt).toLocaleString()}
+        </p>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
+          disabled={!!fleet.busy}
+          onClick={() => fleet.verifyProof(site.id)}
+        >
+          {fleet.busy === "proof" ? "Checking…" : "Verify proof"}
+        </button>
+        <button
+          type="button"
+          className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
+          disabled={!!fleet.busy}
+          onClick={() => fleet.webhookSecret(site.id, Boolean(hook?.secret))}
+        >
+          {fleet.busy === "webhook" ? "Working…" : hook?.secret ? "Rotate webhook secret" : "Generate webhook secret"}
+        </button>
+      </div>
+      <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-[160px_1fr]">
+        <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Payload URL</dt>
+        <dd className="mono break-all text-[#cfc8e8]" data-testid="webhook-url">{payload}</dd>
+        <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Secret</dt>
+        <dd className="mono break-all text-[#cfc8e8]" data-testid="webhook-secret">
+          {hook?.secret || "— generate one, then paste it into the repo’s webhook settings"}
+        </dd>
+        <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Any other CI</dt>
+        <dd className="text-[#cfc8e8]">
+          after a deploy, POST <span className="mono">{"{\"domain\":\""}{site.domain}{"\"}"}</span> to{" "}
+          <span className="mono break-all" data-testid="deployed-url">{deployed}</span> with{" "}
+          <span className="mono">X-CiteFleet-Signature: sha256=HMAC(body, secret)</span>
+        </dd>
+        <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Events</dt>
+        <dd className="text-[#cfc8e8]">
+          push (branch <span className="mono">{site.github?.branch || "main"}</span>) and deployment_status · content type
+          application/json
+        </dd>
+        <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Last delivery</dt>
+        <dd className="text-[#cfc8e8]" data-testid="webhook-last">
+          {hook?.lastEventAt
+            ? `${hook.lastEvent} · ${new Date(hook.lastEventAt).toLocaleString()}${hook.lastResult ? ` · ${hook.lastResult}` : ""}`
+            : "none yet"}
+        </dd>
+      </dl>
+    </section>
   );
 }
 

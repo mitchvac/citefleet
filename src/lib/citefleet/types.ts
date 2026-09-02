@@ -85,6 +85,10 @@ export interface Site {
   indexNowKey?: string;
   /** BotCentral proof-of-control token; must appear as botcentral-verify=<token> at the origin. */
   verifyToken?: string;
+  /** Last pre-flight proof check (same rules BotCentral applies). */
+  proof?: { proven: boolean; method: "well-known-file" | "dns-txt" | "none"; note: string; checkedAt: string };
+  /** GitHub webhook intake for automatic listing (secret is shown to the operator). */
+  webhook?: { secret: string; createdAt: string; lastEventAt?: string; lastEvent?: string; lastDelivery?: string; lastResult?: string };
   routes: string[];
   createdAt: string;
   lastAuditAt?: string;

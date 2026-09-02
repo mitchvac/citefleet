@@ -7,7 +7,12 @@ export {
   runTask,
   publishSiteToBotCentral,
   removeSite,
+  verifySiteProof,
+  ensureWebhookSecret,
+  runWebhookListing,
 } from "./dispatcher";
+export { handleGithubWebhook, handleDeployedHook } from "./webhook.ts";
+export { checkOriginProof } from "./proof.ts";
 export { runAutopilotTick, setAutopilot } from "./autopilot";
 export { grokConfigured } from "./grokApi";
 export { hydrateListings, lookupListing, publisherReady } from "./botcentral";

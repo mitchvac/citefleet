@@ -43,6 +43,20 @@ export const removePropertyFn = createServerFn({ method: "POST" })
     return removeSite(data.siteId);
   });
 
+export const verifyProofFn = createServerFn({ method: "POST" })
+  .validator((d: { siteId: string }) => d)
+  .handler(async ({ data }) => {
+    const { verifySiteProof } = await import("./ops.server");
+    return verifySiteProof(data.siteId);
+  });
+
+export const webhookSecretFn = createServerFn({ method: "POST" })
+  .validator((d: { siteId: string; rotate?: boolean }) => d)
+  .handler(async ({ data }) => {
+    const { ensureWebhookSecret } = await import("./ops.server");
+    return ensureWebhookSecret(data.siteId, Boolean(data.rotate));
+  });
+
 export const auditProperty = createServerFn({ method: "POST" })
   .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {

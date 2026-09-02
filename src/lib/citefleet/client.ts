@@ -17,6 +17,8 @@ import {
   setGithubTokenFn,
   setKillFn,
   tickAutopilotFn,
+  verifyProofFn,
+  webhookSecretFn,
 } from "./fleet-api";
 
 export function useFleet() {
@@ -100,6 +102,14 @@ export function useFleet() {
     tickAutopilot: () =>
       run("tick", async () => {
         await tickAutopilotFn({ data: { grok: false } });
+      }),
+    verifyProof: (siteId: string) =>
+      run("proof", async () => {
+        await verifyProofFn({ data: { siteId } });
+      }),
+    webhookSecret: (siteId: string, rotate = false) =>
+      run("webhook", async () => {
+        await webhookSecretFn({ data: { siteId, rotate } });
       }),
     removeProperty: (siteId: string) =>
       run("remove", async () => {

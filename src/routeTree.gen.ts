@@ -22,6 +22,8 @@ import { Route as LearnSlugRouteImport } from './routes/learn/$slug'
 import { Route as LearnGlossaryRouteImport } from './routes/learn/glossary'
 import { Route as LearnQuizRouteImport } from './routes/learn/quiz'
 import { Route as SitesIdRouteImport } from './routes/sites/$id'
+import { Route as ApiHooksDeployedRouteImport } from './routes/api/hooks/deployed'
+import { Route as ApiHooksGithubRouteImport } from './routes/api/hooks/github'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -88,6 +90,16 @@ const SitesIdRoute = SitesIdRouteImport.update({
   path: '/sites/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHooksDeployedRoute = ApiHooksDeployedRouteImport.update({
+  id: '/api/hooks/deployed',
+  path: '/api/hooks/deployed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHooksGithubRoute = ApiHooksGithubRouteImport.update({
+  id: '/api/hooks/github',
+  path: '/api/hooks/github',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -103,6 +115,8 @@ export interface FileRoutesByFullPath {
   '/learn/quiz': typeof LearnQuizRoute
   '/sites/$id': typeof SitesIdRoute
   '/learn/': typeof LearnIndexRoute
+  '/api/hooks/deployed': typeof ApiHooksDeployedRoute
+  '/api/hooks/github': typeof ApiHooksGithubRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,6 +132,8 @@ export interface FileRoutesByTo {
   '/learn/quiz': typeof LearnQuizRoute
   '/sites/$id': typeof SitesIdRoute
   '/learn': typeof LearnIndexRoute
+  '/api/hooks/deployed': typeof ApiHooksDeployedRoute
+  '/api/hooks/github': typeof ApiHooksGithubRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,6 +150,8 @@ export interface FileRoutesById {
   '/learn/quiz': typeof LearnQuizRoute
   '/sites/$id': typeof SitesIdRoute
   '/learn/': typeof LearnIndexRoute
+  '/api/hooks/deployed': typeof ApiHooksDeployedRoute
+  '/api/hooks/github': typeof ApiHooksGithubRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +169,8 @@ export interface FileRouteTypes {
     | '/learn/quiz'
     | '/sites/$id'
     | '/learn/'
+    | '/api/hooks/deployed'
+    | '/api/hooks/github'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,6 +186,8 @@ export interface FileRouteTypes {
     | '/learn/quiz'
     | '/sites/$id'
     | '/learn'
+    | '/api/hooks/deployed'
+    | '/api/hooks/github'
   id:
     | '__root__'
     | '/'
@@ -181,6 +203,8 @@ export interface FileRouteTypes {
     | '/learn/quiz'
     | '/sites/$id'
     | '/learn/'
+    | '/api/hooks/deployed'
+    | '/api/hooks/github'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -197,6 +221,8 @@ export interface RootRouteChildren {
   LearnQuizRoute: typeof LearnQuizRoute
   SitesIdRoute: typeof SitesIdRoute
   LearnIndexRoute: typeof LearnIndexRoute
+  ApiHooksDeployedRoute: typeof ApiHooksDeployedRoute
+  ApiHooksGithubRoute: typeof ApiHooksGithubRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -292,6 +318,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hooks/deployed': {
+      id: '/api/hooks/deployed'
+      path: '/api/hooks/deployed'
+      fullPath: '/api/hooks/deployed'
+      preLoaderRoute: typeof ApiHooksDeployedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hooks/github': {
+      id: '/api/hooks/github'
+      path: '/api/hooks/github'
+      fullPath: '/api/hooks/github'
+      preLoaderRoute: typeof ApiHooksGithubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -309,6 +349,8 @@ const rootRouteChildren: RootRouteChildren = {
   LearnQuizRoute: LearnQuizRoute,
   SitesIdRoute: SitesIdRoute,
   LearnIndexRoute: LearnIndexRoute,
+  ApiHooksDeployedRoute: ApiHooksDeployedRoute,
+  ApiHooksGithubRoute: ApiHooksGithubRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
