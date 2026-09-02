@@ -504,22 +504,24 @@ export async function verifySiteProof(siteId: string) {
   return proof;
 }
 
-/** Create (or rotate) the property's GitHub webhook secret; returns what the operator pastes into GitHub. */
-export async function ensureWebhookSecret(siteId: string, rotate = false) {
-  let secret = "";
+/**
+ * Mint a NEW webhook secret for the property and return it once. Never returns
+ * an existing secret: the console is public in v1, so anything a server fn
+ * returns is readable by anyone. Rotating invalidates the previous secret.
+ */
+export async function rotateWebhookSecret(siteId: string) {
+  const secret = newWebhookSecret();
   await mutateStore((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
-    if (!site.webhook?.secret || rotate) {
-      site.webhook = { ...(site.webhook ?? {}), secret: newWebhookSecret(), createdAt: new Date().toISOString() };
-      logActivity(store, {
-        actor: "Operator",
-        kind: "control",
-        siteId,
-        message: `${rotate ? "Rotated" : "Created"} the GitHub webhook secret for ${site.domain}.`,
-      });
-    }
-    secret = site.webhook.secret;
+    const had = Boolean(site.webhook?.secret);
+    site.webhook = { ...(site.webhook ?? {}), secret, createdAt: new Date().toISOString() };
+    logActivity(store, {
+      actor: "Operator",
+      kind: "control",
+      siteId,
+      message: `${had ? "Rotated" : "Created"} the webhook secret for ${site.domain}. The previous one no longer works.`,
+    });
   });
   return { secret, payloadUrl: payloadUrl(), deployedUrl: deployedUrl(), events: ["push", "deployment_status"] as const };
 }

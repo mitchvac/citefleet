@@ -185,3 +185,24 @@ test("only one proof check runs per site at a time; a second delivery is recorde
   assert.equal(beginCheck("site-acme"), false);
   endCheck("site-acme");
 });
+
+test("a failing store write leaves no in-flight slot behind", async () => {
+  const { deps } = storeWith([site()]);
+  endCheck("site-acme");
+  const checks: string[] = [];
+  const raw = push("refs/heads/main");
+  const failing = { ...deps, mutateStore: async () => { throw new Error("persist failed"); }, onCheck: (id: string) => checks.push(id) };
+  await assert.rejects(handleGithubWebhook({ rawBody: raw, header: headersFor(raw, "s3cret", "push", { "x-github-delivery": "leak-1" }) }, failing), /persist failed/);
+  assert.equal(checksInFlight(), 0);
+  assert.equal(checks.length, 0);
+});
+
+test("a redelivered ping is still answered 200 (pings are not deduped)", async () => {
+  const { deps } = storeWith([site()]);
+  endCheck("site-acme");
+  const d = { ...deps, onCheck: () => {} };
+  const ping = JSON.stringify({ zen: "hi", repository: { full_name: "acme/site" } });
+  const h = headersFor(ping, "s3cret", "ping", { "x-github-delivery": "p-1" });
+  assert.equal((await handleGithubWebhook({ rawBody: ping, header: h }, d)).status, 200);
+  assert.equal((await handleGithubWebhook({ rawBody: ping, header: h }, d)).status, 200);
+});

@@ -41,8 +41,8 @@ automatically.
 
 1. On the campaign page under **Automatic listing**, click **Generate webhook
    secret**. Copy the Payload URL and the secret.
-   The secret is shown once; copy it before you leave the page (rotate to get a
-   new one).
+   The secret is shown once and never again; copy it before you leave the page.
+   Rotate creates a new one and retires the old one immediately.
 2. In your repository: **Settings → Webhooks → Add webhook**.
    - Payload URL: the one shown (`https://citefleet.app/api/hooks/github`)
    - Content type: `application/json`
@@ -83,6 +83,7 @@ CiteFleet answers 202 and does exactly what it does for a GitHub push.
 
 ## 3. If you do not use GitHub or cannot add webhooks
 
-Nothing else is required. Use the DNS record (or the file), then Verify proof.
-While the operator has autopilot on, CiteFleet also re-checks unlisted
-properties every few minutes and lists them when the proof appears.
+Nothing else is required. Use the DNS record (or the file), then ask the
+operator to click Verify proof (or List on BotCentral) on your campaign. With
+autopilot on in the open console, CiteFleet re-checks unlisted properties
+every few minutes as well.

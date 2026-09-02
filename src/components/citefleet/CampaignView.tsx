@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFleet } from "@/lib/citefleet/client";
 import { Pill } from "./Shell";
 import { GrokHandoff } from "./GrokHandoff";
@@ -174,8 +174,12 @@ function AutoListingPanel({
   const hook = site.webhook;
   // The secret is shown once, right after generate/rotate; the store never carries it.
   const [revealed, setRevealed] = useState<{ secret: string; payloadUrl: string; deployedUrl: string } | null>(null);
-  const payload = revealed?.payloadUrl ?? "https://citefleet.app/api/hooks/github";
-  const deployed = revealed?.deployedUrl ?? "https://citefleet.app/api/hooks/deployed";
+  const [origin, setOrigin] = useState("https://citefleet.app");
+  useEffect(() => {
+    if (typeof window !== "undefined") setOrigin(window.location.origin);
+  }, []);
+  const payload = revealed?.payloadUrl ?? `${origin}/api/hooks/github`;
+  const deployed = revealed?.deployedUrl ?? `${origin}/api/hooks/deployed`;
   const hasSecret = Boolean(hook?.createdAt);
   return (
     <section className="glass rounded-3xl p-5" data-testid="auto-listing">
@@ -214,7 +218,7 @@ function AutoListingPanel({
           className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
           disabled={!!fleet.busy}
           onClick={async () => {
-            const r = await fleet.webhookSecret(site.id, hasSecret);
+            const r = await fleet.webhookSecret(site.id);
             if (r) setRevealed({ secret: r.secret, payloadUrl: r.payloadUrl, deployedUrl: r.deployedUrl });
           }}
         >
@@ -229,7 +233,7 @@ function AutoListingPanel({
           {revealed
             ? revealed.secret
             : hasSecret
-              ? `set ${new Date(hook!.createdAt).toLocaleString()} · shown only when generated — rotate to get a new one`
+              ? `set ${new Date(hook!.createdAt).toLocaleString()} · never shown again — rotate to get a new one`
               : "— generate one, then paste it into the repo’s webhook settings"}
         </dd>
         {revealed && (

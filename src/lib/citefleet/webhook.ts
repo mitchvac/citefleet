@@ -54,6 +54,9 @@ export function beginCheck(siteId: string): boolean {
 export function endCheck(siteId: string) {
   inFlight.delete(siteId);
 }
+export function isChecking(siteId: string): boolean {
+  return inFlight.has(siteId);
+}
 export function checksInFlight(): number {
   return inFlight.size;
 }
@@ -133,10 +136,11 @@ export async function handleGithubWebhook(
   if (!site?.webhook?.secret || !valid) return UNAUTHORIZED;
   const event = input.header("x-github-event");
   const delivery = input.header("x-github-delivery") || undefined;
-  if (isDuplicateDelivery(site, delivery)) {
+  const classified = classifyGithubEvent(event, payload, site);
+  if (classified.action !== "ping" && isDuplicateDelivery(site, delivery)) {
     return { status: 202, body: { ok: true, action: "duplicate", reason: "delivery already processed", site: site.domain } };
   }
-  return finishDelivery(deps, site, { event: event || "unknown", delivery, actor: "GitHub", ...classifyGithubEvent(event, payload, site) });
+  return finishDelivery(deps, site, { event: event || "unknown", delivery, actor: "GitHub", ...classified });
 }
 
 async function finishDelivery(
@@ -144,8 +148,9 @@ async function finishDelivery(
   site: Site,
   d: { event: string; delivery?: string; actor: string; action: HookAction; reason: string },
 ): Promise<HookResponse> {
-  let action = d.action;
-  if (action === "check" && !beginCheck(site.id)) action = "in-progress";
+  // Decide before writing, hold the in-flight slot only after the write
+  // succeeded: a failed persist must not leave the site "checking" forever.
+  let action: HookAction = d.action === "check" && isChecking(site.id) ? "in-progress" : d.action;
   const at = (deps.now ?? (() => new Date()))().toISOString();
   await deps.mutateStore((s) => {
     const current = s.sites.find((x) => x.id === site.id);
@@ -168,7 +173,10 @@ async function finishDelivery(
             : `${d.actor} hook received for ${site.domain} (${d.reason}) — ignored.`,
     });
   });
-  if (action === "check") deps.onCheck(site.id, d.reason);
+  if (action === "check") {
+    if (beginCheck(site.id)) deps.onCheck(site.id, d.reason);
+    else action = "in-progress"; // lost a race with a concurrent delivery
+  }
   return { status: action === "ping" ? 200 : 202, body: { ok: true, action, reason: d.reason, site: site.domain } };
 }
 

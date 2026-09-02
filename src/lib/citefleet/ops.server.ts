@@ -8,7 +8,7 @@ export {
   publishSiteToBotCentral,
   removeSite,
   verifySiteProof,
-  ensureWebhookSecret,
+  rotateWebhookSecret,
   runWebhookListing,
 } from "./dispatcher";
 export { handleGithubWebhook, handleDeployedHook } from "./webhook.ts";

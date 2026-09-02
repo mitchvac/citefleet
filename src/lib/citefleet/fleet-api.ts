@@ -7,7 +7,8 @@ export const loadState = createServerFn({ method: "GET" }).handler(async () => {
 
 export const resetState = createServerFn({ method: "POST" }).handler(async () => {
   const { resetStore } = await import("./ops.server");
-  return resetStore();
+  const { maskStoreSecrets } = await import("./secrets.ts");
+  return maskStoreSecrets(await resetStore());
 });
 
 export const onboardProperty = createServerFn({ method: "POST" })
@@ -50,11 +51,13 @@ export const verifyProofFn = createServerFn({ method: "POST" })
     return verifySiteProof(data.siteId);
   });
 
+// Always mints a NEW secret and returns it once. An existing secret is never
+// returned by any server fn (the console is public in v1).
 export const webhookSecretFn = createServerFn({ method: "POST" })
-  .validator((d: { siteId: string; rotate?: boolean }) => d)
+  .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {
-    const { ensureWebhookSecret } = await import("./ops.server");
-    return ensureWebhookSecret(data.siteId, Boolean(data.rotate));
+    const { rotateWebhookSecret } = await import("./ops.server");
+    return rotateWebhookSecret(data.siteId);
   });
 
 export const auditProperty = createServerFn({ method: "POST" })

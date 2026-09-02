@@ -53,7 +53,7 @@ export function proofHint(site: Pick<Site, "domain">): string {
 async function defaultFetchText(url: string) {
   const res = await fetch(url, {
     method: "GET",
-    redirect: "manual",
+    redirect: "follow", // BotCentral follows redirects too (up to a few hops)
     headers: { "User-Agent": "CiteFleetProof/1.0 (+https://citefleet.app)", Accept: "text/plain, */*" },
     cache: "no-store",
     signal: AbortSignal.timeout(12000),
@@ -79,9 +79,7 @@ export async function checkOriginProof(
       return { proven: true, method: "well-known-file", note: `Token found in ${wellKnownUrl(site)} (plain text).`, checkedAt };
     }
     fileNote =
-      file.status >= 300 && file.status < 400
-        ? `${wellKnownUrl(site)} redirected (${file.status}); the file must be served at that exact URL`
-        : file.status !== 200
+      file.status !== 200
         ? `${wellKnownUrl(site)} returned ${file.status}`
         : htmlish
           ? `${wellKnownUrl(site)} returned HTML (an app shell does not count)`

@@ -85,10 +85,3 @@ test("DNS ENODATA/ENOTFOUND read as 'no TXT records', other resolver errors as f
   const r2 = await checkOriginProof(site, { fetchText: missing, resolveTxt: timeout, now });
   assert.match(r2.note, /DNS TXT lookup failed/);
 });
-
-test("a redirect is not proof: the file must be served at the exact URL", async () => {
-  const redirect = async () => ({ status: 301, text: "", contentType: "text/html" });
-  const r = await checkOriginProof(site, { fetchText: redirect, resolveTxt: noTxt, now });
-  assert.equal(r.proven, false);
-  assert.match(r.note, /redirected \(301\)/);
-});

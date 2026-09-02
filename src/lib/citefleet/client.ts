@@ -107,12 +107,12 @@ export function useFleet() {
       run("proof", async () => {
         await verifyProofFn({ data: { siteId } });
       }),
-    // Returns the secret ONCE (it is never in the store the browser receives).
-    webhookSecret: async (siteId: string, rotate = false) => {
+    // Mints a NEW secret and returns it ONCE (it is never in the store the browser receives).
+    webhookSecret: async (siteId: string) => {
       setBusy("webhook");
       setError(null);
       try {
-        const result = await webhookSecretFn({ data: { siteId, rotate } });
+        const result = await webhookSecretFn({ data: { siteId } });
         await refresh();
         return result;
       } catch (err) {

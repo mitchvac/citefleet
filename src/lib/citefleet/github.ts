@@ -1,6 +1,7 @@
 import type { StoreShape } from "./types";
 import { buildOriginPack } from "./originPack";
 import { siteVerifyToken } from "./verify-token.ts";
+import { maskStoreSecrets } from "./secrets.ts";
 import { assertCanAct } from "./control";
 import { getStore, logActivity, mutateStore } from "./store";
 
@@ -206,14 +207,5 @@ export async function pushOriginPack(siteId: string) {
 }
 
 export function stripSecrets(store: StoreShape): StoreShape {
-  const clone = structuredClone(store);
-  if (clone.workspace.githubToken) {
-    clone.workspace.githubToken = "set";
-  }
-  // The console is public in v1 (VITE_AUTH_ENABLED=false): per-property webhook
-  // secrets are handed out once by webhookSecretFn and never via the store.
-  for (const site of clone.sites) {
-    if (site.webhook) site.webhook = { ...site.webhook, secret: "" };
-  }
-  return clone;
+  return maskStoreSecrets(store);
 }
