@@ -4,6 +4,7 @@ import { useFleet } from "@/lib/citefleet/client";
 import { Pill } from "./Shell";
 import { GrokHandoff } from "./GrokHandoff";
 import type { Site, Task } from "@/lib/citefleet/types";
+import { hostingHint } from "@/lib/citefleet/hosting-hint";
 
 function tone(status: string) {
   if (status === "done") return "good" as const;
@@ -50,6 +51,15 @@ export function CampaignView({ siteId }: { siteId: string }) {
           </div>
           <h1 className="mt-2 text-3xl font-semibold">{site.name}</h1>
           <p className="mt-2 max-w-2xl text-sm text-[#b7b0cc]">{site.summary}</p>
+          {site.hosting && (
+            <p className="mt-2 text-xs text-[#9b95b3]" data-testid="hosting-line">
+              Hosting: <span className="text-[#cfc8e8]">{site.hosting.label}</span>
+              {site.hosting.sameServerAsCiteFleet ? " · same box as CiteFleet" : ""}
+              {site.hosting.deploysOnPush ? " · deploys on push" : ""}
+              {" · "}
+              <span className="mono">{site.hosting.evidence.join(" · ") || "no signals"}</span>
+            </p>
+          )}
           {site.botcentral?.listed ? (
             <p className="mt-2 text-sm text-emerald-300">
               Live on BotCentral —{" "}
@@ -204,6 +214,9 @@ function AutoListingPanel({
           {proof.note} · checked {new Date(proof.checkedAt).toLocaleString()}
         </p>
       )}
+      <p className="mt-3 text-xs text-[#cfc8e8]" data-testid="hosting-hint">
+        {hostingHint(site.hosting, site.domain)}
+      </p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           type="button"

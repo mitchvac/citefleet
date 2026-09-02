@@ -85,6 +85,8 @@ export interface Site {
   indexNowKey?: string;
   /** BotCentral proof-of-control token; must appear as botcentral-verify=<token> at the origin. */
   verifyToken?: string;
+  /** Where the origin is hosted, from the last Live audit (DNS + response headers). */
+  hosting?: import("./hosting-hint").HostingResult;
   /** Last pre-flight proof check (same rules BotCentral applies). */
   proof?: { proven: boolean; method: "well-known-file" | "dns-txt" | "none"; note: string; checkedAt: string };
   /** GitHub webhook intake for automatic listing (secret is shown to the operator). */
@@ -307,4 +309,5 @@ export interface AuditResult {
     status: number | null;
     urlCount: number;
   };
+  hosting?: import("./hosting-hint").HostingResult;
 }

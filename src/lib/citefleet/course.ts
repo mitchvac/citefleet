@@ -152,7 +152,7 @@ export const LESSONS: Lesson[] = [
     steps: [
       {
         title: "What it fetches",
-        body: "Each public route with and without Accept: text/html (SPA-fallback class bugs), robots.txt, sitemap.xml, and the IndexNow key file when present.",
+        body: "Where the site is hosted (Vercel, Netlify, GitHub Pages, Cloudflare, self-hosted, or unreachable) from DNS and response headers — this decides whether a pushed proof file goes live by itself. Then each public route with and without Accept: text/html (SPA-fallback class bugs), robots.txt, sitemap.xml, and the IndexNow key file when present.",
       },
       {
         title: "Crawlers it looks for",

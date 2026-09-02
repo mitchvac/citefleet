@@ -158,6 +158,7 @@ export async function runAuditAndApply(siteId: string): Promise<AuditResult> {
     if (!current) return;
     current.lastAuditAt = audit.at;
     current.status = "campaign";
+    if (audit.hosting) current.hosting = audit.hosting;
 
     const apply = (playbookId: PlaybookId, findingOk: boolean, label: string) => {
       const task = s.tasks.find(

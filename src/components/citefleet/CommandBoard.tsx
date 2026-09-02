@@ -395,6 +395,13 @@ function SiteCard({
             ) : (
               <Pill tone="gold">Not on BotCentral</Pill>
             )}
+            {site.hosting && (
+              <span title={site.hosting.evidence.join(" · ")} data-testid="hosting">
+                <Pill tone={site.hosting.provider === "unreachable" ? "bad" : "neutral"}>
+                  {site.hosting.label}
+                </Pill>
+              </span>
+            )}
           </div>
           <h2 className="text-xl font-semibold">{site.name}</h2>
           <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">{site.summary}</p>

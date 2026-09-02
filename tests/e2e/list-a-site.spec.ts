@@ -147,6 +147,9 @@ test("lesson 02 step 4: Live audit on the property card", async ({ page }) => {
   });
   await expect(card).toContainText("last audit", { timeout: 15000 });
   await expect(card).toContainText("playbook tasks complete");
+  // The audit names the hosting provider (Vercel / Netlify / GitHub Pages / Self-hosted / Unreachable …).
+  await expect(card.getByTestId("hosting")).toBeVisible();
+  test.info().annotations.push({ type: "hosting", description: await card.getByTestId("hosting").innerText() });
 });
 
 test(`lesson 02 steps 5–6: campaign board, attach ${GH_OWNER}/${GH_REPO}, List on BotCentral`, async ({
@@ -231,6 +234,7 @@ test("lesson 13: Automatic listing — verify proof, generate the webhook secret
   const panel = page.getByTestId("auto-listing");
   await panel.scrollIntoViewIfNeeded();
   await expect(panel.getByTestId("webhook-url")).toHaveText(/\/api\/hooks\/github$/);
+  await expect(panel.getByTestId("hosting-hint")).toBeVisible();
 
   // Verify proof applies BotCentral's rules locally and records the result.
   await panel.getByRole("button", { name: "Verify proof" }).click();

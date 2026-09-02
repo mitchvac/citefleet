@@ -1,4 +1,5 @@
 import type { AuditResult, Site } from "./types";
+import { detectHosting } from "./hosting.ts";
 
 const AI_AGENTS = [
   "OAI-SearchBot",
@@ -17,6 +18,7 @@ async function timedGet(
   ms: number;
   text: string;
   contentType: string;
+  responseHeaders: Record<string, string> | null;
   error?: string;
 }> {
   const started = Date.now();
@@ -32,11 +34,16 @@ async function timedGet(
       signal: AbortSignal.timeout(12000),
     });
     const text = await res.text();
+    const responseHeaders: Record<string, string> = {};
+    res.headers.forEach((v, k) => {
+      responseHeaders[k.toLowerCase()] = v;
+    });
     return {
       status: res.status,
       ms: Date.now() - started,
       text,
       contentType: res.headers.get("content-type") || "",
+      responseHeaders,
     };
   } catch (error) {
     return {
@@ -44,6 +51,7 @@ async function timedGet(
       ms: Date.now() - started,
       text: "",
       contentType: "",
+      responseHeaders: null,
       error: error instanceof Error ? error.message : "fetch failed",
     };
   }
@@ -62,10 +70,12 @@ export async function auditSite(site: Site): Promise<AuditResult> {
   const routeChecks: AuditResult["routeChecks"] = [];
 
   const routes = site.routes.length ? site.routes : ["/"];
+  let homepage: { responseHeaders: Record<string, string> | null; status: number | null } | undefined;
   for (const route of routes.slice(0, 12)) {
     const target = `${origin}${route === "/" ? "/" : route}`;
     const bare = await timedGet(target);
     const html = await timedGet(target, { Accept: "text/html" });
+    if (route === "/" || !homepage) homepage = { responseHeaders: html.responseHeaders ?? bare.responseHeaders, status: html.status ?? bare.status };
     const spaFallbackRisk =
       looksLikeJson404(bare.status, bare.text, bare.contentType) &&
       (html.status === 200 || html.contentType.includes("text/html"));
@@ -233,6 +243,19 @@ export async function auditSite(site: Site): Promise<AuditResult> {
     );
   }
 
+  const hosting = await detectHosting({
+    domain: site.domain,
+    headers: homepage?.responseHeaders ?? null,
+    status: homepage?.status ?? null,
+  });
+  findings.push({
+    id: "hosting",
+    severity: hosting.provider === "unreachable" ? "critical" : "info",
+    title: `Hosting: ${hosting.label}${hosting.sameServerAsCiteFleet ? " (same box as CiteFleet)" : ""}`,
+    detail: `${hosting.evidence.join(" · ") || "no signals"}${hosting.deploysOnPush ? " · deploys on push" : ""}`,
+    playbookId: "spa_fallback",
+  });
+
   const ok = !findings.some((f) => f.severity === "critical");
   return {
     at: new Date().toISOString(),
@@ -242,5 +265,6 @@ export async function auditSite(site: Site): Promise<AuditResult> {
     routeChecks,
     robots,
     sitemap,
+    hosting,
   };
 }
