@@ -83,6 +83,13 @@ export async function detectHosting(
     checkedAt,
   });
 
+  // Vercel answers for a domain it knows but has no deployment for with a 404
+  // and x-vercel-error: DEPLOYMENT_NOT_FOUND — that is "not deployed", not
+  // "deploys on push" (verified live 2026-09-02 on a random *.vercel.app name).
+  if (h["x-vercel-error"] || (input.status === 404 && (server.includes("vercel") || h["x-vercel-id"]))) {
+    evidence.push(`Vercel has no deployment for this domain (${h["x-vercel-error"] || "404 from Vercel"}) — assign the domain to a project`);
+    return done("unreachable", "high", false);
+  }
   // Headers prove the site answered, so header rules come first. Then: no
   // answer at all is "unreachable" no matter where DNS points (a Vercel CNAME
   // with no deployment must not read as "deploys on push"). DNS-only rules last.
@@ -91,9 +98,15 @@ export async function detectHosting(
   if (server.includes("github.com") || h["x-github-request-id"]) return done("github-pages", "high", true);
   if (input.status === null && !input.headers) {
     evidence.push(a.length ? "no HTTP response" : "no A record");
-    if (cnames.some((c) => c.includes("vercel-dns.com") || c.endsWith("vercel.app")) || a.some((ip) => VERCEL_A.has(ip))) {
-      evidence.push("DNS points at Vercel but nothing answers (no deployment or domain not assigned)");
-    }
+    const pointsAt =
+      cnames.some((c) => c.includes("vercel-dns.com") || c.endsWith("vercel.app")) || a.some((ip) => VERCEL_A.has(ip))
+        ? "Vercel"
+        : cnames.some((c) => c.includes("netlify"))
+          ? "Netlify"
+          : cnames.some((c) => c.endsWith("github.io"))
+            ? "GitHub Pages"
+            : null;
+    if (pointsAt) evidence.push(`DNS points at ${pointsAt} but nothing answers (no deployment or domain not assigned)`);
     return done("unreachable", "high", false);
   }
   if (cnames.some((c) => c.includes("vercel-dns.com") || c.endsWith("vercel.app"))) return done("vercel", "medium", true);

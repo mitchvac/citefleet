@@ -77,3 +77,18 @@ test("hint branches: deploys-on-push providers, Cloudflare, self-hosted elsewher
   const unknownOwn = await detectHosting({ domain: "s.app", headers: { server: "nginx" }, status: 200 }, { resolve4: async () => ["203.0.113.5"], resolveCname: none, citefleetIps: async () => [], now });
   assert.ok(unknownOwn.evidence.some((e) => e.includes("citefleet.app address unknown")));
 });
+
+test("Vercel DEPLOYMENT_NOT_FOUND (404 with Vercel headers) is 'not deployed', never 'deploys on push'", async () => {
+  const deps = { resolve4: none, resolveCname: async () => ["cname.vercel-dns.com."], citefleetIps: ours, now };
+  const r = await detectHosting({ domain: "v.app", headers: { server: "Vercel", "x-vercel-id": "iad1::x", "x-vercel-error": "DEPLOYMENT_NOT_FOUND" }, status: 404 }, deps);
+  assert.equal(r.provider, "unreachable");
+  assert.equal(r.deploysOnPush, false);
+  assert.ok(r.evidence.some((e) => e.includes("DEPLOYMENT_NOT_FOUND")));
+  // positive control: a 200 with the same headers is Vercel, deploys on push
+  const ok = await detectHosting({ domain: "v.app", headers: { server: "Vercel", "x-vercel-id": "iad1::x" }, status: 200 }, deps);
+  assert.equal(ok.provider, "vercel");
+  assert.equal(ok.deploysOnPush, true);
+  // Netlify CNAME with no answer carries the same kind of note
+  const n = await detectHosting({ domain: "n.app", headers: null, status: null }, { resolve4: none, resolveCname: async () => ["x.netlify.app."], citefleetIps: ours, now });
+  assert.ok(n.evidence.some((e) => e.includes("DNS points at Netlify")));
+});
