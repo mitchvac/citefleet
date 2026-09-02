@@ -51,11 +51,16 @@ test.describe("user gate (signed out)", () => {
     await page.getByLabel("Email").fill("nobody@example.com");
     await page.getByLabel("Password").fill("definitely-wrong-password");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByText(/wrong|invalid|failed|could not/i)).toBeVisible({ timeout: 15000 });
+    await page.waitForURL(/\/login\?error=/, { timeout: 30000 });
+    await expect(page.getByTestId("login-error")).toBeVisible();
     const r = await page.request.post(`${baseURL}/api/hooks/github`, { data: "{}", headers: { "content-type": "application/json" } });
     expect(r.status()).toBe(401);
     const health = await page.request.get(`${baseURL}/health`);
     expect(health.status()).toBe(200);
+    // Invite-only: an email outside the allow-list cannot create an account (nothing is created).
+    const signup = await page.request.post(`${baseURL}/api/signup`, { form: { name: "x", email: "stranger@example.invalid", password: "longenough-123" }, maxRedirects: 0 });
+    expect(signup.status()).toBe(303);
+    expect(signup.headers()["location"] || "").toMatch(/error=not-allowed/);
   });
 });
 

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { isAllowedEmail } from "./operator-allowlist.ts";
 import {
   createSession,
   readCookie,
@@ -105,6 +106,7 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
   try {
     if (provider === "google") {
       const profile = await googleProfile(code, publicOrigin(request));
+      if (!isAllowedEmail(profile.email)) return loginError("not-allowed");
       const { upsertOAuthUser } = await import("./users.server");
       await upsertOAuthUser({
         provider: "google",
@@ -115,6 +117,8 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
       return signedIn(request);
     }
     const profile = await githubProfile(code, publicOrigin(request));
+    // Checked BEFORE the workspace GitHub token is touched.
+    if (!isAllowedEmail(profile.email)) return loginError("not-allowed");
     const { upsertOAuthUser } = await import("./users.server");
     await upsertOAuthUser({
       provider: "github",

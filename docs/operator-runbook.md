@@ -8,22 +8,30 @@ Everything the single operator does day to day. Customer-facing steps are in
 ## Sign in
 
 The console (every page that shows workspace data, and every action) is behind
-one operator token.
+a session. Accounts are **invite-only**: only emails listed in
+`CITEFLEET_OPERATOR_EMAILS` (on the VPS: `/root/citefleet-operator.emails`,
+comma-separated) can sign up or sign in, by email/password, Google, or GitHub.
+Any other email is refused, and an empty list refuses everyone.
 
-- Token: `cat /root/citefleet-operator.token` on the VPS. It is injected into
-  the container as `CITEFLEET_OPERATOR_TOKEN` by `deploy/deploy-vps.sh`.
-- Sign in at `https://citefleet.app/login`. The cookie holds a random session
-  id, never the token. Sessions live in memory: a container restart or a
-  redeploy signs you out.
-- Five wrong tokens from one address lock that address out for 60 seconds.
-- Rotate: replace the file, redeploy. Every session is dropped.
+- `https://citefleet.app/login`: email/password (create the account once),
+  **Continue with Google**, or **Continue with GitHub**.
+- Google: the OAuth client's authorized redirect URI must be
+  `https://citefleet.app/api/oauth/google-callback`; while the consent screen
+  is in Testing, the account must also be a listed test user. Credentials live
+  in `/root/citefleet-google.oauth` (line 1 client id, line 2 secret); GitHub
+  likewise in `/root/citefleet-github.oauth`.
+- Ops fallback: the server token in `/root/citefleet-operator.token` still
+  signs in through the same form (paste it in the token field).
+- The cookie holds a random session id. Sessions live in memory: a container
+  restart or redeploy signs everyone out. Five wrong attempts from one address
+  lock that address out for 60 seconds.
 - Public without sign-in: `/health`, `/llms.txt`, `/sitemap.xml`, the
   Training pages, `/login`, and the two hook endpoints.
 
 Local development:
 
 ```bash
-CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) npm run dev
+CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) CITEFLEET_OPERATOR_EMAILS=you@example.com npm run dev
 ```
 
 ## Deploy a change
@@ -67,7 +75,7 @@ The Training module (lesson 02) is the click-by-click version. In short:
 | --- | --- | --- |
 | `Proof not live yet — …` | The origin does not serve the proof line (or serves an HTML shell) and there is no DNS record. | Add the file or the TXT record, then Verify proof. |
 | `ownership not proven` (from BotCentral) | Pre-flight passed but the registry's own fetch failed (propagation, redirect, host-specific). | Wait a minute and retry; check the file from another network. |
-| `Unauthorized: operator sign-in required` | Session expired or container restarted. | Sign in again. |
+| `Unauthorized: sign-in required` | Session expired or container restarted. | Sign in again. |
 | `Unauthorized: operator token not configured` | `CITEFLEET_OPERATOR_TOKEN` missing in `.env`. | Rerun the deploy script; it mints and injects it. |
 | Hook answers `401` | Wrong secret, unknown repository/domain, or tampered body — all look the same on purpose. | Rotate the secret and update the repository webhook. |
 | Hook answers `202 duplicate` / `in-progress` | GitHub redelivered an id, or a check from a moment ago is still running. | Nothing; the running check picks up the deploy. |
@@ -86,7 +94,7 @@ The Training module (lesson 02) is the click-by-click version. In short:
 ```bash
 npm test                                   # Node 22; scripts/ and src/ suites
 npx tsc --noEmit && npx eslint .
-E2E_OPERATOR_TOKEN=<token> E2E_CHANNEL=chrome npx playwright test tests/e2e/list-a-site.spec.ts --headed
+E2E_OPERATOR_TOKEN=<token> E2E_CHANNEL=chrome npx playwright test tests/e2e/list-a-site.spec.ts --headed   # or E2E_USER_EMAIL + E2E_USER_PASSWORD (allow-listed)
 ```
 
 The e2e signs in once (global setup) and walks the Training order for one

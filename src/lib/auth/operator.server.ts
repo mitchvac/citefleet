@@ -1,5 +1,6 @@
 import { getRequest } from "@tanstack/react-start/server";
 import { assertSameSiteRequest } from "./isolation.server";
+import { isAllowedEmail } from "./operator-allowlist.ts";
 import {
   OPERATOR_COOKIE,
   attemptLogin,
@@ -85,6 +86,9 @@ async function readFields(request: Request): Promise<{
 export async function handleLogin(request: Request): Promise<Response> {
   const fields = await readFields(request);
   if (fields.email && fields.password) {
+    // Invite-only console: an email outside CITEFLEET_OPERATOR_EMAILS gets the
+    // same answer as a wrong password (no account enumeration).
+    if (!isAllowedEmail(fields.email)) return loginError("bad-credentials");
     const { verifyUser } = await import("./users.server");
     const user = await verifyUser(fields.email, fields.password);
     if (!user) return loginError("bad-credentials");
@@ -98,6 +102,8 @@ export async function handleLogin(request: Request): Promise<Response> {
 /** POST /api/signup — create a user account and sign in. */
 export async function handleSignup(request: Request): Promise<Response> {
   const fields = await readFields(request);
+  // Invite-only: only allow-listed emails may create an account.
+  if (!isAllowedEmail(fields.email)) return loginError("not-allowed");
   const { createUser } = await import("./users.server");
   const created = await createUser({
     email: fields.email,

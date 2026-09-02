@@ -14,6 +14,7 @@ const MESSAGES: Record<string, string> = {
   "github-not-configured": "GitHub sign-in is not enabled on this server yet.",
   "oauth-denied": "Sign-in was cancelled or expired. Try again.",
   "oauth-failed": "That provider could not complete sign-in. Try email, or try again.",
+  "not-allowed": "That email is not on this console's operator allow-list. Ask the operator to add it.",
 };
 
 function LoginPage() {
@@ -49,8 +50,8 @@ function LoginPage() {
           {mode === "signin" ? "Sign in" : "Create your account"}
         </h1>
         <p className="mt-2 text-sm text-[#b7b0cc]">
-          Customers and operators sign in here. List a site, prove origin, and
-          publish to BotCentral from this workspace.
+          Invite-only. Only emails on this console’s operator allow-list can
+          sign in or create an account; the same applies to Google and GitHub.
         </p>
         {error && (
           <p

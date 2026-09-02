@@ -20,6 +20,7 @@ import { Route as PlaybookRouteImport } from './routes/playbook'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ApiLoginRouteImport } from './routes/api/login'
 import { Route as ApiLogoutRouteImport } from './routes/api/logout'
+import { Route as ApiSignupRouteImport } from './routes/api/signup'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
 import { Route as LearnSlugRouteImport } from './routes/learn/$slug'
 import { Route as LearnGlossaryRouteImport } from './routes/learn/glossary'
@@ -27,6 +28,11 @@ import { Route as LearnQuizRouteImport } from './routes/learn/quiz'
 import { Route as SitesIdRouteImport } from './routes/sites/$id'
 import { Route as ApiHooksDeployedRouteImport } from './routes/api/hooks/deployed'
 import { Route as ApiHooksGithubRouteImport } from './routes/api/hooks/github'
+import { Route as ApiOauthGithubRouteImport } from './routes/api/oauth/github'
+import { Route as ApiOauthGithubCallbackRouteImport } from './routes/api/oauth/github-callback'
+import { Route as ApiOauthGoogleRouteImport } from './routes/api/oauth/google'
+import { Route as ApiOauthGoogleCallbackRouteImport } from './routes/api/oauth/google-callback'
+import { Route as ApiOauthProvidersRouteImport } from './routes/api/oauth/providers'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -83,6 +89,11 @@ const ApiLogoutRoute = ApiLogoutRouteImport.update({
   path: '/api/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSignupRoute = ApiSignupRouteImport.update({
+  id: '/api/signup',
+  path: '/api/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LearnIndexRoute = LearnIndexRouteImport.update({
   id: '/learn/',
   path: '/learn/',
@@ -118,6 +129,31 @@ const ApiHooksGithubRoute = ApiHooksGithubRouteImport.update({
   path: '/api/hooks/github',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOauthGithubRoute = ApiOauthGithubRouteImport.update({
+  id: '/api/oauth/github',
+  path: '/api/oauth/github',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOauthGithubCallbackRoute = ApiOauthGithubCallbackRouteImport.update({
+  id: '/api/oauth/github-callback',
+  path: '/api/oauth/github-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOauthGoogleRoute = ApiOauthGoogleRouteImport.update({
+  id: '/api/oauth/google',
+  path: '/api/oauth/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOauthGoogleCallbackRoute = ApiOauthGoogleCallbackRouteImport.update({
+  id: '/api/oauth/google-callback',
+  path: '/api/oauth/google-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOauthProvidersRoute = ApiOauthProvidersRouteImport.update({
+  id: '/api/oauth/providers',
+  path: '/api/oauth/providers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -131,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/login': typeof ApiLoginRoute
   '/api/logout': typeof ApiLogoutRoute
+  '/api/signup': typeof ApiSignupRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -138,6 +175,11 @@ export interface FileRoutesByFullPath {
   '/learn/': typeof LearnIndexRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
   '/api/hooks/github': typeof ApiHooksGithubRoute
+  '/api/oauth/github': typeof ApiOauthGithubRoute
+  '/api/oauth/github-callback': typeof ApiOauthGithubCallbackRoute
+  '/api/oauth/google': typeof ApiOauthGoogleRoute
+  '/api/oauth/google-callback': typeof ApiOauthGoogleCallbackRoute
+  '/api/oauth/providers': typeof ApiOauthProvidersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -151,6 +193,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/login': typeof ApiLoginRoute
   '/api/logout': typeof ApiLogoutRoute
+  '/api/signup': typeof ApiSignupRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -158,6 +201,11 @@ export interface FileRoutesByTo {
   '/learn': typeof LearnIndexRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
   '/api/hooks/github': typeof ApiHooksGithubRoute
+  '/api/oauth/github': typeof ApiOauthGithubRoute
+  '/api/oauth/github-callback': typeof ApiOauthGithubCallbackRoute
+  '/api/oauth/google': typeof ApiOauthGoogleRoute
+  '/api/oauth/google-callback': typeof ApiOauthGoogleCallbackRoute
+  '/api/oauth/providers': typeof ApiOauthProvidersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -172,6 +220,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/login': typeof ApiLoginRoute
   '/api/logout': typeof ApiLogoutRoute
+  '/api/signup': typeof ApiSignupRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -179,6 +228,11 @@ export interface FileRoutesById {
   '/learn/': typeof LearnIndexRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
   '/api/hooks/github': typeof ApiHooksGithubRoute
+  '/api/oauth/github': typeof ApiOauthGithubRoute
+  '/api/oauth/github-callback': typeof ApiOauthGithubCallbackRoute
+  '/api/oauth/google': typeof ApiOauthGoogleRoute
+  '/api/oauth/google-callback': typeof ApiOauthGoogleCallbackRoute
+  '/api/oauth/providers': typeof ApiOauthProvidersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -194,6 +248,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/login'
     | '/api/logout'
+    | '/api/signup'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -201,6 +256,11 @@ export interface FileRouteTypes {
     | '/learn/'
     | '/api/hooks/deployed'
     | '/api/hooks/github'
+    | '/api/oauth/github'
+    | '/api/oauth/github-callback'
+    | '/api/oauth/google'
+    | '/api/oauth/google-callback'
+    | '/api/oauth/providers'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -214,6 +274,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/login'
     | '/api/logout'
+    | '/api/signup'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -221,6 +282,11 @@ export interface FileRouteTypes {
     | '/learn'
     | '/api/hooks/deployed'
     | '/api/hooks/github'
+    | '/api/oauth/github'
+    | '/api/oauth/github-callback'
+    | '/api/oauth/google'
+    | '/api/oauth/google-callback'
+    | '/api/oauth/providers'
   id:
     | '__root__'
     | '/'
@@ -234,6 +300,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/login'
     | '/api/logout'
+    | '/api/signup'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -241,6 +308,11 @@ export interface FileRouteTypes {
     | '/learn/'
     | '/api/hooks/deployed'
     | '/api/hooks/github'
+    | '/api/oauth/github'
+    | '/api/oauth/github-callback'
+    | '/api/oauth/google'
+    | '/api/oauth/google-callback'
+    | '/api/oauth/providers'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -255,6 +327,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiLoginRoute: typeof ApiLoginRoute
   ApiLogoutRoute: typeof ApiLogoutRoute
+  ApiSignupRoute: typeof ApiSignupRoute
   LearnSlugRoute: typeof LearnSlugRoute
   LearnGlossaryRoute: typeof LearnGlossaryRoute
   LearnQuizRoute: typeof LearnQuizRoute
@@ -262,6 +335,11 @@ export interface RootRouteChildren {
   LearnIndexRoute: typeof LearnIndexRoute
   ApiHooksDeployedRoute: typeof ApiHooksDeployedRoute
   ApiHooksGithubRoute: typeof ApiHooksGithubRoute
+  ApiOauthGithubRoute: typeof ApiOauthGithubRoute
+  ApiOauthGithubCallbackRoute: typeof ApiOauthGithubCallbackRoute
+  ApiOauthGoogleRoute: typeof ApiOauthGoogleRoute
+  ApiOauthGoogleCallbackRoute: typeof ApiOauthGoogleCallbackRoute
+  ApiOauthProvidersRoute: typeof ApiOauthProvidersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -343,6 +421,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/signup': {
+      id: '/api/signup'
+      path: '/api/signup'
+      fullPath: '/api/signup'
+      preLoaderRoute: typeof ApiSignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/learn/': {
       id: '/learn/'
       path: '/learn'
@@ -392,6 +477,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHooksGithubRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/oauth/github': {
+      id: '/api/oauth/github'
+      path: '/api/oauth/github'
+      fullPath: '/api/oauth/github'
+      preLoaderRoute: typeof ApiOauthGithubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/github-callback': {
+      id: '/api/oauth/github-callback'
+      path: '/api/oauth/github-callback'
+      fullPath: '/api/oauth/github-callback'
+      preLoaderRoute: typeof ApiOauthGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/google': {
+      id: '/api/oauth/google'
+      path: '/api/oauth/google'
+      fullPath: '/api/oauth/google'
+      preLoaderRoute: typeof ApiOauthGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/google-callback': {
+      id: '/api/oauth/google-callback'
+      path: '/api/oauth/google-callback'
+      fullPath: '/api/oauth/google-callback'
+      preLoaderRoute: typeof ApiOauthGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/providers': {
+      id: '/api/oauth/providers'
+      path: '/api/oauth/providers'
+      fullPath: '/api/oauth/providers'
+      preLoaderRoute: typeof ApiOauthProvidersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -407,6 +527,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiLoginRoute: ApiLoginRoute,
   ApiLogoutRoute: ApiLogoutRoute,
+  ApiSignupRoute: ApiSignupRoute,
   LearnSlugRoute: LearnSlugRoute,
   LearnGlossaryRoute: LearnGlossaryRoute,
   LearnQuizRoute: LearnQuizRoute,
@@ -414,6 +535,11 @@ const rootRouteChildren: RootRouteChildren = {
   LearnIndexRoute: LearnIndexRoute,
   ApiHooksDeployedRoute: ApiHooksDeployedRoute,
   ApiHooksGithubRoute: ApiHooksGithubRoute,
+  ApiOauthGithubRoute: ApiOauthGithubRoute,
+  ApiOauthGithubCallbackRoute: ApiOauthGithubCallbackRoute,
+  ApiOauthGoogleRoute: ApiOauthGoogleRoute,
+  ApiOauthGoogleCallbackRoute: ApiOauthGoogleCallbackRoute,
+  ApiOauthProvidersRoute: ApiOauthProvidersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

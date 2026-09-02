@@ -108,6 +108,10 @@ fi
   echo "BOTCENTRAL_URL=https://botcentral.org"
   printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
   printf 'CITEFLEET_OPERATOR_TOKEN=%s\n' "$OPERATOR_TOKEN"
+  # Invite-only console: comma-separated emails allowed to sign in / sign up (email, Google, GitHub).
+  if [[ -s /root/citefleet-operator.emails ]]; then
+    printf 'CITEFLEET_OPERATOR_EMAILS=%s\n' "$(tr -d '\n' < /root/citefleet-operator.emails)"
+  fi
   if [[ -s /root/citefleet-github.token ]]; then
     printf 'GITHUB_TOKEN=%s\n' "$(tr -d '\n' < /root/citefleet-github.token)"
   fi
@@ -190,7 +194,7 @@ for i in $(seq 1 40); do
 done
 if [[ -n "$ok" ]]; then
   echo "SUCCESS — CiteFleet at https://$DOMAIN (other sites on this box left intact)"
-  echo "Users sign in at https://$DOMAIN/login (email and password)."
+  echo "Sign in at https://$DOMAIN/login — allow-listed emails only (/root/citefleet-operator.emails); token fallback: cat $OP_FILE"
 else
   echo "App did not answer yet. docker logs $CONTAINER --tail 50"
 fi
