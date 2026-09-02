@@ -83,7 +83,32 @@ sudo certbot --nginx -d citefleet.app -d www.citefleet.app
 
 Open https://citefleet.app
 
-## 5. What stays untouched
+## 5. Rollout of the BotCentral proof token (one-time, after deploying 09d0ef4 or later)
+
+CiteFleet now sends a per-domain `verifyToken` (HMAC keyed by
+`BOTCENTRAL_SERVICE_TOKEN`) and writes the matching `botcentral-verify=<token>`
+line into each origin's `/.well-known/botcentral.txt`. Files deployed before
+this still say `verify: citefleet-app`, and BotCentral rejects a publish (422,
+"ownership not proven") until the new line is live. The catalog row of an
+already-listed site is untouched by a rejected refresh.
+
+Order:
+
+1. `bash deploy/deploy-vps.sh` on the box, then `curl -s https://citefleet.app/health`.
+2. On Command, make sure a GitHub PAT with repo scope is saved (or
+   `/root/citefleet-github.token` exists so `.env` gets `GITHUB_TOKEN`).
+3. For each property (resonanse.app, wflowprocess.app, and citefleet.app itself
+   attached to `mitchvac/citefleet` root `public`): open the campaign,
+   confirm owner/repo/branch/folder, click **Push origin files**. The proof line
+   shown in the Origin files panel is what the commit writes.
+4. Deploy each website repo so the file is served, then verify it is plain text:
+   `curl -s https://<domain>/.well-known/botcentral.txt | grep botcentral-verify=`
+5. Click **Refresh BotCentral card** / **List on BotCentral** on each campaign.
+   `https://botcentral.org/v1/site/<domain>` must return 200.
+6. Run the headed e2e once to clear the duplicate test property:
+   `E2E_CHANNEL=chrome npx playwright test tests/e2e/wflowprocess-index.spec.ts --headed`
+
+## 6. What stays untouched
 
 - `/etc/nginx/sites-enabled/resonance` and the `resonance` container on `:3019`
 - botcentral.org vhost and container on `:3020`
