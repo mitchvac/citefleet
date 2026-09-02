@@ -10,6 +10,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_URL || "https://citefleet.app",
     headless: false,
+    // E2E_CHANNEL=chrome launches the installed Google Chrome (needed on macOS 13,
+    // which Playwright's bundled Chromium no longer supports).
+    channel: process.env.E2E_CHANNEL || undefined,
     launchOptions: { slowMo: Number(process.env.E2E_SLOWMO || 400) },
     viewport: { width: 1440, height: 900 },
     video: "on",

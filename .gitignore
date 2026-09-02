@@ -12,9 +12,10 @@ dist/
 *.swp
 .DS_Store
 .grok/
-AGENTS.md
 startup.sh
 artifacts/
 attachments/
 screenshots/
 .node_modules.lock
+test-results/
+playwright-report/

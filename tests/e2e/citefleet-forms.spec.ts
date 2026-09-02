@@ -1,12 +1,5 @@
-import { test, type Locator } from "@playwright/test";
-
-async function typeSlow(locator: Locator, text: string) {
-  await locator.click();
-  await locator.press("Meta+A").catch(() => {});
-  await locator.press("Control+A").catch(() => {});
-  await locator.press("Backspace").catch(() => {});
-  await locator.pressSequentially(text, { delay: 120 });
-}
+import { test } from "@playwright/test";
+import { typeSlow } from "./typeSlow";
 
 test.describe.configure({ mode: "serial" });
 
@@ -35,8 +28,9 @@ test("fill Command onboard and submit, then campaign GitHub save + refresh listi
   await card.waitFor({ timeout: 30000 });
   await card.getByRole("link", { name: "Open campaign" }).click();
 
-  await page.getByText("Origin files").waitFor({ timeout: 20000 });
-  const gh = page.locator("section").filter({ hasText: "Origin files" });
+  // "Push origin files" also contains "Origin files" — match the section eyebrow exactly.
+  await page.getByText("Origin files → GitHub").waitFor({ timeout: 20000 });
+  const gh = page.locator("section").filter({ hasText: "Origin files → GitHub" });
   await gh.scrollIntoViewIfNeeded();
   await typeSlow(gh.getByPlaceholder("mitchvac"), "mitchvac");
   await typeSlow(gh.getByPlaceholder("website-repo"), "resonanse");
