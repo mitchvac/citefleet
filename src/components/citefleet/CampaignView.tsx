@@ -151,8 +151,8 @@ function GithubPanel({
   site: Site;
   fleet: ReturnType<typeof useFleet>;
 }) {
-  const [owner, setOwner] = useState(site.github?.owner || "mitchvac");
-  const [repo, setRepo] = useState(site.github?.repo || "citefleet");
+  const [owner, setOwner] = useState(site.github?.owner || "");
+  const [repo, setRepo] = useState(site.github?.repo || "");
   const [branch, setBranch] = useState(site.github?.branch || "main");
   const [root, setRoot] = useState(site.github?.root || "public");
   const connected = Boolean(site.github?.owner && site.github.repo);
