@@ -4,6 +4,16 @@
 # Never rm sites-enabled/*. Never add default_server. Never 301 unknown Hosts.
 set -euo pipefail
 
+# Bash reads a script incrementally. The `git reset --hard` below replaces this
+# file, so the FIRST deploy after a script change would keep executing the OLD
+# body (seen 2026-09-02: the operator-token lines did not run). Re-exec from a
+# private copy so the whole run uses one consistent script.
+if [[ -z "${CITEFLEET_DEPLOY_COPY:-}" ]]; then
+  _copy="$(mktemp /tmp/citefleet-deploy.XXXXXX)"
+  cp "${BASH_SOURCE[0]}" "$_copy"
+  CITEFLEET_DEPLOY_COPY=1 exec bash "$_copy" "$@"
+fi
+
 DOMAIN="citefleet.app"
 APP_DIR="/opt/citefleet"
 HOST_PORT="127.0.0.1:3021"
