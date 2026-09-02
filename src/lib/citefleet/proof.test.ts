@@ -75,3 +75,20 @@ test("waitForProof gives up after the attempt budget", async () => {
   assert.equal(r.proven, false);
   assert.equal(r.attempts, 2);
 });
+
+test("DNS ENODATA/ENOTFOUND read as 'no TXT records', other resolver errors as failures", async () => {
+  const missing = async () => ({ status: 404, text: "", contentType: "text/plain" });
+  const enodata = async () => { const e = new Error("queryTxt ENODATA acme-dating.com") as Error & { code?: string }; e.code = "ENODATA"; throw e; };
+  const r = await checkOriginProof(site, { fetchText: missing, resolveTxt: enodata, now });
+  assert.match(r.note, /no TXT records on acme-dating\.com/);
+  const timeout = async () => { const e = new Error("queryTxt ETIMEOUT") as Error & { code?: string }; e.code = "ETIMEOUT"; throw e; };
+  const r2 = await checkOriginProof(site, { fetchText: missing, resolveTxt: timeout, now });
+  assert.match(r2.note, /DNS TXT lookup failed/);
+});
+
+test("a redirect is not proof: the file must be served at the exact URL", async () => {
+  const redirect = async () => ({ status: 301, text: "", contentType: "text/html" });
+  const r = await checkOriginProof(site, { fetchText: redirect, resolveTxt: noTxt, now });
+  assert.equal(r.proven, false);
+  assert.match(r.note, /redirected \(301\)/);
+});

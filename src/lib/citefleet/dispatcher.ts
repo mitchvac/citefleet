@@ -13,7 +13,7 @@ import { assertCanAct, doorForPlaybook, freezeReason, isFrozen } from "./control
 import type { AuditResult, PlaybookId, Site, Task } from "./types";
 import { siteVerifyToken } from "./verify-token.ts";
 import { checkOriginProof, waitForProof } from "./proof.ts";
-import { deployedUrl, newWebhookSecret, payloadUrl } from "./webhook.ts";
+import { deployedUrl, endCheck, newWebhookSecret, payloadUrl } from "./webhook.ts";
 
 function botForPlaybook(playbookId: PlaybookId) {
   return FLEET_TEMPLATE.find((b) => b.playbookIds.includes(playbookId));
@@ -533,33 +533,56 @@ export async function runWebhookListing(
   reason: string,
   opts: { attempts?: number; delayMs?: number } = {},
 ) {
-  const store = await getStore();
-  const site = store.sites.find((s) => s.id === siteId);
-  if (!site) return { ok: false, error: "Site not found" };
-  const proof = await waitForProof(site, { attempts: opts.attempts ?? 10, delayMs: opts.delayMs ?? 30_000 });
-  await mutateStore((s) => {
-    const current = s.sites.find((x) => x.id === siteId);
-    if (current) {
-      current.proof = proof;
-      if (current.webhook) current.webhook.lastResult = proof.proven ? `proof ${proof.method} after ${proof.attempts} check(s)` : `proof not live after ${proof.attempts} check(s)`;
+  // Runs detached from the request (void). Every exit path records
+  // webhook.lastResult and an audit line; the in-flight guard is released in
+  // finally so a later delivery can start a fresh check.
+  const record = async (result: string, message: string, kind: "audit" | "index" = "audit") => {
+    try {
+      await mutateStore((s) => {
+        const current = s.sites.find((x) => x.id === siteId);
+        if (current?.webhook) current.webhook.lastResult = result;
+        logActivity(s, { actor: "Sentinel", kind, siteId, message });
+      });
+    } catch (err) {
+      console.error("[citefleet] webhook listing: could not record result", err);
     }
-  });
-  if (!proof.proven) {
-    await mutateStore((s) =>
-      logActivity(s, {
-        actor: "Sentinel",
-        kind: "audit",
-        siteId,
-        message: `Webhook (${reason}): origin proof for ${site.domain} did not appear after ${proof.attempts} checks. ${proof.note}`,
-      }),
-    );
-    return { ok: false, error: proof.note };
-  }
+  };
   try {
-    const listing = await publishSiteToBotCentral(siteId);
-    return { ok: true, listed: listing.listed, href: listing.href };
+    const store = await getStore();
+    const site = store.sites.find((s) => s.id === siteId);
+    if (!site) return { ok: false, error: "Site not found" };
+    const proof = await waitForProof(site, { attempts: opts.attempts ?? 10, delayMs: opts.delayMs ?? 30_000 });
+    await mutateStore((s) => {
+      const current = s.sites.find((x) => x.id === siteId);
+      if (current) current.proof = proof;
+    });
+    if (!proof.proven) {
+      await record(
+        `proof not live after ${proof.attempts} check(s)`,
+        `Hook (${reason}): origin proof for ${site.domain} did not appear after ${proof.attempts} checks. ${proof.note}`,
+      );
+      return { ok: false, error: proof.note };
+    }
+    try {
+      const listing = await publishSiteToBotCentral(siteId);
+      await record(
+        `proof ${proof.method} after ${proof.attempts} check(s) · listed`,
+        `Hook (${reason}): ${site.domain} proof ${proof.method}; card ${listing.listed ? "live" : "not listed"}.`,
+        "index",
+      );
+      return { ok: true, listed: listing.listed, href: listing.href };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "publish failed";
+      await record(`proof ${proof.method} · publish refused`, `Hook (${reason}): ${site.domain} proof ok but publish refused — ${msg}`);
+      return { ok: false, error: msg };
+    }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "publish failed" };
+    const msg = err instanceof Error ? err.message : "unexpected failure";
+    console.error("[citefleet] webhook listing failed", err);
+    await record(`failed: ${msg}`, `Hook (${reason}): listing run failed — ${msg}`);
+    return { ok: false, error: msg };
+  } finally {
+    endCheck(siteId);
   }
 }
 

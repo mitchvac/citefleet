@@ -88,7 +88,16 @@ export interface Site {
   /** Last pre-flight proof check (same rules BotCentral applies). */
   proof?: { proven: boolean; method: "well-known-file" | "dns-txt" | "none"; note: string; checkedAt: string };
   /** GitHub webhook intake for automatic listing (secret is shown to the operator). */
-  webhook?: { secret: string; createdAt: string; lastEventAt?: string; lastEvent?: string; lastDelivery?: string; lastResult?: string };
+  webhook?: {
+    secret: string;
+    createdAt: string;
+    lastEventAt?: string;
+    lastEvent?: string;
+    lastDelivery?: string;
+    lastResult?: string;
+    /** Recent delivery ids (GitHub retries / replays are answered without re-running the check). */
+    recentDeliveries?: string[];
+  };
   routes: string[];
   createdAt: string;
   lastAuditAt?: string;

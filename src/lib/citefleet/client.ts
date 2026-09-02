@@ -107,10 +107,21 @@ export function useFleet() {
       run("proof", async () => {
         await verifyProofFn({ data: { siteId } });
       }),
-    webhookSecret: (siteId: string, rotate = false) =>
-      run("webhook", async () => {
-        await webhookSecretFn({ data: { siteId, rotate } });
-      }),
+    // Returns the secret ONCE (it is never in the store the browser receives).
+    webhookSecret: async (siteId: string, rotate = false) => {
+      setBusy("webhook");
+      setError(null);
+      try {
+        const result = await webhookSecretFn({ data: { siteId, rotate } });
+        await refresh();
+        return result;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Request failed");
+        return null;
+      } finally {
+        setBusy(null);
+      }
+    },
     removeProperty: (siteId: string) =>
       run("remove", async () => {
         await removePropertyFn({ data: { siteId } });

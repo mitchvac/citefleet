@@ -210,5 +210,10 @@ export function stripSecrets(store: StoreShape): StoreShape {
   if (clone.workspace.githubToken) {
     clone.workspace.githubToken = "set";
   }
+  // The console is public in v1 (VITE_AUTH_ENABLED=false): per-property webhook
+  // secrets are handed out once by webhookSecretFn and never via the store.
+  for (const site of clone.sites) {
+    if (site.webhook) site.webhook = { ...site.webhook, secret: "" };
+  }
   return clone;
 }

@@ -343,7 +343,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "Generate the secret",
-        body: "Generate webhook secret creates a per-property secret. Copy the Payload URL and the secret into the website repo: Settings → Webhooks → Add webhook, content type application/json, events push and deployment_status.",
+        body: "Generate webhook secret creates a per-property secret and shows it once — copy it before leaving the page (rotate to get a new one). Paste the Payload URL and the secret into the website repo: Settings → Webhooks → Add webhook, content type application/json, events push and deployment_status.",
       },
       {
         title: "What a delivery does",
@@ -351,7 +351,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "Customers you do not host",
-        body: "They do not need the webhook. A DNS TXT record proves control with no deploy at all, and Verify proof or autopilot will pick it up. Any CI that is not GitHub can POST {domain} to /api/hooks/deployed with the same secret after a deploy. The webhook only makes listing immediate.",
+        body: "They do not need the webhook. A DNS TXT record proves control with no deploy at all; Verify proof, or autopilot while it is on, will pick it up. Any CI that is not GitHub can POST {domain} to /api/hooks/deployed with the same secret after a deploy. The webhook only makes listing immediate.",
       },
     ],
   },

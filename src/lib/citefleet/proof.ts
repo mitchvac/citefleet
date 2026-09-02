@@ -53,7 +53,7 @@ export function proofHint(site: Pick<Site, "domain">): string {
 async function defaultFetchText(url: string) {
   const res = await fetch(url, {
     method: "GET",
-    redirect: "follow",
+    redirect: "manual",
     headers: { "User-Agent": "CiteFleetProof/1.0 (+https://citefleet.app)", Accept: "text/plain, */*" },
     cache: "no-store",
     signal: AbortSignal.timeout(12000),
@@ -79,7 +79,9 @@ export async function checkOriginProof(
       return { proven: true, method: "well-known-file", note: `Token found in ${wellKnownUrl(site)} (plain text).`, checkedAt };
     }
     fileNote =
-      file.status !== 200
+      file.status >= 300 && file.status < 400
+        ? `${wellKnownUrl(site)} redirected (${file.status}); the file must be served at that exact URL`
+        : file.status !== 200
         ? `${wellKnownUrl(site)} returned ${file.status}`
         : htmlish
           ? `${wellKnownUrl(site)} returned HTML (an app shell does not count)`
@@ -97,7 +99,12 @@ export async function checkOriginProof(
     }
     dnsNote = records.length ? `no matching TXT record among ${records.length} on ${host}` : `no TXT records on ${host}`;
   } catch (err) {
-    dnsNote = `DNS TXT lookup failed for ${host} (${err instanceof Error ? err.message : "dns error"})`;
+    // Node's resolver throws for "no records" (ENODATA) and "no such name" (ENOTFOUND).
+    const code = (err as { code?: string })?.code;
+    dnsNote =
+      code === "ENODATA" || code === "ENOTFOUND"
+        ? `no TXT records on ${host}`
+        : `DNS TXT lookup failed for ${host} (${err instanceof Error ? err.message : "dns error"})`;
   }
 
   return { proven: false, method: "none", note: `${fileNote}; ${dnsNote}. ${proofHint(site)}`, checkedAt };

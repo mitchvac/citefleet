@@ -172,8 +172,11 @@ function AutoListingPanel({
 }) {
   const proof = site.proof;
   const hook = site.webhook;
-  const payload = "https://citefleet.app/api/hooks/github";
-  const deployed = "https://citefleet.app/api/hooks/deployed";
+  // The secret is shown once, right after generate/rotate; the store never carries it.
+  const [revealed, setRevealed] = useState<{ secret: string; payloadUrl: string; deployedUrl: string } | null>(null);
+  const payload = revealed?.payloadUrl ?? "https://citefleet.app/api/hooks/github";
+  const deployed = revealed?.deployedUrl ?? "https://citefleet.app/api/hooks/deployed";
+  const hasSecret = Boolean(hook?.createdAt);
   return (
     <section className="glass rounded-3xl p-5" data-testid="auto-listing">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -210,9 +213,12 @@ function AutoListingPanel({
           type="button"
           className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
           disabled={!!fleet.busy}
-          onClick={() => fleet.webhookSecret(site.id, Boolean(hook?.secret))}
+          onClick={async () => {
+            const r = await fleet.webhookSecret(site.id, hasSecret);
+            if (r) setRevealed({ secret: r.secret, payloadUrl: r.payloadUrl, deployedUrl: r.deployedUrl });
+          }}
         >
-          {fleet.busy === "webhook" ? "Working…" : hook?.secret ? "Rotate webhook secret" : "Generate webhook secret"}
+          {fleet.busy === "webhook" ? "Working…" : hasSecret ? "Rotate webhook secret" : "Generate webhook secret"}
         </button>
       </div>
       <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-[160px_1fr]">
@@ -220,8 +226,18 @@ function AutoListingPanel({
         <dd className="mono break-all text-[#cfc8e8]" data-testid="webhook-url">{payload}</dd>
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Secret</dt>
         <dd className="mono break-all text-[#cfc8e8]" data-testid="webhook-secret">
-          {hook?.secret || "— generate one, then paste it into the repo’s webhook settings"}
+          {revealed
+            ? revealed.secret
+            : hasSecret
+              ? `set ${new Date(hook!.createdAt).toLocaleString()} · shown only when generated — rotate to get a new one`
+              : "— generate one, then paste it into the repo’s webhook settings"}
         </dd>
+        {revealed && (
+          <>
+            <dt></dt>
+            <dd className="text-xs text-amber-200">Copy it now. It is not stored where the browser can read it again.</dd>
+          </>
+        )}
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Any other CI</dt>
         <dd className="text-[#cfc8e8]">
           after a deploy, POST <span className="mono">{"{\"domain\":\""}{site.domain}{"\"}"}</span> to{" "}

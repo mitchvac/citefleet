@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Site, StoreShape } from "./types.ts";
 import {
+  beginCheck,
+  checksInFlight,
   classifyGithubEvent,
   deployedUrl,
+  endCheck,
+  isDuplicateDelivery,
   handleDeployedHook,
   handleGithubWebhook,
   newWebhookSecret,
@@ -74,15 +78,17 @@ test("siteForRepo matches owner/repo case-insensitively", () => {
   assert.equal(siteForRepo({ sites: [s] }, "other/site"), undefined);
 });
 
-test("handler: non-JSON → 400, unknown repo → 404, bad signature → 401 (nothing recorded)", async () => {
+test("handler: non-JSON → 400; unknown repo and bad signature answer identically (401, no oracle)", async () => {
   const { store, deps } = storeWith([site()]);
   const checks: string[] = [];
   const d = { ...deps, onCheck: (id: string) => checks.push(id) };
   assert.equal((await handleGithubWebhook({ rawBody: "nope", header: () => null }, d)).status, 400);
   const other = JSON.stringify({ ref: "refs/heads/main", repository: { full_name: "someone/else" } });
-  assert.equal((await handleGithubWebhook({ rawBody: other, header: headersFor(other, "s3cret", "push") }, d)).status, 404);
+  const unknown = await handleGithubWebhook({ rawBody: other, header: headersFor(other, "s3cret", "push") }, d);
   const raw = push("refs/heads/main");
-  assert.equal((await handleGithubWebhook({ rawBody: raw, header: headersFor(raw, "wrong", "push") }, d)).status, 401);
+  const badSig = await handleGithubWebhook({ rawBody: raw, header: headersFor(raw, "wrong", "push") }, d);
+  assert.equal(unknown.status, 401);
+  assert.deepEqual(unknown, badSig);
   assert.equal(checks.length, 0);
   assert.equal(store.activity.length, 0);
   assert.equal(store.sites[0].webhook?.lastEventAt, undefined);
@@ -92,8 +98,9 @@ test("handler: ping → 200, push to main → 202 + check queued + audit line + 
   const { store, deps } = storeWith([site()]);
   const checks: string[] = [];
   const d = { ...deps, onCheck: (id: string) => checks.push(id) };
+  endCheck("site-acme");
   const ping = JSON.stringify({ zen: "hi", repository: { full_name: "Acme/Site" } });
-  const pr = await handleGithubWebhook({ rawBody: ping, header: headersFor(ping, "s3cret", "ping") }, d);
+  const pr = await handleGithubWebhook({ rawBody: ping, header: headersFor(ping, "s3cret", "ping", { "x-github-delivery": "d-0" }) }, d);
   assert.equal(pr.status, 200);
   assert.equal(pr.body.action, "ping");
   assert.equal(checks.length, 0);
@@ -104,7 +111,8 @@ test("handler: ping → 200, push to main → 202 + check queued + audit line + 
   assert.deepEqual(checks, ["site-acme"]);
   assert.equal(store.sites[0].webhook?.lastDelivery, "d-1");
   assert.equal(store.sites[0].webhook?.lastEvent, "push · push to main");
-  assert.match(store.activity[0].message, /Webhook received for acme-dating.com \(push to main\)/);
+  assert.match(store.activity[0].message, /GitHub hook received for acme-dating.com \(push to main\)/);
+  endCheck("site-acme");
 });
 
 test("handler: push to another branch is acknowledged and ignored", async () => {
@@ -123,6 +131,7 @@ test("deployed hook: signed {domain} queues the check; bad signature, unknown do
   const { store, deps } = storeWith([site()]);
   const checks: string[] = [];
   const d = { ...deps, onCheck: (id: string) => checks.push(id) };
+  endCheck("site-acme");
   const body = JSON.stringify({ domain: "WWW.Acme-Dating.com" });
   const sig = signGithubPayload(body, "s3cret");
   const ok = await handleDeployedHook({ rawBody: body, header: (n) => ({ "x-citefleet-signature": sig, "x-citefleet-delivery": "ci-9" })[n.toLowerCase()] ?? null }, d);
@@ -130,11 +139,49 @@ test("deployed hook: signed {domain} queues the check; bad signature, unknown do
   assert.equal(ok.body.action, "check");
   assert.deepEqual(checks, ["site-acme"]);
   assert.equal(store.sites[0].webhook?.lastDelivery, "ci-9");
-  assert.match(store.activity[0].message, /Deploy hook received for acme-dating.com/);
+  assert.match(store.activity[0].message, /CI hook received for acme-dating.com \(deploy reported\)/);
+  endCheck("site-acme");
   assert.equal((await handleDeployedHook({ rawBody: body, header: () => "sha256=bad" }, d)).status, 401);
   const other = JSON.stringify({ domain: "nobody.example" });
-  assert.equal((await handleDeployedHook({ rawBody: other, header: () => signGithubPayload(other, "s3cret") }, d)).status, 404);
+  assert.equal((await handleDeployedHook({ rawBody: other, header: () => signGithubPayload(other, "s3cret") }, d)).status, 401);
   assert.equal((await handleDeployedHook({ rawBody: "{}", header: () => null }, d)).status, 400);
   assert.equal((await handleDeployedHook({ rawBody: "x", header: () => null }, d)).status, 400);
   assert.equal(checks.length, 1);
+});
+
+test("replayed delivery ids are acknowledged without re-running the check", async () => {
+  const { store, deps } = storeWith([site()]);
+  const checks: string[] = [];
+  const d = { ...deps, onCheck: (id: string) => checks.push(id) };
+  endCheck("site-acme");
+  const raw = push("refs/heads/main");
+  const first = await handleGithubWebhook({ rawBody: raw, header: headersFor(raw, "s3cret", "push", { "x-github-delivery": "dup-1" }) }, d);
+  endCheck("site-acme"); // the runner would release it
+  const again = await handleGithubWebhook({ rawBody: raw, header: headersFor(raw, "s3cret", "push", { "x-github-delivery": "dup-1" }) }, d);
+  assert.equal(first.body.action, "check");
+  assert.equal(again.status, 202);
+  assert.equal(again.body.action, "duplicate");
+  assert.deepEqual(checks, ["site-acme"]);
+  assert.equal(isDuplicateDelivery(store.sites[0], "dup-1"), true);
+  assert.equal(isDuplicateDelivery(store.sites[0], "dup-2"), false);
+});
+
+test("only one proof check runs per site at a time; a second delivery is recorded as in-progress", async () => {
+  const { store, deps } = storeWith([site()]);
+  const checks: string[] = [];
+  const d = { ...deps, onCheck: (id: string) => checks.push(id) };
+  endCheck("site-acme");
+  const raw = push("refs/heads/main");
+  const a = await handleGithubWebhook({ rawBody: raw, header: headersFor(raw, "s3cret", "push", { "x-github-delivery": "if-1" }) }, d);
+  const b = await handleGithubWebhook({ rawBody: raw, header: headersFor(raw, "s3cret", "push", { "x-github-delivery": "if-2" }) }, d);
+  assert.equal(a.body.action, "check");
+  assert.equal(b.body.action, "in-progress");
+  assert.deepEqual(checks, ["site-acme"]);
+  assert.match(store.activity[0].message, /already running/);
+  assert.equal(checksInFlight(), 1);
+  endCheck("site-acme");
+  assert.equal(checksInFlight(), 0);
+  assert.equal(beginCheck("site-acme"), true);
+  assert.equal(beginCheck("site-acme"), false);
+  endCheck("site-acme");
 });

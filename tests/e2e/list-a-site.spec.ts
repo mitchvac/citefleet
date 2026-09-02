@@ -246,19 +246,28 @@ test("lesson 13: Automatic listing — verify proof, generate the webhook secret
   const accepted = await page.request.post(hooks, { data: main, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": "e2e-main", "x-hub-signature-256": sign(main) } });
   expect(accepted.status()).toBe(202);
   expect((await accepted.json()).action).toBe("check");
+  // GitHub redelivery of the same id is acknowledged, not re-run.
+  const replay = await page.request.post(hooks, { data: main, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": "e2e-main", "x-hub-signature-256": sign(main) } });
+  expect(replay.status()).toBe(202);
+  expect((await replay.json()).action).toBe("duplicate");
+  // Unknown repository answers exactly like a bad signature.
+  const stranger = JSON.stringify({ ref: "refs/heads/main", repository: { full_name: "someone/else" } });
+  const unknown = await page.request.post(hooks, { data: stranger, headers: { "content-type": "application/json", "x-github-event": "push", "x-hub-signature-256": sign(stranger) } });
+  expect(unknown.status()).toBe(401);
 
   // Any other CI: the generic deployed hook with the same secret.
   const deployedBody = JSON.stringify({ domain: DOMAIN });
   const deployed = await page.request.post(`${baseURL}/api/hooks/deployed`, { data: deployedBody, headers: { "content-type": "application/json", "x-citefleet-delivery": "e2e-ci", "x-citefleet-signature": sign(deployedBody) } });
   expect(deployed.status()).toBe(202);
-  expect((await deployed.json()).action).toBe("check");
+  // The push a moment ago may still be checking: one check per site at a time.
+  expect(["check", "in-progress"]).toContain((await deployed.json()).action);
   await expect(panel.getByTestId("deployed-url")).toHaveText(/\/api\/hooks\/deployed$/);
 
   await page.reload();
   await panel.scrollIntoViewIfNeeded();
   await expect(panel.getByTestId("webhook-last")).toContainText("deploy reported", { timeout: 30000 });
   await page.goto("/activity");
-  await expect(page.getByText(`Webhook received for ${DOMAIN} (push to main)`).first()).toBeVisible();
+  await expect(page.getByText(`GitHub hook received for ${DOMAIN} (push to main)`).first()).toBeVisible();
 });
 
 test("lesson 12: Monitor — run monitor + reconcile (observe only, no freeze)", async ({

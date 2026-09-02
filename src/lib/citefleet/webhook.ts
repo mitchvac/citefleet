@@ -36,7 +36,37 @@ export function verifyGithubSignature(rawBody: string, header: string | null | u
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
-export type HookAction = "ping" | "check" | "ignore";
+export type HookAction = "ping" | "check" | "ignore" | "duplicate" | "in-progress";
+
+const UNAUTHORIZED: HookResponse = { status: 401, body: { error: "unauthorized" } };
+// A secret to compare against when no property matches, so the response time
+// does not reveal whether the repository or domain is attached.
+const DECOY_SECRET = "no-such-property-" + "x".repeat(32);
+const RECENT_DELIVERIES = 50;
+
+/** Site ids with a proof check + publish currently running (one at a time per site). */
+const inFlight = new Set<string>();
+export function beginCheck(siteId: string): boolean {
+  if (inFlight.has(siteId)) return false;
+  inFlight.add(siteId);
+  return true;
+}
+export function endCheck(siteId: string) {
+  inFlight.delete(siteId);
+}
+export function checksInFlight(): number {
+  return inFlight.size;
+}
+
+export function isDuplicateDelivery(site: Pick<Site, "webhook">, delivery: string | undefined): boolean {
+  return Boolean(delivery && site.webhook?.recentDeliveries?.includes(delivery));
+}
+function rememberDelivery(site: Site, delivery: string | undefined) {
+  if (!delivery || !site.webhook) return;
+  const list = (site.webhook.recentDeliveries ?? []).filter((d) => d !== delivery);
+  list.unshift(delivery);
+  site.webhook.recentDeliveries = list.slice(0, RECENT_DELIVERIES);
+}
 
 export function classifyGithubEvent(
   event: string | null | undefined,
@@ -97,36 +127,49 @@ export async function handleGithubWebhook(
   }
   const store = await deps.getStore();
   const site = siteForRepo(store, repoFullName(payload));
-  if (!site || !site.webhook?.secret) {
-    return { status: 404, body: { error: "no property is attached to this repository with a webhook secret" } };
-  }
-  if (!verifyGithubSignature(input.rawBody, input.header("x-hub-signature-256"), site.webhook.secret)) {
-    return { status: 401, body: { error: "signature mismatch" } };
-  }
+  // Unknown repository and bad signature answer identically (no existence oracle).
+  const secret = site?.webhook?.secret || DECOY_SECRET;
+  const valid = verifyGithubSignature(input.rawBody, input.header("x-hub-signature-256"), secret);
+  if (!site?.webhook?.secret || !valid) return UNAUTHORIZED;
   const event = input.header("x-github-event");
   const delivery = input.header("x-github-delivery") || undefined;
-  const { action, reason } = classifyGithubEvent(event, payload, site);
+  if (isDuplicateDelivery(site, delivery)) {
+    return { status: 202, body: { ok: true, action: "duplicate", reason: "delivery already processed", site: site.domain } };
+  }
+  return finishDelivery(deps, site, { event: event || "unknown", delivery, actor: "GitHub", ...classifyGithubEvent(event, payload, site) });
+}
+
+async function finishDelivery(
+  deps: HookDeps,
+  site: Site,
+  d: { event: string; delivery?: string; actor: string; action: HookAction; reason: string },
+): Promise<HookResponse> {
+  let action = d.action;
+  if (action === "check" && !beginCheck(site.id)) action = "in-progress";
   const at = (deps.now ?? (() => new Date()))().toISOString();
   await deps.mutateStore((s) => {
     const current = s.sites.find((x) => x.id === site.id);
     if (!current?.webhook) return;
     current.webhook.lastEventAt = at;
-    current.webhook.lastEvent = `${event || "unknown"} · ${reason}`;
-    current.webhook.lastDelivery = delivery;
+    current.webhook.lastEvent = `${d.event} · ${d.reason}`;
+    current.webhook.lastDelivery = d.delivery;
+    rememberDelivery(current, d.delivery);
     s.activity.unshift({
       id: crypto.randomUUID(),
       at,
-      actor: "GitHub",
+      actor: d.actor,
       kind: "system",
       siteId: site.id,
       message:
         action === "check"
-          ? `Webhook received for ${site.domain} (${reason}). Checking the origin proof, then listing.`
-          : `Webhook received for ${site.domain} (${reason}) — ignored.`,
+          ? `${d.actor} hook received for ${site.domain} (${d.reason}). Checking the origin proof, then listing.`
+          : action === "in-progress"
+            ? `${d.actor} hook received for ${site.domain} (${d.reason}) — a proof check is already running; it will pick up the new deploy.`
+            : `${d.actor} hook received for ${site.domain} (${d.reason}) — ignored.`,
     });
   });
-  if (action === "check") deps.onCheck(site.id, reason);
-  return { status: action === "ping" ? 200 : 202, body: { ok: true, action, reason, site: site.domain } };
+  if (action === "check") deps.onCheck(site.id, d.reason);
+  return { status: action === "ping" ? 200 : 202, body: { ok: true, action, reason: d.reason, site: site.domain } };
 }
 
 /**
@@ -149,28 +192,12 @@ export async function handleDeployedHook(
   if (!domain) return { status: 400, body: { error: "domain is required" } };
   const store = await deps.getStore();
   const site = store.sites.find((s) => s.domain.replace(/^www\./, "").toLowerCase() === domain);
-  if (!site || !site.webhook?.secret) {
-    return { status: 404, body: { error: "no property with a webhook secret for this domain" } };
+  const secret = site?.webhook?.secret || DECOY_SECRET;
+  const valid = verifyGithubSignature(input.rawBody, input.header("x-citefleet-signature"), secret);
+  if (!site?.webhook?.secret || !valid) return UNAUTHORIZED;
+  const delivery = input.header("x-citefleet-delivery") || undefined;
+  if (isDuplicateDelivery(site, delivery)) {
+    return { status: 202, body: { ok: true, action: "duplicate", reason: "delivery already processed", site: site.domain } };
   }
-  if (!verifyGithubSignature(input.rawBody, input.header("x-citefleet-signature"), site.webhook.secret)) {
-    return { status: 401, body: { error: "signature mismatch" } };
-  }
-  const at = (deps.now ?? (() => new Date()))().toISOString();
-  await deps.mutateStore((s) => {
-    const current = s.sites.find((x) => x.id === site.id);
-    if (!current?.webhook) return;
-    current.webhook.lastEventAt = at;
-    current.webhook.lastEvent = "deployed hook · deploy reported";
-    current.webhook.lastDelivery = input.header("x-citefleet-delivery") || undefined;
-    s.activity.unshift({
-      id: crypto.randomUUID(),
-      at,
-      actor: "CI",
-      kind: "system",
-      siteId: site.id,
-      message: `Deploy hook received for ${site.domain}. Checking the origin proof, then listing.`,
-    });
-  });
-  deps.onCheck(site.id, "deploy hook");
-  return { status: 202, body: { ok: true, action: "check", reason: "deploy hook", site: site.domain } };
+  return finishDelivery(deps, site, { event: "deployed", delivery, actor: "CI", action: "check", reason: "deploy reported" });
 }

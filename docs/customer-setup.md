@@ -41,6 +41,8 @@ automatically.
 
 1. On the campaign page under **Automatic listing**, click **Generate webhook
    secret**. Copy the Payload URL and the secret.
+   The secret is shown once; copy it before you leave the page (rotate to get a
+   new one).
 2. In your repository: **Settings → Webhooks → Add webhook**.
    - Payload URL: the one shown (`https://citefleet.app/api/hooks/github`)
    - Content type: `application/json`
@@ -52,11 +54,14 @@ automatically.
 
 What CiteFleet does with a delivery:
 
-- verifies the `X-Hub-Signature-256` signature with your secret;
+- verifies the `X-Hub-Signature-256` signature with your secret (an unknown
+  repository and a bad signature both get 401);
 - acts only on a push to the attached branch or a successful
   `deployment_status`; everything else is acknowledged and ignored;
 - re-checks the proof for a few minutes while your deploy lands, then lists or
   refreshes the card;
+- answers a redelivered id without re-running the check, and runs one check per
+  property at a time;
 - writes every delivery and outcome to the Audit log.
 
 Rotate the secret from the same panel at any time; the old one stops working
@@ -79,5 +84,5 @@ CiteFleet answers 202 and does exactly what it does for a GitHub push.
 ## 3. If you do not use GitHub or cannot add webhooks
 
 Nothing else is required. Use the DNS record (or the file), then Verify proof.
-CiteFleet's autopilot re-checks unlisted properties on a timer and lists them
-when the proof appears.
+While the operator has autopilot on, CiteFleet also re-checks unlisted
+properties every few minutes and lists them when the proof appears.
