@@ -48,6 +48,14 @@ Set it to Neon/Postgres for durable workspaces.
 
 Optional: `XAI_API_KEY` for live Grok briefs. Never commit it.
 
+## 2b. Operator sign-in
+
+`deploy/deploy-vps.sh` generates `/root/citefleet-operator.token` once and
+injects it as `CITEFLEET_OPERATOR_TOKEN`. Open `https://citefleet.app/login`
+and paste `cat /root/citefleet-operator.token`. Rotate by replacing the file
+and redeploying; every session is dropped on restart. The e2e suite signs in
+with `E2E_OPERATOR_TOKEN=<same value>`.
+
 ## 3. Build & run
 
 One-shot (as root on the box):

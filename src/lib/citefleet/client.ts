@@ -21,6 +21,16 @@ import {
   webhookSecretFn,
 } from "./fleet-api";
 
+/** The operator gate rejects with "Unauthorized: …" — send the browser to /login. */
+function redirectIfSignedOut(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  if (!message.startsWith("Unauthorized")) return false;
+  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    window.location.assign("/login");
+  }
+  return true;
+}
+
 export function useFleet() {
   const [store, setStore] = useState<StoreShape | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +45,10 @@ export function useFleet() {
 
   useEffect(() => {
     refresh()
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load workspace"))
+      .catch((err) => {
+        if (redirectIfSignedOut(err)) return;
+        setError(err instanceof Error ? err.message : "Failed to load workspace");
+      })
       .finally(() => setLoading(false));
   }, [refresh]);
 
@@ -47,6 +60,7 @@ export function useFleet() {
       await refresh();
       return true;
     } catch (err) {
+      if (redirectIfSignedOut(err)) return false;
       // A failed act still changes the workspace (evidence, blocked task, proof
       // token): reload it, then show the error on top of the fresh state.
       await refresh().catch(() => {});

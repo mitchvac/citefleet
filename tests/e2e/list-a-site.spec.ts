@@ -42,6 +42,25 @@ function siteCard(page: Page) {
     .first();
 }
 
+test.describe("operator gate (signed out)", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+  test("the console redirects to /login and a wrong token is refused; hooks still answer", async ({ page, baseURL }) => {
+    await page.goto("/");
+    await page.waitForURL(/\/login/, { timeout: 30000 });
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await page.getByLabel("Operator token").fill("definitely-not-the-token-000000000000");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL(/\/login\?error=/, { timeout: 30000 });
+    await expect(page.getByTestId("login-error")).toBeVisible();
+    // Signed-out hook call is still answered by the hook (401 from the signature check, not a redirect).
+    const r = await page.request.post(`${baseURL}/api/hooks/github`, { data: "{}", headers: { "content-type": "application/json" } });
+    expect(r.status()).toBe(401);
+    // Public surface stays public.
+    const health = await page.request.get(`${baseURL}/health`);
+    expect(health.status()).toBe(200);
+  });
+});
+
 test("training: read every lesson, the glossary, and pass the operator test", async ({
   page,
 }) => {

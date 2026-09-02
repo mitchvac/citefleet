@@ -52,8 +52,15 @@ export function Shell({
               BotCentral
             </a>
           </nav>
-          <div className="mono text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
-            CiteFleet · Enterprise
+          <div className="flex items-center gap-3">
+            <span className="mono text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+              CiteFleet · Enterprise
+            </span>
+            <form method="post" action="/api/logout">
+              <button className="rounded-full border border-white/10 px-3 py-1 text-xs text-[#cfc8e8] hover:bg-white/5">
+                Sign out
+              </button>
+            </form>
           </div>
         </div>
         <nav className="mx-auto flex max-w-7xl flex-wrap gap-1 px-6 pb-3 md:hidden">

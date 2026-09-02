@@ -14,9 +14,12 @@ import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as OpsRouteImport } from './routes/ops'
 import { Route as PlaybookRouteImport } from './routes/playbook'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ApiLoginRouteImport } from './routes/api/login'
+import { Route as ApiLogoutRouteImport } from './routes/api/logout'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
 import { Route as LearnSlugRouteImport } from './routes/learn/$slug'
 import { Route as LearnGlossaryRouteImport } from './routes/learn/glossary'
@@ -50,6 +53,11 @@ const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
   path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OpsRoute = OpsRouteImport.update({
   id: '/ops',
   path: '/ops',
@@ -63,6 +71,16 @@ const PlaybookRoute = PlaybookRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLoginRoute = ApiLoginRouteImport.update({
+  id: '/api/login',
+  path: '/api/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLogoutRoute = ApiLogoutRouteImport.update({
+  id: '/api/logout',
+  path: '/api/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LearnIndexRoute = LearnIndexRouteImport.update({
@@ -107,9 +125,12 @@ export interface FileRoutesByFullPath {
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/login': typeof LoginRoute
   '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/login': typeof ApiLoginRoute
+  '/api/logout': typeof ApiLogoutRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -124,9 +145,12 @@ export interface FileRoutesByTo {
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/login': typeof LoginRoute
   '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/login': typeof ApiLoginRoute
+  '/api/logout': typeof ApiLogoutRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -142,9 +166,12 @@ export interface FileRoutesById {
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/login': typeof LoginRoute
   '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/login': typeof ApiLoginRoute
+  '/api/logout': typeof ApiLogoutRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -161,9 +188,12 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/health'
     | '/llms.txt'
+    | '/login'
     | '/ops'
     | '/playbook'
     | '/sitemap.xml'
+    | '/api/login'
+    | '/api/logout'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -178,9 +208,12 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/health'
     | '/llms.txt'
+    | '/login'
     | '/ops'
     | '/playbook'
     | '/sitemap.xml'
+    | '/api/login'
+    | '/api/logout'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -195,9 +228,12 @@ export interface FileRouteTypes {
     | '/fleet'
     | '/health'
     | '/llms.txt'
+    | '/login'
     | '/ops'
     | '/playbook'
     | '/sitemap.xml'
+    | '/api/login'
+    | '/api/logout'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -213,9 +249,12 @@ export interface RootRouteChildren {
   FleetRoute: typeof FleetRoute
   HealthRoute: typeof HealthRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
+  LoginRoute: typeof LoginRoute
   OpsRoute: typeof OpsRoute
   PlaybookRoute: typeof PlaybookRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiLoginRoute: typeof ApiLoginRoute
+  ApiLogoutRoute: typeof ApiLogoutRoute
   LearnSlugRoute: typeof LearnSlugRoute
   LearnGlossaryRoute: typeof LearnGlossaryRoute
   LearnQuizRoute: typeof LearnQuizRoute
@@ -262,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ops': {
       id: '/ops'
       path: '/ops'
@@ -281,6 +327,20 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/login': {
+      id: '/api/login'
+      path: '/api/login'
+      fullPath: '/api/login'
+      preLoaderRoute: typeof ApiLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/logout': {
+      id: '/api/logout'
+      path: '/api/logout'
+      fullPath: '/api/logout'
+      preLoaderRoute: typeof ApiLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/learn/': {
@@ -341,9 +401,12 @@ const rootRouteChildren: RootRouteChildren = {
   FleetRoute: FleetRoute,
   HealthRoute: HealthRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
+  LoginRoute: LoginRoute,
   OpsRoute: OpsRoute,
   PlaybookRoute: PlaybookRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiLoginRoute: ApiLoginRoute,
+  ApiLogoutRoute: ApiLogoutRoute,
   LearnSlugRoute: LearnSlugRoute,
   LearnGlossaryRoute: LearnGlossaryRoute,
   LearnQuizRoute: LearnQuizRoute,

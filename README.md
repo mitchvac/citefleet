@@ -16,8 +16,12 @@ TanStack Start + React 19 + Nitro. Docker on a shared VPS
 
 ```bash
 npm ci
-npm run dev
+CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) npm run dev   # then sign in at http://localhost:8080/login with that value
 ```
+
+The console is behind a single-operator gate (`/login`). Without
+`CITEFLEET_OPERATOR_TOKEN` every action refuses. Customer webhooks and
+`/health` stay public.
 
 ## Production (shared VPS)
 

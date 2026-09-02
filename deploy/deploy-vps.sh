@@ -43,6 +43,15 @@ if [[ ! -s "$TOKEN_FILE" ]]; then
 fi
 SERVICE_TOKEN="$(tr -d '\n' < "$TOKEN_FILE")"
 
+# Operator sign-in token for the console (single operator; never leaves the box
+# except when the operator pastes it into /login).
+OP_FILE="/root/citefleet-operator.token"
+if [[ ! -s "$OP_FILE" ]]; then
+  openssl rand -hex 32 > "$OP_FILE"
+  chmod 600 "$OP_FILE"
+fi
+OPERATOR_TOKEN="$(tr -d '\n' < "$OP_FILE")"
+
 PASS_FILE="/root/citefleet-postgres.pass"
 if [[ ! -s "$PASS_FILE" ]]; then
   openssl rand -hex 24 > "$PASS_FILE"
@@ -86,6 +95,7 @@ fi
   echo "VITE_AUTH_ENABLED=false"
   echo "BOTCENTRAL_URL=https://botcentral.org"
   printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
+  printf 'CITEFLEET_OPERATOR_TOKEN=%s\n' "$OPERATOR_TOKEN"
   if [[ -s /root/citefleet-github.token ]]; then
     printf 'GITHUB_TOKEN=%s\n' "$(tr -d '\n' < /root/citefleet-github.token)"
   fi
@@ -158,6 +168,7 @@ for i in $(seq 1 40); do
 done
 if [[ -n "$ok" ]]; then
   echo "SUCCESS — CiteFleet at https://$DOMAIN (other sites on this box left intact)"
+  echo "Operator token (paste at https://$DOMAIN/login): cat $OP_FILE"
 else
   echo "App did not answer yet. docker logs $CONTAINER --tail 50"
 fi
