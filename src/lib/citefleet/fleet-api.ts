@@ -62,7 +62,7 @@ export const verifyProofFn = createServerFn({ method: "POST" })
   });
 
 // Always mints a NEW secret and returns it once. An existing secret is never
-// returned by any server fn (the console is public in v1).
+// returned by any server fn (defence in depth behind the operator gate).
 export const webhookSecretFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)

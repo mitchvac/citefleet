@@ -27,9 +27,17 @@ export class OperatorUnauthorizedError extends Error {
 }
 
 function clientKey(request: Request): string {
-  // nginx sets X-Forwarded-For; the first hop is the client.
+  // nginx sets X-Real-IP to $remote_addr (not spoofable through the proxy). If
+  // only X-Forwarded-For is present, its LAST hop is the one the proxy appended;
+  // the first hop is client-controlled and must not key the lockout.
+  const real = request.headers.get("x-real-ip");
+  if (real) return real.trim();
   const xff = request.headers.get("x-forwarded-for");
-  return (xff ? xff.split(",")[0] : request.headers.get("x-real-ip") || "unknown").trim();
+  if (xff) {
+    const hops = xff.split(",").map((h) => h.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
+  }
+  return "unknown";
 }
 
 function isSecure(request: Request): boolean {

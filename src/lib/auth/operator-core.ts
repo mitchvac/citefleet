@@ -17,7 +17,24 @@ export const LOCKOUT_MS = 60_000;
 const MIN_TOKEN_LENGTH = 32;
 
 const sessions = new Map<string, { createdAt: number; expiresAt: number }>();
-const failures = new Map<string, { count: number; lockedUntil: number }>();
+const failures = new Map<string, { count: number; lockedUntil: number; lastAt: number }>();
+const FAILURE_TTL_MS = 60 * 60 * 1000;
+const MAX_TRACKED_CLIENTS = 10_000;
+
+/** Forget stale failure records so anonymous traffic cannot grow the map without bound. */
+export function pruneFailures(now = Date.now()): void {
+  for (const [key, f] of failures) {
+    if (f.lastAt <= now - FAILURE_TTL_MS && f.lockedUntil <= now) failures.delete(key);
+  }
+  if (failures.size > MAX_TRACKED_CLIENTS) {
+    const oldest = [...failures.entries()].sort((a, b) => a[1].lastAt - b[1].lastAt);
+    for (const [key] of oldest.slice(0, failures.size - MAX_TRACKED_CLIENTS)) failures.delete(key);
+  }
+}
+
+export function trackedClients(): number {
+  return failures.size;
+}
 
 export function operatorTokenConfigured(token = process.env.CITEFLEET_OPERATOR_TOKEN): boolean {
   return typeof token === "string" && token.trim().length >= MIN_TOKEN_LENGTH;
@@ -44,11 +61,12 @@ export function attemptLogin(
   const token = (opts.token ?? process.env.CITEFLEET_OPERATOR_TOKEN ?? "").trim();
   const now = opts.now ?? Date.now();
   if (!operatorTokenConfigured(token)) return { ok: false, reason: "not-configured" };
+  pruneFailures(now);
   const f = failures.get(clientKey);
   if (f && f.lockedUntil > now) return { ok: false, reason: "locked", retryAfterMs: f.lockedUntil - now };
   if (!safeEqual(presented.trim(), token)) {
     const count = (f && f.lockedUntil <= now && f.count >= MAX_FAILURES ? 0 : (f?.count ?? 0)) + 1;
-    failures.set(clientKey, { count, lockedUntil: count >= MAX_FAILURES ? now + LOCKOUT_MS : 0 });
+    failures.set(clientKey, { count, lockedUntil: count >= MAX_FAILURES ? now + LOCKOUT_MS : 0, lastAt: now });
     return { ok: false, reason: "bad-token" };
   }
   failures.delete(clientKey);

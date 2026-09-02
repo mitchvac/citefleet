@@ -8,6 +8,8 @@ import {
   clearedCookie,
   hasSession,
   operatorTokenConfigured,
+  pruneFailures,
+  trackedClients,
   readCookie,
   resetOperatorState,
   revokeSession,
@@ -86,4 +88,21 @@ test("readCookie parses the named cookie only", () => {
   assert.equal(readCookie("a=1; citefleet_op=abc=def; b=2", OPERATOR_COOKIE), "abc=def");
   assert.equal(readCookie("a=1", OPERATOR_COOKIE), undefined);
   assert.equal(readCookie(null, OPERATOR_COOKIE), undefined);
+});
+
+test("failure records are pruned after an hour and capped, so anonymous traffic cannot grow the map", () => {
+  resetOperatorState();
+  const t0 = 5_000_000;
+  for (let i = 0; i < 20; i++) attemptLogin("nope", `client-${i}`, { token: TOKEN, now: t0 });
+  assert.equal(trackedClients(), 20, "positive control: records exist");
+  pruneFailures(t0 + 60 * 60 * 1000 - 1);
+  assert.equal(trackedClients(), 20, "not yet stale");
+  pruneFailures(t0 + 60 * 60 * 1000 + 1);
+  assert.equal(trackedClients(), 0, "stale records dropped");
+  // a fresh record survives pruning; once stale AND its lockout has ended it goes
+  for (let i = 0; i < MAX_FAILURES; i++) attemptLogin("nope", "locked-one", { token: TOKEN, now: t0 });
+  pruneFailures(t0 + 30_000);
+  assert.equal(trackedClients(), 1, "recent locked record kept");
+  pruneFailures(t0 + 60 * 60 * 1000 + 1);
+  assert.equal(trackedClients(), 0, "stale record with expired lockout dropped");
 });
