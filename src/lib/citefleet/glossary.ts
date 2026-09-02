@@ -173,4 +173,23 @@ export const GLOSSARY: Term[] = [
     meaning:
       "The files CiteFleet writes into a customer GitHub repo: public/robots.txt, public/sitemap.xml, public/llms.txt, public/.well-known/botcentral.txt, and the IndexNow key file. They only go live after that repo is deployed to the customer domain. CiteFleet does not host them.",
   },
+  {
+    id: "proof",
+    term: "Origin proof",
+    standsFor: "botcentral-verify=citefleet-app",
+    meaning:
+      "How BotCentral knows the origin opted in: that line served as plain text at /.well-known/botcentral.txt, or the same line in an apex DNS TXT record. CiteFleet checks it with the registry's own rules before publishing (Verify proof) so a missing proof is reported with the exact line to add.",
+  },
+  {
+    id: "webhook",
+    term: "Webhook / deploy hook",
+    meaning:
+      "Automatic listing. A repository webhook (GitHub) or a signed POST from any CI (deploy hook) tells CiteFleet a deploy happened; CiteFleet re-checks the proof for a few minutes and then lists or refreshes the card. Each property has its own secret, shown once when generated.",
+  },
+  {
+    id: "operator",
+    term: "Operator token",
+    meaning:
+      "The one shared sign-in for this console, set as CITEFLEET_OPERATOR_TOKEN on the server and exchanged at /login for a session cookie. Every action and the workspace data are behind it; customer hooks and /health are not.",
+  },
 ];

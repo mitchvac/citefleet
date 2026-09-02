@@ -28,7 +28,7 @@ Playwright for e2e. Node 20. ESM (`"type": "module"`).
 | --- | --- |
 | `PRIME_DIRECTIVE.md` | Operator governance v9. Authoritative; read before any code work. |
 | `AGENTS.md` | This map. |
-| `README.md` | Human overview, local run, VPS deploy summary. |
+| `README.md` | Overview, how a site gets listed, docs index, local run, deploy summary, tests. |
 | `package.json` / `package-lock.json` | Scripts (`dev`, `build`, `db:migrate`, `typecheck`, `test`, `e2e`, `e2e:headed`, `lint`) and deps. |
 | `tsconfig.json` | TS config; `@/` alias → `src/`. |
 | `vite.config.ts` | Vite + TanStack Start + Tailwind + app-env / Grok PWA plugins from `scripts/`. |
@@ -53,8 +53,8 @@ Playwright for e2e. Node 20. ESM (`"type": "module"`).
 | `migrations/` | SQL applied by `scripts/migrate.mjs`: `0001_citefleet.sql` (workspace tables), `auth/0001_auth.sql` (better-auth tables). Number the next one sequentially. |
 | `scripts/` | Node build/ops helpers with co-located `*.test.mjs` (`npm test` needs Node 22; tests that pin the gitignored `.grok/` template files skip when those files are absent): `with-app-env.mjs` + `app-env-plugin.mjs` (env injection), `migrate.mjs` + `migration-plan.mjs`, `preview*.mjs`, `browser-smoke*.mjs`, `brand-check.mjs`, `check-auth-invariant.mjs`, `grok-pwa-*.mjs` + `install-page.html`, `sign-out-plan.mjs`, `write-atomic.mjs`. |
 | `public/` | Static origin files for citefleet.app itself: `robots.txt`, `sitemap.xml`, `llms.txt`, `.well-known/botcentral.txt`, `favicon.svg`, `__grok/` PWA install assets. |
-| `docs/` | `customer-setup.md` — what a customer does to get listed: proof file or DNS TXT, optional GitHub webhook (payload URL, secret, events). |
-| `deploy/` | Shared-VPS deploy: `DEPLOY-VPS.md`, `deploy-vps.sh`, `run-detached.sh`, `nginx-citefleet.app.conf`, `.env.production.example`. Container binds `127.0.0.1:3021`. |
+| `docs/` | `customer-setup.md` — what a customer does to get listed (proof file or DNS TXT, optional GitHub webhook / deploy hook). `operator-runbook.md` — sign-in, deploy, listing flow, error table, cleanup, tests. |
+| `deploy/` | Shared-VPS deploy: `DEPLOY-VPS.md`, `deploy-vps.sh` (re-execs from a private copy; mints the BotCentral service token and the operator token on first run), `run-detached.sh`, `nginx-citefleet.app.conf`, `.env.production.example`. Container binds `127.0.0.1:3021`. |
 | `tests/e2e/` | Playwright specs run headed against live citefleet.app (`E2E_CHANNEL=chrome` on macOS 13; `E2E_OPERATOR_TOKEN` signs in via `global-setup.ts`, cookie jar in the gitignored `.auth/`). `typeSlow.ts` = shared clear-then-type helper (asserts the value). `list-a-site.spec.ts` follows the Training module order for one customer origin (env `E2E_SITE_NAME`, `E2E_SITE_URL`, `E2E_GH_OWNER`, `E2E_GH_REPO`, `E2E_GH_ROOT`; defaults wflowprocess.app): lessons + quiz, onboard (skipped if a WflowProcess card exists; `E2E_REONBOARD=1` forces), Live audit, campaign board + attach `mitchvac/wflowprocess` folder `frontend/public`, List on BotCentral (soft-asserted), confirm listing, Monitor cycle, teardown via Remove property (only cards named exactly WflowProcess), Audit log. The spec never clicks "Push origin files" (commits to the customer repo) or the kill switch. |
 
 ## Conventions that bite

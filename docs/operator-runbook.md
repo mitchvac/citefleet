@@ -1,0 +1,96 @@
+# CiteFleet operator runbook
+
+Everything the single operator does day to day. Customer-facing steps are in
+[customer-setup.md](customer-setup.md); server setup is in
+[../deploy/DEPLOY-VPS.md](../deploy/DEPLOY-VPS.md); the repo map is
+[../AGENTS.md](../AGENTS.md).
+
+## Sign in
+
+The console (every page that shows workspace data, and every action) is behind
+one operator token.
+
+- Token: `cat /root/citefleet-operator.token` on the VPS. It is injected into
+  the container as `CITEFLEET_OPERATOR_TOKEN` by `deploy/deploy-vps.sh`.
+- Sign in at `https://citefleet.app/login`. The cookie holds a random session
+  id, never the token. Sessions live in memory: a container restart or a
+  redeploy signs you out.
+- Five wrong tokens from one address lock that address out for 60 seconds.
+- Rotate: replace the file, redeploy. Every session is dropped.
+- Public without sign-in: `/health`, `/llms.txt`, `/sitemap.xml`, the
+  Training pages, `/login`, and the two hook endpoints.
+
+Local development:
+
+```bash
+CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) npm run dev
+```
+
+## Deploy a change
+
+```bash
+ssh root@144.91.66.158
+bash /opt/citefleet/deploy/deploy-vps.sh
+curl -s https://citefleet.app/health
+```
+
+The script pulls `main`, rebuilds only the `citefleet` container, and leaves
+every other site on the box alone. It re-executes itself from a private copy so
+a change to the script itself takes effect on the same run.
+
+## Get a customer listed
+
+The Training module (lesson 02) is the click-by-click version. In short:
+
+1. **Command → Onboard a property**: name, `https://` origin, GitHub owner
+   and repo. Every customer is just an origin URL; nothing about a customer
+   lives in code.
+2. **Live audit** on the card.
+3. **Campaign**: attach the website repo (folder is the web root, e.g.
+   `public` or `frontend/public`), **Push origin files** if you have a GitHub
+   PAT saved, and have the customer deploy. Or the customer adds one DNS TXT
+   record instead (see customer-setup.md).
+4. **Verify proof** (Automatic listing panel). CiteFleet applies BotCentral's
+   own rules: `/.well-known/botcentral.txt` must be plain text with
+   `botcentral-verify=citefleet-app`, else an apex DNS TXT record with that
+   line. If it fails you get the exact line to add and nothing is sent.
+5. **List on BotCentral**. The card is written only after BotCentral confirms
+   the same proof. The Command card then shows **Listed on BotCentral** with
+   the inspector link; the machine card is `https://botcentral.org/v1/site/<domain>`.
+6. Optional: **Generate webhook secret** and give the customer the payload URL
+   and secret. Every deploy then re-checks the proof and refreshes the card
+   without anyone clicking. Any non-GitHub CI can call the deploy hook instead.
+
+## What the errors mean
+
+| Message | Cause | Do |
+| --- | --- | --- |
+| `Proof not live yet — …` | The origin does not serve the proof line (or serves an HTML shell) and there is no DNS record. | Add the file or the TXT record, then Verify proof. |
+| `ownership not proven` (from BotCentral) | Pre-flight passed but the registry's own fetch failed (propagation, redirect, host-specific). | Wait a minute and retry; check the file from another network. |
+| `Unauthorized: operator sign-in required` | Session expired or container restarted. | Sign in again. |
+| `Unauthorized: operator token not configured` | `CITEFLEET_OPERATOR_TOKEN` missing in `.env`. | Rerun the deploy script; it mints and injects it. |
+| Hook answers `401` | Wrong secret, unknown repository/domain, or tampered body — all look the same on purpose. | Rotate the secret and update the repository webhook. |
+| Hook answers `202 duplicate` / `in-progress` | GitHub redelivered an id, or a check from a moment ago is still running. | Nothing; the running check picks up the deploy. |
+| `BotCentral publish blocked` on the task | The catalog refused or the kill switch is on. | Read the evidence line; thaw on Monitor if frozen. |
+
+## Cleanup
+
+- **Remove property** on a campaign header drops the site, its tasks, and its
+  monitor snapshot. The audit log keeps history; the BotCentral card is not
+  touched.
+- Onboarding never dedupes by domain: two onboards of the same origin make two
+  properties. Remove the extra one.
+
+## Tests
+
+```bash
+npm test                                   # Node 22; scripts/ and src/ suites
+npx tsc --noEmit && npx eslint .
+E2E_OPERATOR_TOKEN=<token> E2E_CHANNEL=chrome npx playwright test tests/e2e/list-a-site.spec.ts --headed
+```
+
+The e2e signs in once (global setup) and walks the Training order for one
+customer origin (env `E2E_SITE_NAME`, `E2E_SITE_URL`, `E2E_GH_OWNER`,
+`E2E_GH_REPO`, `E2E_GH_ROOT`; defaults are the current customer under test).
+Its last test removes the property it created. `E2E_HEADLESS=1` for
+unattended runs; `E2E_URL=http://localhost:8080` for a local dev server.

@@ -53,8 +53,9 @@ Optional: `XAI_API_KEY` for live Grok briefs. Never commit it.
 `deploy/deploy-vps.sh` generates `/root/citefleet-operator.token` once and
 injects it as `CITEFLEET_OPERATOR_TOKEN`. Open `https://citefleet.app/login`
 and paste `cat /root/citefleet-operator.token`. Rotate by replacing the file
-and redeploying; every session is dropped on restart. The e2e suite signs in
-with `E2E_OPERATOR_TOKEN=<same value>`.
+and redeploying. Sessions live in memory, so every redeploy or container
+restart signs the operator out. The e2e suite signs in with
+`E2E_OPERATOR_TOKEN=<same value>`.
 
 ## 3. Build & run
 
@@ -63,6 +64,10 @@ One-shot (as root on the box):
 ```bash
 bash deploy/deploy-vps.sh
 ```
+
+The script re-executes itself from a private copy before pulling, so a change to
+the script itself takes effect on the same run (before 764531a the first run
+after a script change executed the old body).
 
 Manual equivalent:
 
@@ -92,7 +97,7 @@ sudo certbot --nginx -d citefleet.app -d www.citefleet.app
 
 Open https://citefleet.app
 
-## 5. Rollout of the BotCentral proof token (one-time, after deploying 09d0ef4 or later)
+## 5. Rollout of the BotCentral proof token (done 2026-09-02; kept for reference)
 
 CiteFleet sends the shared publisher token `citefleet-app` as the card's
 `verifyToken` and writes it into each origin's `/.well-known/botcentral.txt`
@@ -116,7 +121,10 @@ Order:
 5. Click **Refresh BotCentral card** / **List on BotCentral** on each campaign.
    `https://botcentral.org/v1/site/<domain>` must return 200.
 6. Run the headed e2e once to clear the duplicate test property:
-   `E2E_CHANNEL=chrome npx playwright test tests/e2e/list-a-site.spec.ts --headed`
+   `E2E_OPERATOR_TOKEN=$(ssh root@144.91.66.158 cat /root/citefleet-operator.token) E2E_CHANNEL=chrome npx playwright test tests/e2e/list-a-site.spec.ts --headed`
+
+Completed 2026-09-02: both customer origins already served a file containing the
+shared token, so no customer redeploy was needed; wflowprocess.app listed at 11:53 UTC.
 
 ## 6. What stays untouched
 
