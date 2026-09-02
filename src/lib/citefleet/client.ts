@@ -45,6 +45,9 @@ export function useFleet() {
       await refresh();
       return true;
     } catch (err) {
+      // A failed act still changes the workspace (evidence, blocked task, proof
+      // token): reload it, then show the error on top of the fresh state.
+      await refresh().catch(() => {});
       setError(err instanceof Error ? err.message : "Request failed");
       return false;
     } finally {

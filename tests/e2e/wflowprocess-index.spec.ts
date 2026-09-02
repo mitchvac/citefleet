@@ -171,9 +171,13 @@ test("lesson 02 steps 5–6: campaign board, attach mitchvac/wflowprocess, List 
   expect.soft(errorText, "BotCentral publish error banner").toBe("");
   await expect.soft(page.getByText("Live on BotCentral")).toBeVisible({ timeout: 10000 });
   // The proof line the origin must serve (verify-token.ts); shown once the site has a token.
-  await expect
-    .soft(gh.getByText(/botcentral-verify=[0-9a-f]{32}/), "proof token line in Origin files panel")
-    .toBeVisible({ timeout: 10000 });
+  const proof = gh.getByText(/botcentral-verify=[0-9a-f]{32}/);
+  await expect.soft(proof, "proof token line in Origin files panel").toBeVisible({ timeout: 10000 });
+  if (await proof.count()) {
+    const line = (await proof.first().innerText()).match(/botcentral-verify=[0-9a-f]{32}/)?.[0] ?? "";
+    test.info().annotations.push({ type: "proof-line", description: `${DOMAIN}: ${line}` });
+    console.log(`PROOF LINE ${DOMAIN}: ${line}`);
+  }
 });
 
 test("lesson 02 step 7: confirm the listing on Command and at botcentral.org", async ({
