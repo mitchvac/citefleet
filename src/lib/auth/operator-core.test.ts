@@ -123,3 +123,14 @@ test("shared lockout helpers: five failures lock, success clears, other clients 
   clearFailures("pw-client");
   assert.equal(isLocked("pw-client", t0 + LOCKOUT_MS + 3), 0);
 });
+
+test("lockout: a failure after the window expires restarts the count instead of re-locking", () => {
+  resetOperatorState();
+  const t0 = 12_000_000;
+  for (let i = 0; i < MAX_FAILURES; i++) noteFailure("c", t0);
+  assert.ok(isLocked("c", t0 + 1) > 0, "positive control: locked");
+  noteFailure("c", t0 + LOCKOUT_MS + 1);
+  assert.equal(isLocked("c", t0 + LOCKOUT_MS + 2), 0, "one stale failure does not re-lock");
+  for (let i = 0; i < MAX_FAILURES - 1; i++) noteFailure("c", t0 + LOCKOUT_MS + 3);
+  assert.ok(isLocked("c", t0 + LOCKOUT_MS + 4) > 0, "locks again once the fresh count reaches the limit");
+});

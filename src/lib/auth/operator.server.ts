@@ -92,14 +92,13 @@ export async function handleLogin(request: Request): Promise<Response> {
     const key = clientKey(request);
     const wait = isLocked(key);
     if (wait > 0) return loginError("locked", wait);
-    const { verifyUser, burnPasswordTime } = await import("./users.server");
-    // Invite-only console: an email outside CITEFLEET_OPERATOR_EMAILS gets the
-    // same answer — and the same scrypt cost — as a wrong password, so neither
-    // the response nor its timing says whether an address is listed or registered.
-    let user = null;
-    if (isAllowedEmail(fields.email)) user = await verifyUser(fields.email, fields.password);
-    else await burnPasswordTime(fields.password);
-    if (!user) {
+    const { verifyUser } = await import("./users.server");
+    // Invite-only console: every email takes the same path (DB lookup + scrypt,
+    // burned when no hash exists) and the allow-list is applied to the result,
+    // so neither the answer nor its timing says whether an address is listed
+    // or registered.
+    const user = await verifyUser(fields.email, fields.password);
+    if (!user || !isAllowedEmail(fields.email)) {
       noteFailure(key);
       return loginError("bad-credentials");
     }
