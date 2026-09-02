@@ -1,5 +1,4 @@
 import type { Site } from "./types";
-import { siteVerifyToken, verifyLine } from "./verify-token.ts";
 
 const AI_AGENTS = [
   "GPTBot",
@@ -78,17 +77,14 @@ export function buildOriginPack(site: Site): OriginFile[] {
     "",
   ].join("\n");
 
-  // BotCentral SPEC §4.2: plain text, no HTML, and a botcentral-verify=<token>
-  // line matching the verifyToken CiteFleet sends on the card (verify-token.ts).
-  const token = siteVerifyToken(site);
   const wellKnown = [
     `# BotCentral origin proof — ${site.domain}`,
-    `# Written by CiteFleet. Keep this file plain text at /.well-known/botcentral.txt.`,
     `domain: ${site.domain}`,
     `canonical: ${origin}`,
     `publisher: citefleet`,
     `catalog: https://botcentral.org/site/${site.domain}`,
-    verifyLine(token),
+    `verify: citefleet-app`,
+    `botcentral-verify=citefleet-app`,
     "",
   ].join("\n");
 
