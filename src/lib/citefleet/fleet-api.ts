@@ -1,24 +1,24 @@
 import { createServerFn } from "@tanstack/react-start";
-import { authMiddleware } from "@/lib/auth/middleware";
+import { operatorMiddleware } from "@/lib/auth/operator-middleware";
 
-// Every server fn here requires a signed-in user (Better Auth session).
-// Public surface: /health, llms.txt, sitemap.xml, /learn, /login, /api/auth/*, /api/hooks/*.
+// Every server fn here is behind the signed-in session (see operator.server.ts).
+// Public: /health, llms.txt, sitemap.xml, /learn, /login, /api/hooks/*.
 
 export const loadState = createServerFn({ method: "GET" })
-  .middleware([authMiddleware]).handler(async () => {
+  .middleware([operatorMiddleware]).handler(async () => {
   const { hydrateListings } = await import("./ops.server");
   return hydrateListings();
 });
 
 export const resetState = createServerFn({ method: "POST" })
-  .middleware([authMiddleware]).handler(async () => {
+  .middleware([operatorMiddleware]).handler(async () => {
   const { resetStore } = await import("./ops.server");
   const { maskStoreSecrets } = await import("./secrets.ts");
   return maskStoreSecrets(await resetStore());
 });
 
 export const onboardProperty = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator(
     (d: {
       name: string;
@@ -38,7 +38,7 @@ export const onboardProperty = createServerFn({ method: "POST" })
   });
 
 export const dispatchProperty = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {
     const { dispatchSite } = await import("./ops.server");
@@ -46,7 +46,7 @@ export const dispatchProperty = createServerFn({ method: "POST" })
   });
 
 export const removePropertyFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {
     const { removeSite } = await import("./ops.server");
@@ -54,7 +54,7 @@ export const removePropertyFn = createServerFn({ method: "POST" })
   });
 
 export const verifyProofFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {
     const { verifySiteProof } = await import("./ops.server");
@@ -64,7 +64,7 @@ export const verifyProofFn = createServerFn({ method: "POST" })
 // Always mints a NEW secret and returns it once. An existing secret is never
 // returned by any server fn (defence in depth behind the operator gate).
 export const webhookSecretFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {
     const { rotateWebhookSecret } = await import("./ops.server");
@@ -72,7 +72,7 @@ export const webhookSecretFn = createServerFn({ method: "POST" })
   });
 
 export const auditProperty = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {
     const { runAuditAndApply } = await import("./ops.server");
@@ -80,7 +80,7 @@ export const auditProperty = createServerFn({ method: "POST" })
   });
 
 export const runTaskFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { taskId: string }) => d)
   .handler(async ({ data }) => {
     const { runTask } = await import("./ops.server");
@@ -88,7 +88,7 @@ export const runTaskFn = createServerFn({ method: "POST" })
   });
 
 export const patchTaskFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { taskId: string; body: Record<string, unknown> }) => d)
   .handler(async ({ data }) => {
     const { patchTask } = await import("./ops.server");
@@ -105,7 +105,7 @@ export const patchTaskFn = createServerFn({ method: "POST" })
   });
 
 export const setAutopilotFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { enabled: boolean; grok?: boolean }) => d)
   .handler(async ({ data }) => {
     const { setAutopilot, runAutopilotTick, getStore, grokConfigured } =
@@ -124,7 +124,7 @@ export const setAutopilotFn = createServerFn({ method: "POST" })
   });
 
 export const tickAutopilotFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { grok?: boolean }) => d)
   .handler(async ({ data }) => {
     const { runAutopilotTick } = await import("./ops.server");
@@ -132,7 +132,7 @@ export const tickAutopilotFn = createServerFn({ method: "POST" })
   });
 
 export const publishListingFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {
     const { publishSiteToBotCentral } = await import("./ops.server");
@@ -140,7 +140,7 @@ export const publishListingFn = createServerFn({ method: "POST" })
   });
 
 export const runControlCycleFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware]).handler(
+  .middleware([operatorMiddleware]).handler(
   async () => {
     const { runMonitorCycle } = await import("./ops.server");
     return runMonitorCycle();
@@ -148,7 +148,7 @@ export const runControlCycleFn = createServerFn({ method: "POST" })
 );
 
 export const setKillFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator(
     (d: {
       global?: boolean;
@@ -167,7 +167,7 @@ export const setKillFn = createServerFn({ method: "POST" })
   });
 
 export const attachGithubFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator(
     (d: {
       siteId: string;
@@ -183,7 +183,7 @@ export const attachGithubFn = createServerFn({ method: "POST" })
   });
 
 export const pushOriginPackFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {
     const { pushOriginPack } = await import("./ops.server");
@@ -191,7 +191,7 @@ export const pushOriginPackFn = createServerFn({ method: "POST" })
   });
 
 export const setGithubTokenFn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([operatorMiddleware])
   .validator((d: { token: string }) => d)
   .handler(async ({ data }) => {
     const { setGithubToken } = await import("./ops.server");

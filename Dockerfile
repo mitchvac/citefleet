@@ -20,7 +20,6 @@ COPY . .
 # (Vercel deploys keep the default preset — this ENV is Docker-only).
 ENV NITRO_PRESET=node-server
 ENV NODE_ENV=production
-ENV VITE_AUTH_ENABLED=true
 RUN npm run build \
   && mkdir -p .output/server/_libs \
   && (cp node_modules/@electric-sql/pglite/dist/pglite.data \

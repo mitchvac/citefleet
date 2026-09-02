@@ -4,13 +4,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
-test("every createServerFn in fleet-api.ts is behind authMiddleware", () => {
+test("every createServerFn in fleet-api.ts is behind operatorMiddleware", () => {
   const src = readFileSync(path.resolve(import.meta.dirname, "fleet-api.ts"), "utf8");
   const fns = src.match(/createServerFn\(\{ method: "(GET|POST)" \}\)/g) ?? [];
-  const gated = src.match(/\.middleware\(\[authMiddleware\]\)/g) ?? [];
+  const gated = src.match(/\.middleware\(\[operatorMiddleware\]\)/g) ?? [];
   assert.ok(fns.length >= 18, `positive control: expected at least 18 server fns, found ${fns.length}`);
-  assert.equal(gated.length, fns.length, "a server fn is missing .middleware([authMiddleware])");
-  const orphan = /createServerFn\(\{ method: "(GET|POST)" \}\)(?!\s*\.middleware\(\[authMiddleware\]\))/;
+  assert.equal(gated.length, fns.length, "a server fn is missing .middleware([operatorMiddleware])");
+  const orphan = /createServerFn\(\{ method: "(GET|POST)" \}\)(?!\s*\.middleware\(\[operatorMiddleware\]\))/;
   assert.equal(orphan.test(src), false, "createServerFn not immediately followed by the gate");
 });
 

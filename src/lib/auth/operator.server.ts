@@ -4,19 +4,13 @@ import {
   OPERATOR_COOKIE,
   attemptLogin,
   clearedCookie,
+  createSession,
   hasSession,
   operatorTokenConfigured,
   readCookie,
   revokeSession,
   sessionCookie,
 } from "./operator-core.ts";
-
-/**
- * Operator gate — server-only (`.server.ts`: imports the request context).
- * Every mutating server fn and the workspace load run behind requireOperator();
- * the public surface is /health, llms.txt, sitemap.xml, the training pages,
- * /login, and the two signed hook endpoints.
- */
 
 export class OperatorUnauthorizedError extends Error {
   readonly status = 401;
@@ -27,9 +21,6 @@ export class OperatorUnauthorizedError extends Error {
 }
 
 function clientKey(request: Request): string {
-  // nginx sets X-Real-IP to $remote_addr (not spoofable through the proxy). If
-  // only X-Forwarded-For is present, its LAST hop is the one the proxy appended;
-  // the first hop is client-controlled and must not key the lockout.
   const real = request.headers.get("x-real-ip");
   if (real) return real.trim();
   const xff = request.headers.get("x-forwarded-for");
@@ -44,41 +35,79 @@ function isSecure(request: Request): boolean {
   return request.url.startsWith("https:") || request.headers.get("x-forwarded-proto") === "https";
 }
 
-export function requireOperator(): void {
-  if (!operatorTokenConfigured()) {
-    throw new OperatorUnauthorizedError("operator token not configured on this server");
-  }
-  const request = getRequest();
-  if (!request) throw new OperatorUnauthorizedError("no request context");
-  const id = readCookie(request.headers.get("cookie"), OPERATOR_COOKIE);
-  if (!hasSession(id)) throw new OperatorUnauthorizedError("operator sign-in required");
-  assertSameSiteRequest();
-}
-
-/** POST /api/login (form or JSON {token}) → 303 to "/" with the session cookie, or 303 to /login?error=… */
-export async function handleLogin(request: Request): Promise<Response> {
-  let presented = "";
-  const type = request.headers.get("content-type") || "";
-  if (type.includes("application/json")) {
-    const body = (await request.json().catch(() => ({}))) as { token?: unknown };
-    presented = typeof body.token === "string" ? body.token : "";
-  } else {
-    const form = await request.formData().catch(() => null);
-    presented = typeof form?.get("token") === "string" ? (form!.get("token") as string) : "";
-  }
-  const result = attemptLogin(presented, clientKey(request));
-  if (!result.ok) {
-    const headers: Record<string, string> = { Location: `/login?error=${result.reason}` };
-    if (result.retryAfterMs) headers["Retry-After"] = String(Math.ceil(result.retryAfterMs / 1000));
-    return new Response(null, { status: 303, headers });
-  }
+function signedInResponse(request: Request, sessionId: string): Response {
   return new Response(null, {
     status: 303,
-    headers: { Location: "/", "Set-Cookie": sessionCookie(result.sessionId, { secure: isSecure(request) }) },
+    headers: { Location: "/", "Set-Cookie": sessionCookie(sessionId, { secure: isSecure(request) }) },
   });
 }
 
-/** POST or GET /api/logout → revoke + clear cookie → 303 /login */
+function loginError(reason: string, retryAfterMs?: number): Response {
+  const headers: Record<string, string> = { Location: `/login?error=${reason}` };
+  if (retryAfterMs) headers["Retry-After"] = String(Math.ceil(retryAfterMs / 1000));
+  return new Response(null, { status: 303, headers });
+}
+
+export function requireOperator(): void {
+  const request = getRequest();
+  if (!request) throw new OperatorUnauthorizedError("no request context");
+  const id = readCookie(request.headers.get("cookie"), OPERATOR_COOKIE);
+  if (!hasSession(id)) throw new OperatorUnauthorizedError("sign-in required");
+  assertSameSiteRequest();
+}
+
+async function readFields(request: Request): Promise<{
+  token: string;
+  email: string;
+  password: string;
+  name: string;
+}> {
+  const type = request.headers.get("content-type") || "";
+  if (type.includes("application/json")) {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    return {
+      token: typeof body.token === "string" ? body.token : "",
+      email: typeof body.email === "string" ? body.email : "",
+      password: typeof body.password === "string" ? body.password : "",
+      name: typeof body.name === "string" ? body.name : "",
+    };
+  }
+  const form = await request.formData().catch(() => null);
+  return {
+    token: typeof form?.get("token") === "string" ? (form!.get("token") as string) : "",
+    email: typeof form?.get("email") === "string" ? (form!.get("email") as string) : "",
+    password: typeof form?.get("password") === "string" ? (form!.get("password") as string) : "",
+    name: typeof form?.get("name") === "string" ? (form!.get("name") as string) : "",
+  };
+}
+
+/** POST /api/login — email/password for users, or the server token for ops. */
+export async function handleLogin(request: Request): Promise<Response> {
+  const fields = await readFields(request);
+  if (fields.email && fields.password) {
+    const { verifyUser } = await import("./users.server");
+    const user = await verifyUser(fields.email, fields.password);
+    if (!user) return loginError("bad-credentials");
+    return signedInResponse(request, createSession());
+  }
+  const result = attemptLogin(fields.token, clientKey(request));
+  if (!result.ok) return loginError(result.reason, result.retryAfterMs);
+  return signedInResponse(request, result.sessionId);
+}
+
+/** POST /api/signup — create a user account and sign in. */
+export async function handleSignup(request: Request): Promise<Response> {
+  const fields = await readFields(request);
+  const { createUser } = await import("./users.server");
+  const created = await createUser({
+    email: fields.email,
+    name: fields.name,
+    password: fields.password,
+  });
+  if (!created.ok) return loginError(created.reason === "exists" ? "exists" : "invalid");
+  return signedInResponse(request, createSession());
+}
+
 export function handleLogout(request: Request): Response {
   revokeSession(readCookie(request.headers.get("cookie"), OPERATOR_COOKIE));
   return new Response(null, {
@@ -86,3 +115,5 @@ export function handleLogout(request: Request): Response {
     headers: { Location: "/login", "Set-Cookie": clearedCookie({ secure: isSecure(request) }) },
   });
 }
+
+export { operatorTokenConfigured };

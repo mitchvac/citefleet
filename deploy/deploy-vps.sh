@@ -55,12 +55,13 @@ if [[ ! -s "$TOKEN_FILE" ]]; then
 fi
 SERVICE_TOKEN="$(tr -d '\n' < "$TOKEN_FILE")"
 
-BA_FILE="/root/citefleet-better-auth.secret"
-if [[ ! -s "$BA_FILE" ]]; then
-  openssl rand -hex 32 > "$BA_FILE"
-  chmod 600 "$BA_FILE"
+# Operator token remains as an ops fallback. Users sign in with email/password.
+OP_FILE="/root/citefleet-operator.token"
+if [[ ! -s "$OP_FILE" ]]; then
+  openssl rand -hex 32 > "$OP_FILE"
+  chmod 600 "$OP_FILE"
 fi
-AUTH_SECRET="$(tr -d '\n' < "$BA_FILE")"
+OPERATOR_TOKEN="$(tr -d '\n' < "$OP_FILE")"
 
 PASS_FILE="/root/citefleet-postgres.pass"
 if [[ ! -s "$PASS_FILE" ]]; then
@@ -102,11 +103,10 @@ fi
   echo "PORT=3000"
   echo "NITRO_HOST=0.0.0.0"
   echo "NITRO_PORT=3000"
-  echo "VITE_AUTH_ENABLED=true"
-  echo "BETTER_AUTH_URL=https://citefleet.app"
-  printf 'BETTER_AUTH_SECRET=%s\n' "$AUTH_SECRET"
+  echo "VITE_AUTH_ENABLED=false"
   echo "BOTCENTRAL_URL=https://botcentral.org"
   printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
+  printf 'CITEFLEET_OPERATOR_TOKEN=%s\n' "$OPERATOR_TOKEN"
   if [[ -s /root/citefleet-github.token ]]; then
     printf 'GITHUB_TOKEN=%s\n' "$(tr -d '\n' < /root/citefleet-github.token)"
   fi
@@ -179,7 +179,7 @@ for i in $(seq 1 40); do
 done
 if [[ -n "$ok" ]]; then
   echo "SUCCESS — CiteFleet at https://$DOMAIN (other sites on this box left intact)"
-  echo "Users sign in at https://$DOMAIN/login (Google, X, or email)."
+  echo "Users sign in at https://$DOMAIN/login (email and password)."
 else
   echo "App did not answer yet. docker logs $CONTAINER --tail 50"
 fi
