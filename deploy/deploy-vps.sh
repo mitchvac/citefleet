@@ -4,14 +4,20 @@
 # Never rm sites-enabled/*. Never add default_server. Never 301 unknown Hosts.
 set -euo pipefail
 
-# Bash reads a script incrementally. The `git reset --hard` below replaces this
-# file, so the FIRST deploy after a script change would keep executing the OLD
-# body (seen 2026-09-02: the operator-token lines did not run). Re-exec from a
-# private copy so the whole run uses one consistent script.
+# Bash reads a script incrementally and `git reset --hard` replaces this file
+# mid-run. So: sync the checkout FIRST, then re-exec the UPDATED script from a
+# private copy (with the git step skipped) — a change to this script takes
+# effect on the same deploy. (An earlier version copied before syncing, which
+# guaranteed the old body ran once more.)
 if [[ -z "${CITEFLEET_DEPLOY_COPY:-}" ]]; then
+  if [[ "${CITEFLEET_SKIP_GIT:-}" != "1" && -d "/opt/citefleet/.git" ]]; then
+    git -C /opt/citefleet fetch origin
+    git -C /opt/citefleet checkout -B main origin/main
+    git -C /opt/citefleet reset --hard origin/main
+  fi
   _copy="$(mktemp /tmp/citefleet-deploy.XXXXXX)"
-  cp "${BASH_SOURCE[0]}" "$_copy"
-  CITEFLEET_DEPLOY_COPY=1 exec bash "$_copy" "$@"
+  cp /opt/citefleet/deploy/deploy-vps.sh "$_copy" 2>/dev/null || cp "${BASH_SOURCE[0]}" "$_copy"
+  CITEFLEET_DEPLOY_COPY=1 CITEFLEET_SKIP_GIT=1 exec bash "$_copy" "$@"
 fi
 
 DOMAIN="citefleet.app"
