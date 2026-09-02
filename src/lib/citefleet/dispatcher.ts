@@ -1,7 +1,7 @@
 import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook";
 import { FLEET_TEMPLATE } from "./bots";
 import { auditSite } from "./auditor";
-import { lookupListing, publishListing } from "./botcentral";
+import { publishListing } from "./botcentral";
 import {
   getStore,
   logActivity,
@@ -366,6 +366,39 @@ export async function runTask(taskId: string) {
   return { audit: null };
 }
 
+/**
+ * Drop a property from the workspace: its tasks and monitor snapshot go with it,
+ * bots working it go to standby, the audit log keeps its history. The BotCentral
+ * card (if any) is not touched — the catalog is a separate system of record.
+ */
+export async function removeSite(siteId: string) {
+  let domain = "";
+  await mutateStore((store) => {
+    const site = store.sites.find((s) => s.id === siteId);
+    if (!site) throw new Error("Site not found");
+    domain = site.domain;
+    store.sites = store.sites.filter((s) => s.id !== siteId);
+    store.tasks = store.tasks.filter((t) => t.siteId !== siteId);
+    if (store.control?.snapshots) delete store.control.snapshots[siteId];
+    for (const bot of store.bots) {
+      if (bot.currentSiteId === siteId) {
+        touchBot(store, bot.id, {
+          status: "standby",
+          currentSiteId: undefined,
+          currentTaskId: undefined,
+        });
+      }
+    }
+    logActivity(store, {
+      actor: "Operator",
+      kind: "control",
+      siteId,
+      message: `Removed ${site.domain} (${site.name}) from the workspace. Tasks and monitor snapshot dropped; BotCentral card untouched.`,
+    });
+  });
+  return { ok: true as const, siteId, domain };
+}
+
 export async function publishSiteToBotCentral(siteId: string) {
   const preview = await getStore();
   assertCanAct(preview, "catalog");
@@ -382,7 +415,13 @@ export async function publishSiteToBotCentral(siteId: string) {
     const current = s.sites.find((x) => x.id === siteId);
     if (current) {
       current.verifyToken = verifyToken;
-      current.botcentral = listing;
+      // A rejected publish (422, catalog down) must not flip an already-listed
+      // site to "not listed": the catalog row is untouched. Keep the listing and
+      // surface the error beside it.
+      current.botcentral =
+        listing.listed || !current.botcentral?.listed
+          ? listing
+          : { ...current.botcentral, error: listing.error };
     }
     const task = s.tasks.find(
       (t) => t.siteId === siteId && t.playbookId === "botcentral_list",
@@ -426,7 +465,10 @@ export async function publishSiteToBotCentral(siteId: string) {
   if (!listing.listed) {
     throw new Error(listing.error || "BotCentral did not list the site");
   }
-  return listing;
+  // The raw catalog card is Record<string, unknown> — not a serializable server-fn
+  // return. Callers only need the status fields.
+  const { card: _card, ...status } = listing;
+  return status;
 }
 
 export async function patchTask(

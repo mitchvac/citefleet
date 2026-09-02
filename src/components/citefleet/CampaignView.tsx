@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useFleet } from "@/lib/citefleet/client";
 import { Pill } from "./Shell";
@@ -15,6 +15,7 @@ function tone(status: string) {
 
 export function CampaignView({ siteId }: { siteId: string }) {
   const fleet = useFleet();
+  const navigate = useNavigate();
   if (fleet.loading || !fleet.store) {
     return <p className="text-[#9b95b3]">Loading campaign…</p>;
   }
@@ -107,6 +108,22 @@ export function CampaignView({ siteId }: { siteId: string }) {
             disabled={!!fleet.busy}
           >
             Grok re-assign
+          </button>
+          <button
+            className="rounded-full border border-rose-400/40 px-4 py-2 text-sm text-rose-200 hover:bg-rose-400/10"
+            disabled={!!fleet.busy}
+            onClick={async () => {
+              if (
+                !window.confirm(
+                  `Remove ${site.domain} (${site.name}) from this workspace? Its tasks and monitor snapshot are dropped. The BotCentral card is not touched.`,
+                )
+              ) {
+                return;
+              }
+              if (await fleet.removeProperty(site.id)) void navigate({ to: "/" });
+            }}
+          >
+            {fleet.busy === "remove" ? "Removing…" : "Remove property"}
           </button>
         </div>
       </div>

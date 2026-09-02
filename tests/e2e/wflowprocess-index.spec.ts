@@ -12,9 +12,10 @@ import { LESSONS, QUIZ } from "../../src/lib/citefleet/course";
 //
 // Tests run in file order on one worker (playwright.config.ts) and each starts
 // from its own page.goto, so a failed step does not skip the rest; rerun any
-// one alone with -g "<name>". CiteFleet has no
-// "remove site", so the onboard test is skipped when a WflowProcess card already
-// exists; set E2E_REONBOARD=1 to onboard another copy anyway.
+// one alone with -g "<name>". The onboard test is skipped when a WflowProcess
+// card already exists (E2E_REONBOARD=1 forces another copy); the last test
+// removes every card carrying this suite's exact name (marker-only teardown)
+// via the campaign's Remove property button, where that build is deployed.
 
 const SITE_NAME = "WflowProcess";
 const ORIGIN_URL = "https://wflowprocess.app";
@@ -24,12 +25,16 @@ const GH_REPO = "wflowprocess";
 const GH_ROOT = "frontend/public"; // Next.js app lives in frontend/, so public/ is there
 const ORIGIN_FILES_HEADING = "Origin files → GitHub"; // "Push origin files" also contains "Origin files"
 
+// hasText with a string is case-insensitive and would also match a manually added
+// "wflowprocess" site; the regex is case-sensitive, so only this suite's name matches.
+const SITE_NAME_EXACT = new RegExp(SITE_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
 function siteCard(page: Page) {
   // Production may hold other wflowprocess.app sites; match the one this suite named.
   return page
     .locator("article")
     .filter({ hasText: DOMAIN })
-    .filter({ hasText: SITE_NAME })
+    .filter({ hasText: SITE_NAME_EXACT })
     .first();
 }
 
@@ -208,6 +213,25 @@ test("lesson 12: Monitor — run monitor + reconcile (observe only, no freeze)",
   await expect(snap.getByText(/^(listed|unlisted)$/)).toBeVisible(); // pill, not the "Not listed…" sentence
   await expect(snap.getByText("acts open")).toBeVisible();
   await page.screenshot({ path: "test-results/wflowprocess-monitor.png", fullPage: true });
+});
+
+test("lesson 06: Remove property — teardown of the sites this suite created", async ({ page }) => {
+  await page.goto("/");
+  await page.getByText("Onboard a property").waitFor();
+  for (let i = 0; i < 5 && (await siteCard(page).count()) > 0; i++) {
+    await siteCard(page).getByRole("link", { name: "Open campaign" }).click();
+    const remove = page.getByRole("button", { name: "Remove property" });
+    if ((await remove.count()) === 0) {
+      test.skip(true, "Remove property is not deployed on this target yet");
+    }
+    page.once("dialog", (d) => void d.accept());
+    await remove.click();
+    await page.waitForURL(/\/$/, { timeout: 30000 });
+    await page.getByText("Onboard a property").waitFor();
+  }
+  await expect(siteCard(page)).toHaveCount(0);
+  await page.goto("/activity");
+  await expect(page.getByText(`Removed ${DOMAIN} (${SITE_NAME})`).first()).toBeVisible();
 });
 
 test("lesson 09: Audit log carries the trail for this property", async ({ page }) => {

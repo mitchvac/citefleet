@@ -36,6 +36,13 @@ export const dispatchProperty = createServerFn({ method: "POST" })
     return dispatchSite(data.siteId);
   });
 
+export const removePropertyFn = createServerFn({ method: "POST" })
+  .validator((d: { siteId: string }) => d)
+  .handler(async ({ data }) => {
+    const { removeSite } = await import("./ops.server");
+    return removeSite(data.siteId);
+  });
+
 export const auditProperty = createServerFn({ method: "POST" })
   .validator((d: { siteId: string }) => d)
   .handler(async ({ data }) => {

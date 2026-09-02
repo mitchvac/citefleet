@@ -147,13 +147,13 @@ export function MockCampaign() {
               <Pill tone="violet">{bot}</Pill>
               <span>{title}</span>
             </div>
-            <span className="mono text-[11px] text-[#9b95b3]">{pri} · Run bot</span>
+            <span className="mono text-[11px] text-[#9b95b3]">{pri} · Local audit</span>
           </div>
         ))}
       </div>
       <Callout>
         Tick a checkbox when you finished the work outside CiteFleet (posted to X, claimed
-        Trustpilot). Run bot re-checks technical tasks against the live site.
+        Trustpilot). Local audit re-checks technical tasks against the live site.
       </Callout>
     </Frame>
   );

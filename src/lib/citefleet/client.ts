@@ -9,6 +9,7 @@ import {
   patchTaskFn,
   publishListingFn,
   pushOriginPackFn,
+  removePropertyFn,
   resetState,
   runControlCycleFn,
   runTaskFn,
@@ -36,14 +37,16 @@ export function useFleet() {
       .finally(() => setLoading(false));
   }, [refresh]);
 
-  async function run(label: string, fn: () => Promise<void>) {
+  async function run(label: string, fn: () => Promise<void>): Promise<boolean> {
     setBusy(label);
     setError(null);
     try {
       await fn();
       await refresh();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
+      return false;
     } finally {
       setBusy(null);
     }
@@ -94,6 +97,10 @@ export function useFleet() {
     tickAutopilot: () =>
       run("tick", async () => {
         await tickAutopilotFn({ data: { grok: false } });
+      }),
+    removeProperty: (siteId: string) =>
+      run("remove", async () => {
+        await removePropertyFn({ data: { siteId } });
       }),
     publishListing: (siteId: string) =>
       run("publish", async () => {

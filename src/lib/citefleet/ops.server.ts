@@ -6,6 +6,7 @@ export {
   runAuditAndApply,
   runTask,
   publishSiteToBotCentral,
+  removeSite,
 } from "./dispatcher";
 export { runAutopilotTick, setAutopilot } from "./autopilot";
 export { grokConfigured } from "./grokApi";

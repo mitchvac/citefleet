@@ -69,7 +69,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "5. Open campaign",
-        body: "Work P1 first: Repair SPA fallback, robots.txt AI crawlers, sitemap. Tick a box only when the live URL is actually fixed. Run bot on a technical card re-checks HTTP. Do not open Product Hunt while Aether is still blocked.",
+        body: "Work P1 first: Repair SPA fallback, robots.txt AI crawlers, sitemap. Tick a box only when the live URL is actually fixed. Local audit on a technical card re-checks HTTP; Send to Grok hands that task's brief to Grok. Do not open Product Hunt while Aether is still blocked.",
       },
       {
         title: "6. List on BotCentral",
@@ -176,8 +176,12 @@ export const LESSONS: Lesson[] = [
         body: "P1 is crawl integrity (SPA fallback, robots, sitemap). P2 is submit doors and Grok/X. P3 is directories, press, and app-health. P4 is ongoing monitor.",
       },
       {
-        title: "Run bot",
-        body: "Technical tasks re-run the live audit. Mention and press tasks advance the next unchecked item. Checkboxes can also be toggled by hand when you finished the work outside the app.",
+        title: "Local audit and Send to Grok",
+        body: "Local audit on a technical task re-runs the live audit; on a mention or press task it advances the next unchecked item. Send to Grok copies the task brief for Grok to work. Checkboxes can also be toggled by hand when you finished the work outside the app.",
+      },
+      {
+        title: "Remove property",
+        body: "Campaign header → Remove property (confirm). Drops the site, its tasks, and its monitor snapshot; the audit log keeps the history and the BotCentral card is not touched. Use it for duplicates or test onboards.",
       },
       {
         title: "Blocked vs done",
@@ -415,7 +419,7 @@ export const QUIZ: QuizQuestion[] = [
     choices: [
       "Only in Audit log by typing a note",
       "Command KPI cards",
-      "Open campaign — toggle the checklist or press Run bot on that task",
+      "Open campaign — toggle the checklist or press Local audit on that task",
       "Playbook page, which writes back to production",
     ],
     answer: 2,

@@ -1,4 +1,4 @@
-import type { Site, StoreShape } from "./types";
+import type { StoreShape } from "./types";
 import { buildOriginPack } from "./originPack";
 import { siteVerifyToken } from "./verify-token.ts";
 import { assertCanAct } from "./control";

@@ -38,7 +38,6 @@ export function mergeSnapshot(seed: StoreShape, raw: unknown): StoreShape {
     engines:
       Array.isArray(p.engines) && p.engines.length ? p.engines : seed.engines,
     activity: Array.isArray(p.activity) ? p.activity : seed.activity,
-    quizzes: p.quizzes ?? seed.quizzes,
   };
   if (!next.control) next.control = seed.control;
   if (!next.control.snapshots) next.control.snapshots = {};

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFleet } from "@/lib/citefleet/client";
 import { Pill, Score } from "./Shell";
 import type { Site, Task } from "@/lib/citefleet/types";
@@ -23,13 +23,17 @@ export function CommandBoard() {
   const [ghToken, setGhToken] = useState("");
   const autopilotOn = Boolean(fleet.store?.workspace.autopilot);
 
+  // Latest tick fn without re-arming the interval every render (useFleet
+  // returns a fresh object each time).
+  const tickRef = useRef(fleet.tickAutopilot);
+  tickRef.current = fleet.tickAutopilot;
   useEffect(() => {
     if (!autopilotOn) return;
     const id = window.setInterval(() => {
-      void fleet.tickAutopilot();
+      void tickRef.current();
     }, 3 * 60 * 1000);
     return () => window.clearInterval(id);
-  }, [autopilotOn, fleet.refresh]);
+  }, [autopilotOn]);
 
   if (fleet.loading) {
     return <p className="text-[#9b95b3]">Loading workspace…</p>;

@@ -51,10 +51,10 @@ Playwright for e2e. Node 20. ESM (`"type": "module"`).
 | `src/styles.css` | Tailwind entry + glass theme. |
 | `server/middleware/` | Nitro middleware (`grok-pwa.ts`). |
 | `migrations/` | SQL applied by `scripts/migrate.mjs`: `0001_citefleet.sql` (workspace tables), `auth/0001_auth.sql` (better-auth tables). Number the next one sequentially. |
-| `scripts/` | Node build/ops helpers with co-located `*.test.mjs`: `with-app-env.mjs` + `app-env-plugin.mjs` (env injection), `migrate.mjs` + `migration-plan.mjs`, `preview*.mjs`, `browser-smoke*.mjs`, `brand-check.mjs`, `check-auth-invariant.mjs`, `grok-pwa-*.mjs` + `install-page.html`, `sign-out-plan.mjs`, `write-atomic.mjs`. |
+| `scripts/` | Node build/ops helpers with co-located `*.test.mjs` (`npm test` needs Node 22; tests that pin the gitignored `.grok/` template files skip when those files are absent): `with-app-env.mjs` + `app-env-plugin.mjs` (env injection), `migrate.mjs` + `migration-plan.mjs`, `preview*.mjs`, `browser-smoke*.mjs`, `brand-check.mjs`, `check-auth-invariant.mjs`, `grok-pwa-*.mjs` + `install-page.html`, `sign-out-plan.mjs`, `write-atomic.mjs`. |
 | `public/` | Static origin files for citefleet.app itself: `robots.txt`, `sitemap.xml`, `llms.txt`, `.well-known/botcentral.txt`, IndexNow key `22406cb37e296b837c68788f5454badc.txt`, `favicon.svg`, `__grok/` PWA install assets. |
 | `deploy/` | Shared-VPS deploy: `DEPLOY-VPS.md`, `deploy-vps.sh`, `run-detached.sh`, `nginx-citefleet.app.conf`, `.env.production.example`. Container binds `127.0.0.1:3021`. |
-| `tests/e2e/` | Playwright specs run headed against live citefleet.app (`E2E_CHANNEL=chrome` on macOS 13). `typeSlow.ts` = shared clear-then-type helper (asserts the value). `citefleet-forms.spec.ts` onboards resonanse.app. `wflowprocess-index.spec.ts` follows the Training module order for the real domain wflowprocess.app: lessons + quiz, onboard (skipped if a WflowProcess card exists; `E2E_REONBOARD=1` forces), Live audit, campaign board + attach `mitchvac/wflowprocess` folder `frontend/public`, List on BotCentral (soft-asserted), confirm listing, Monitor cycle, Audit log. Neither spec clicks "Push origin files" (commits to the customer repo) or the kill switch. |
+| `tests/e2e/` | Playwright specs run headed against live citefleet.app (`E2E_CHANNEL=chrome` on macOS 13). `typeSlow.ts` = shared clear-then-type helper (asserts the value). `citefleet-forms.spec.ts` onboards resonanse.app. `wflowprocess-index.spec.ts` follows the Training module order for the real domain wflowprocess.app: lessons + quiz, onboard (skipped if a WflowProcess card exists; `E2E_REONBOARD=1` forces), Live audit, campaign board + attach `mitchvac/wflowprocess` folder `frontend/public`, List on BotCentral (soft-asserted), confirm listing, Monitor cycle, teardown via Remove property (only cards named exactly WflowProcess), Audit log. Neither spec clicks "Push origin files" (commits to the customer repo) or the kill switch. |
 
 ## Conventions that bite
 
@@ -66,6 +66,10 @@ Playwright for e2e. Node 20. ESM (`"type": "module"`).
   Listing fails with "ownership not proven" until that file (or an apex DNS TXT) is live at the origin.
   The persisted value wins, so rotating the key only changes tokens for sites that never had one persisted.
 - `attachGithub` refuses repo `citefleet` for any site other than citefleet.app.
+- Remove property (campaign header, `removeSite` in `dispatcher.ts`) drops the site, its tasks, and its
+  monitor snapshot; audit log and BotCentral card stay. Onboarding never dedupes by domain.
+- A rejected publish keeps an already-listed site listed and attaches the error (`publishSiteToBotCentral`).
+- Task row buttons are "Local audit" and "Send to Grok"; course copy must use those names.
 - "Save repo" only stores config. "Push origin files" writes to GitHub and needs
   a classic PAT with repo scope saved on Command (or `GITHUB_TOKEN` server-side).
 - "List on BotCentral" / "Refresh BotCentral card" POSTs to the BotCentral
