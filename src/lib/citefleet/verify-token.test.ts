@@ -48,7 +48,7 @@ test("token is 128-bit hex and deterministic per apex domain", () => {
   assert.match(a, /^[0-9a-f]{32}$/);
   assert.equal(verifyTokenFor("WWW.WflowProcess.app", "secret-1"), a);
   assert.equal(verifyTokenFor("https://wflowprocess.app/premium", "secret-1"), a);
-  assert.notEqual(verifyTokenFor("resonanse.app", "secret-1"), a);
+  assert.notEqual(verifyTokenFor("example.org", "secret-1"), a);
   assert.notEqual(verifyTokenFor("wflowprocess.app", "secret-2"), a);
 });
 

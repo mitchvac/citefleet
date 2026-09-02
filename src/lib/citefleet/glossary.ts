@@ -10,7 +10,7 @@ export const GLOSSARY: Term[] = [
     id: "origin",
     term: "Origin / property",
     meaning:
-      "The public website you are trying to get indexed, e.g. https://resonanse.app. A property is that origin inside CiteFleet.",
+      "The public website you are trying to get indexed, e.g. https://acme-dating.com. A property is that origin inside CiteFleet.",
   },
   {
     id: "dispatcher",
@@ -28,7 +28,7 @@ export const GLOSSARY: Term[] = [
     id: "playbook",
     term: "Playbook",
     meaning:
-      "The fixed runbook of jobs copied from the Resonance campaign. Campaign tasks are live instances of playbook steps. Includes the BotCentral listing door.",
+      "The fixed runbook of jobs every property follows. Campaign tasks are live instances of playbook steps. Includes the BotCentral listing door.",
   },
   {
     id: "spa",
@@ -39,9 +39,9 @@ export const GLOSSARY: Term[] = [
   },
   {
     id: "v109",
-    term: "V109 / SPA fallback",
+    term: "SPA fallback",
     meaning:
-      "The Resonance bug: /premium and /guidelines returned JSON 404 without Accept: text/html. Aether owns this check.",
+      "The single-page-app bug where real routes return JSON 404 to crawlers that omit Accept: text/html. Aether owns this check.",
   },
   {
     id: "accept",

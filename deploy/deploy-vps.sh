@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CiteFleet VPS deploy for citefleet.app on the SHARED 144 box.
-# This host also serves resonanse.app, botcentral.org, and wflowprocess.app.
+# This host also serves other sites (botcentral.org, customer origins).
 # Never rm sites-enabled/*. Never add default_server. Never 301 unknown Hosts.
 set -euo pipefail
 
@@ -157,7 +157,7 @@ for i in $(seq 1 40); do
   sleep 3
 done
 if [[ -n "$ok" ]]; then
-  echo "SUCCESS — CiteFleet at https://$DOMAIN (resonanse.app + botcentral.org + wflowprocess.app left intact)"
+  echo "SUCCESS — CiteFleet at https://$DOMAIN (other sites on this box left intact)"
 else
   echo "App did not answer yet. docker logs $CONTAINER --tail 50"
 fi

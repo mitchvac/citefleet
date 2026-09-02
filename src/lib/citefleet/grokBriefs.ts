@@ -63,7 +63,7 @@ Public routes: ${site.routes.join(", ")}
 DOOR
 System: ${door.system}
 ${door.url ? `Open: ${door.url}` : "Stay on the live origin."}
-${door.alreadyLikelyDone ? "This door was already marked Success in Bing for resonanse.app (8 URLs, 0 errors, submitted 8/29/2026). Do not resubmit unless status is not Success." : ""}
+${door.alreadyLikelyDone ? `This door already shows Success for ${site.domain}. Verify the current status; do not resubmit unless it is no longer Success.` : ""}
 
 OBJECTIVE
 ${task.description}

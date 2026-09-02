@@ -25,7 +25,7 @@ async function timedGet(
       method: "GET",
       redirect: "follow",
       headers: {
-        "User-Agent": "CiteFleetAuditor/1.0 (+https://resonanse.app)",
+        "User-Agent": "CiteFleetAuditor/1.0 (+https://citefleet.app)",
         ...headers,
       },
       cache: "no-store",

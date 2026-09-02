@@ -59,9 +59,6 @@ export async function lookupListing(domain: string): Promise<ListingStatus> {
 }
 
 function defaultTopics(site: Site): string[] {
-  if (site.domain.replace(/^www\./, "") === "resonanse.app") {
-    return ["dating", "wallet", "Date-Coin"];
-  }
   const words = `${site.name} ${site.summary}`
     .toLowerCase()
     .split(/[^a-z0-9+-]+/)

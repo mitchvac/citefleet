@@ -47,9 +47,9 @@ export function MockCommand() {
       <div className="mt-3 rounded-2xl border border-white/8 p-4">
         <div className="mb-2 flex items-center gap-2">
           <Pill tone="gold">waiting</Pill>
-          <span className="mono text-xs text-[#9b95b3]">resonanse.app</span>
+          <span className="mono text-xs text-[#9b95b3]">acme-dating.com</span>
         </div>
-        <p className="font-semibold">Resonance</p>
+        <p className="font-semibold">Acme Dating</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <span className="rounded-full border border-[#9b7dff]/40 bg-[#9b7dff]/15 px-3 py-1 text-xs">
             1 Live audit

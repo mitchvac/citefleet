@@ -125,7 +125,7 @@ export const PLAYBOOK: PlaybookStep[] = [
       },
     ],
     operatorHint:
-      "This was the V109 critical bug on resonanse.app — Google rejected /premium and /guidelines as Not found (404).",
+      "The SPA-fallback class of bug: routes answer JSON 404 to crawlers that omit Accept: text/html, so Google marks them Not found (404). Fix this before any listing.",
   },
   {
     id: "robots_ai",
@@ -161,7 +161,7 @@ export const PLAYBOOK: PlaybookStep[] = [
         href: "https://www.bing.com/webmasters",
       },
     ],
-    operatorHint: "Resonance sitemap: 8 URLs — / /premium /privacy /terms /cookies /guidelines /report /data",
+    operatorHint: "List every public marketing URL: home, product/pricing pages, and the legal and trust pages (privacy, terms, guidelines, safety).",
   },
   {
     id: "gsc_submit",
@@ -229,7 +229,7 @@ export const PLAYBOOK: PlaybookStep[] = [
       { label: "Trust features backing press claims are live", href: "{origin}/guidelines" },
     ],
     operatorHint:
-      "Resonance required 6 missing Supabase tables before SafeDate and guidelines could back the public story.",
+      "Public trust pages often depend on production data that was never created. Verify the backing tables and features exist before pitching the story.",
   },
   {
     id: "x_mentions",
@@ -309,7 +309,7 @@ export const PLAYBOOK: PlaybookStep[] = [
       },
     ],
     operatorHint:
-      "Resonance targets: DatingNews, Global Dating Insights, Courtland Brooks, Healthy Framework, Mashable.",
+      "Target the vertical press for the customer's category first (industry news and analyst sites), then one mainstream outlet.",
   },
   {
     id: "monitor",

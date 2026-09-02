@@ -106,13 +106,21 @@ export function buildChecks(
   const mentions = tasks.filter((t) =>
     ["x_mentions", "directories", "press"].includes(t.playbookId),
   );
-  const badName = mentions.some((t) =>
-    t.evidence.some(
-      (e) =>
-        e.detail &&
-        /resonance/i.test(e.detail) &&
-        !new RegExp(site.domain.replace(".", "\\."), "i").test(e.detail),
-    ),
+  // A mention that names the brand but not the domain: assistants can cite the
+  // wrong product with the same name. Only meaningful when the label differs
+  // from the domain.
+  const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const brand = site.name.trim();
+  const brandRe =
+    brand && brand.toLowerCase() !== site.domain.toLowerCase()
+      ? new RegExp(escapeRe(brand), "i")
+      : null;
+  const domainRe = new RegExp(escapeRe(site.domain), "i");
+  const badName = Boolean(
+    brandRe &&
+      mentions.some((t) =>
+        t.evidence.some((e) => e.detail && brandRe.test(e.detail) && !domainRe.test(e.detail)),
+      ),
   );
   checks.push({
     id: "name-collision",
@@ -120,7 +128,7 @@ export function buildChecks(
     severity: badName ? "warn" : "ok",
     title: "Mentions use the exact domain",
     detail: badName
-      ? `A mention packet says “Resonance” without ${site.domain}.`
+      ? `A mention packet says “${brand}” without ${site.domain}.`
       : `Evidence must include ${site.domain}, not only the brand name.`,
   });
 

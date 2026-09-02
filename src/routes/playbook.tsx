@@ -8,9 +8,9 @@ function PlaybookPage() {
   return (
     <Shell eyebrow="Versioned runbook" title="Indexing playbook">
       <p className="-mt-6 mb-8 max-w-3xl text-sm leading-6 text-[#b7b0cc]">
-        Lifted from the August 29–30, 2026 Resonance campaign. Technical doors
-        first, then submissions, then the mention layer that AI assistants
-        actually quote.
+        The versioned runbook every property follows. Technical doors first,
+        then submissions, then the mention layer that AI assistants actually
+        quote. Links resolve to the real origin on each campaign board.
       </p>
       <div className="space-y-4">
         {PLAYBOOK.map((step) => (
@@ -25,12 +25,14 @@ function PlaybookPage() {
             <ul className="mt-4 grid gap-1 text-sm text-[#b7b0cc] md:grid-cols-2">
               {step.checklist.map((item) => {
                 const label = specLabel(item);
-                const href = typeof item === "string" ? undefined : item.href;
+                const raw = typeof item === "string" ? undefined : item.href;
+                // Origin-relative links only make sense on a property's campaign board.
+                const href = raw && !/\{origin\}|\{domain\}/.test(raw) ? raw : undefined;
                 return (
                   <li key={label}>
                     {href ? (
                       <a
-                        href={href.replaceAll("{origin}", "https://resonanse.app").replaceAll("{domain}", "resonanse.app")}
+                        href={href}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[#c4b5fd] underline decoration-white/20 underline-offset-2 hover:text-white"

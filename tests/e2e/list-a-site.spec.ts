@@ -2,12 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { typeSlow } from "./typeSlow";
 import { LESSONS, QUIZ } from "../../src/lib/citefleet/course";
 
-// Headed e2e against live citefleet.app, in the order the Training module teaches
-// (lesson 02 "Get a website listed" and quiz q12):
+// Headed e2e against live citefleet.app for ONE customer origin, in the order
+// the Training module teaches (lesson 02 "Get a website listed" and quiz q12):
 //   Training → Onboard → Live audit → campaign board → List on BotCentral →
 //   confirm listing → Monitor (run monitor + reconcile) → Audit log.
-// Real domain: wflowprocess.app, website repo mitchvac/wflowprocess (web root
-// frontend/public). Never clicks "Push origin files" (commits to the customer
+// Never clicks "Push origin files" (commits to the customer
 // repo) and never touches the kill switch.
 //
 // Tests run in file order on one worker (playwright.config.ts) and each starts
@@ -17,12 +16,16 @@ import { LESSONS, QUIZ } from "../../src/lib/citefleet/course";
 // removes every card carrying this suite's exact name (marker-only teardown)
 // via the campaign's Remove property button, where that build is deployed.
 
-const SITE_NAME = "WflowProcess";
-const ORIGIN_URL = "https://wflowprocess.app";
-const DOMAIN = "wflowprocess.app";
-const GH_OWNER = "mitchvac";
-const GH_REPO = "wflowprocess";
-const GH_ROOT = "frontend/public"; // Next.js app lives in frontend/, so public/ is there
+// The customer under test. Any origin works; these env vars pick it:
+//   E2E_SITE_NAME  human label (default WflowProcess)
+//   E2E_SITE_URL   https origin (default https://wflowprocess.app)
+//   E2E_GH_OWNER / E2E_GH_REPO / E2E_GH_ROOT  website repo + web root folder
+const SITE_NAME = process.env.E2E_SITE_NAME || "WflowProcess";
+const ORIGIN_URL = (process.env.E2E_SITE_URL || "https://wflowprocess.app").replace(/\/$/, "");
+const DOMAIN = new URL(ORIGIN_URL).hostname;
+const GH_OWNER = process.env.E2E_GH_OWNER || "mitchvac";
+const GH_REPO = process.env.E2E_GH_REPO || "wflowprocess";
+const GH_ROOT = process.env.E2E_GH_ROOT || "frontend/public"; // web root folder in that repo
 const ORIGIN_FILES_HEADING = "Origin files → GitHub"; // "Push origin files" also contains "Origin files"
 
 // hasText with a string is case-insensitive and would also match a manually added

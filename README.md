@@ -9,7 +9,7 @@ Live domain: [citefleet.app](https://citefleet.app)
 
 ## Stack
 
-TanStack Start + React 19 + Nitro. Docker on the shared VPS next to Resonance
+TanStack Start + React 19 + Nitro. Docker on a shared VPS
 (`/opt/citefleet`, host bind `127.0.0.1:3021`).
 
 ## Local
@@ -30,4 +30,4 @@ bash deploy/deploy-vps.sh
 certbot --nginx -d citefleet.app -d www.citefleet.app
 ```
 
-Does not touch `resonance`, `botcentral`, or `wflowprocess` containers.
+Does not touch any other container or nginx vhost on the box.

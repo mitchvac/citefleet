@@ -1,4 +1,4 @@
-# CiteFleet — same layout as Resonance / BotCentral on 144.91.66.158:
+# CiteFleet — shared-VPS layout on 144.91.66.158:
 # multi-stage Node image, listen 3000, host binds 127.0.0.1:3021:3000, nginx TLS.
 #
 # Build:  docker build -t citefleet .

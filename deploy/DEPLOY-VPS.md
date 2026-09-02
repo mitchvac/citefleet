@@ -2,26 +2,27 @@
 
 Target: `https://citefleet.app` on `144.91.66.158`
 
-Same layout as Resonance and BotCentral:
+Same layout as BotCentral:
 
-| | Resonance | BotCentral | CiteFleet |
-|---|---|---|---|
-| Image / container | `resonance` | `botcentral` | `citefleet` |
-| App dir | `/opt/resonance` | `/opt/botcentral` | `/opt/citefleet` |
-| Container port | 3000 | 3000 | 3000 |
-| Host bind | `127.0.0.1:3019:3000` | `127.0.0.1:3020:3000` | `127.0.0.1:3021:3000` |
-| nginx vhost | `sites-available/resonance` | `sites-available/botcentral` | `sites-available/citefleet` |
-| Hosts | resonanse.app | botcentral.org | citefleet.app, www.citefleet.app |
+| | BotCentral | CiteFleet |
+|---|---|---|
+| Image / container | `botcentral` | `citefleet` |
+| App dir | `/opt/botcentral` | `/opt/citefleet` |
+| Container port | 3000 | 3000 |
+| Host bind | `127.0.0.1:3020:3000` | `127.0.0.1:3021:3000` |
+| nginx vhost | `sites-available/botcentral` | `sites-available/citefleet` |
+| Hosts | botcentral.org | citefleet.app, www.citefleet.app |
 
-nginx on this box also serves **wflowprocess.app**. Deploy scripts here never
-`rm` `sites-enabled/*`, never add `default_server`, and never 301 unknown Hosts.
+nginx on this box also serves customer sites on their own loopback ports.
+Deploy scripts here never `rm` `sites-enabled/*`, never add `default_server`,
+and never 301 unknown Hosts.
 
 DNS A records for `citefleet.app` and `www.citefleet.app` already point at
 `144.91.66.158`. `*.citefleet.app` CNAME stays on Porkbun.
 
 ## 0. Prerequisites
 
-Docker, nginx, certbot — same packages Resonance already uses. Skip if present.
+Docker, nginx, certbot. Skip if present.
 
 ## 1. Source
 
@@ -70,7 +71,7 @@ docker run -d \
 
 Verify: `curl -i http://127.0.0.1:3021/health` → `{"ok":true,"service":"citefleet",...}`.
 
-This does **not** stop or recreate `resonance`, `botcentral`, or any wflowprocess container.
+This does **not** stop or recreate any other container on the box.
 
 ## 4. nginx + TLS
 
@@ -97,7 +98,7 @@ Order:
 1. `bash deploy/deploy-vps.sh` on the box, then `curl -s https://citefleet.app/health`.
 2. On Command, make sure a GitHub PAT with repo scope is saved (or
    `/root/citefleet-github.token` exists so `.env` gets `GITHUB_TOKEN`).
-3. For each property (resonanse.app, wflowprocess.app, and citefleet.app itself
+3. For each property (every customer origin, plus citefleet.app itself if it is
    attached to `mitchvac/citefleet` root `public`): open the campaign,
    confirm owner/repo/branch/folder, click **Push origin files**. The proof line
    shown in the Origin files panel is what the commit writes.
@@ -106,11 +107,10 @@ Order:
 5. Click **Refresh BotCentral card** / **List on BotCentral** on each campaign.
    `https://botcentral.org/v1/site/<domain>` must return 200.
 6. Run the headed e2e once to clear the duplicate test property:
-   `E2E_CHANNEL=chrome npx playwright test tests/e2e/wflowprocess-index.spec.ts --headed`
+   `E2E_CHANNEL=chrome npx playwright test tests/e2e/list-a-site.spec.ts --headed`
 
 ## 6. What stays untouched
 
-- `/etc/nginx/sites-enabled/resonance` and the `resonance` container on `:3019`
 - botcentral.org vhost and container on `:3020`
-- wflowprocess.app vhost and its containers on `:8090` / `:8091`
+- Every customer site's vhost and containers
 - Any other site on this box

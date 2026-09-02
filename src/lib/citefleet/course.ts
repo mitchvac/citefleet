@@ -38,8 +38,8 @@ export const LESSONS: Lesson[] = [
         body: "This is not an xAI subscription switch. It is the in-app assigner. It pins each playbook task to one specialist bot so no engine door is ownerless.",
       },
       {
-        title: "Seeded campaign",
-        body: "Resonance (resonanse.app) is preloaded from the Aug 29–30, 2026 campaign: technical doors closed, mentions still open. Use it as the worked example before you onboard another domain.",
+        title: "Every customer is just an origin URL",
+        body: "A fresh workspace has no properties. You onboard each customer by its public origin (e.g. https://acme-dating.com); CiteFleet then runs the same playbook for every site. Nothing about a customer lives in the code.",
       },
     ],
   },
@@ -57,7 +57,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "2. Fill Onboard a property",
-        body: "Site name = human label (Resonance, Acme Dating). Origin URL = https:// plus the host only — no /premium, no trailing slash required. Example: https://resonanse.app. IndexNow key is optional; leave blank unless the live site already serves /{key}.txt.",
+        body: "Site name = human label (Acme Dating). Origin URL = https:// plus the host only — no /pricing, no trailing slash required. Example: https://acme-dating.com. IndexNow key is optional; leave blank unless the live site already serves /{key}.txt.",
       },
       {
         title: "3. Click Assign Grok fleet",
@@ -85,7 +85,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "9. Mentions so answers cite you",
-        body: "Indexing finds you. Citations need third-party pages. Lyra: three X posts with the exact domain. Vesper: Trustpilot, SmartCustomer, Product Hunt (Tue–Thu AM), AlternativeTo, SaaSHub. Cassian: press kit, then pitch. Always write resonanse.app, not just “Resonance”. Tick the campaign boxes when each claim is actually live.",
+        body: "Indexing finds you. Citations need third-party pages. Lyra: three X posts with the exact domain. Vesper: Trustpilot, SmartCustomer, Product Hunt (Tue–Thu AM), AlternativeTo, SaaSHub. Cassian: press kit, then pitch. Always write the domain (acme-dating.com), not just the brand name. Tick the campaign boxes when each claim is actually live.",
       },
       {
         title: "10. Monitor",
@@ -127,11 +127,11 @@ export const LESSONS: Lesson[] = [
     steps: [
       {
         title: "Site name",
-        body: "Human label only, e.g. Resonance or Acme Dating. It does not have to match the domain.",
+        body: "Human label only, e.g. Acme Dating. It does not have to match the domain.",
       },
       {
         title: "Origin URL",
-        body: "Must start with https:// and be the public origin with no trailing path, e.g. https://resonanse.app",
+        body: "Must start with https:// and be the public origin with no trailing path, e.g. https://acme-dating.com",
       },
       {
         title: "IndexNow key",
@@ -152,7 +152,7 @@ export const LESSONS: Lesson[] = [
     steps: [
       {
         title: "What it fetches",
-        body: "Each public route with and without Accept: text/html (SPA fallback / V109 class bugs), robots.txt, sitemap.xml, and the IndexNow key file when present.",
+        body: "Each public route with and without Accept: text/html (SPA-fallback class bugs), robots.txt, sitemap.xml, and the IndexNow key file when present.",
       },
       {
         title: "Crawlers it looks for",
@@ -226,7 +226,7 @@ export const LESSONS: Lesson[] = [
     slug: "playbook",
     number: "08",
     title: "Playbook",
-    summary: "The versioned runbook lifted from the Resonance campaign. Tasks are instances of these steps.",
+    summary: "The versioned runbook every property follows. Tasks are instances of these steps.",
     where: "Playbook (nav)",
     steps: [
       {
@@ -273,7 +273,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "4. Mentions",
-        body: "Lyra posts (Grok). Vesper directories. Cassian press. Always include the exact domain so assistants do not cite the wrong “Resonance”.",
+        body: "Lyra posts (Grok). Vesper directories. Cassian press. Always include the exact domain so assistants do not cite another product with the same name.",
       },
       {
         title: "5. Monitor",
@@ -351,7 +351,7 @@ export const QUIZ: QuizQuestion[] = [
     choices: ["Lyra", "Vesper", "Aether", "Cassian"],
     answer: 2,
     explain:
-      "Aether owns SPA fallback / crawl integrity. That is the V109-class bug that made Google mark URLs Not found.",
+      "Aether owns SPA fallback / crawl integrity. That is the SPA-fallback class of bug that makes Google mark URLs Not found.",
   },
   {
     id: "q3",
@@ -439,7 +439,7 @@ export const QUIZ: QuizQuestion[] = [
   },
   {
     id: "q10",
-    prompt: "Why must mentions include the exact domain (resonanse.app), not just the word “Resonance”?",
+    prompt: "Why must mentions include the exact domain (acme-dating.com), not just the brand name “Acme Dating”?",
     choices: [
       "IndexNow keys are domain-scoped",
       "Other products share the name; assistants will cite the wrong property without the URL",

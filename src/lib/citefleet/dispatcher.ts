@@ -26,9 +26,10 @@ export async function onboardSite(input: {
 }): Promise<Site> {
   const url = input.url.replace(/\/$/, "");
   const domain = new URL(url).hostname;
+  const workspaceId = (await getStore()).workspace.id;
   const site: Site = {
     id: `site-${crypto.randomUUID().slice(0, 8)}`,
-    workspaceId: "ws-resonance-labs",
+    workspaceId,
     name: input.name || domain,
     domain,
     url,
