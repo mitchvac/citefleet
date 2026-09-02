@@ -2,6 +2,7 @@ import type { Site, StoreShape } from "./types";
 import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook";
 import { getStore, mutateStore, recalcScores } from "./store";
 import { stripSecrets } from "./github";
+import { siteVerifyToken } from "./verify-token.ts";
 
 const DEFAULT_URL = "https://botcentral.org";
 const FETCH_UA = "CiteFleetPublisher/1.0 (+https://citefleet.app)";
@@ -120,7 +121,8 @@ export function buildCard(site: Site, existing?: Record<string, unknown>) {
               title: route,
             })),
         ],
-    verifyToken: site.id,
+    // Must equal the botcentral-verify=<token> line the origin pack writes.
+    verifyToken: siteVerifyToken(site),
   };
 }
 

@@ -43,7 +43,7 @@ Playwright for e2e. Node 20. ESM (`"type": "module"`).
 | --- | --- |
 | `src/routes/` | TanStack file routes. `index.tsx` = Command (onboard form), `sites/$id.tsx` = campaign view, `fleet.tsx`, `activity.tsx`, `ops.tsx`, `playbook.tsx`, `learn/*` (course, glossary, quiz), `health.ts`, `llms[.]txt.ts`, `sitemap[.]xml.ts`, `__root.tsx` (AuthProvider shell). `routeTree.gen.ts` is generated — do not hand-edit. |
 | `src/components/citefleet/` | UI. `Shell.tsx` (nav/layout), `CommandBoard.tsx` (site cards + "Onboard a property" form + GitHub token), `CampaignView.tsx` (per-site: BotCentral listing, "Origin files → GitHub" attach/push form, tasks), `FleetView.tsx`, `ControlPlane.tsx` (kill switch), `GrokHandoff.tsx`, `Quiz.tsx`, `training/Mocks.tsx` (course screenshots-as-JSX). |
-| `src/lib/citefleet/` | Domain logic. `types.ts` (Site, Task, Bot, StoreShape), `store.ts` + `persist.ts` (workspace store, Postgres-backed), `fleet-api.ts` (server fns: onboard/dispatch/audit/runTask/publishListing/attachGithub/setGithubToken), `client.ts` (`useFleet` hook the UI calls), `dispatcher.ts` (`onboardSite`, `dispatchSite`), `auditor.ts`, `playbook.ts` + `bots.ts` (task templates + fleet roster), `botcentral.ts` (catalog lookup/publish), `github.ts` (attach repo config, push origin pack via GitHub contents API — needs PAT), `originPack.ts` (robots/sitemap/llms/.well-known files), `grokApi.ts` + `grokBriefs.ts`, `monitor.ts`, `autopilot.ts`, `control.ts` (freeze/kill switch), `reconcile.ts`, `ops.server.ts` (server-only barrel), `seed.ts` (demo workspace incl. resonanse.app), `course.ts` / `glossary.ts` (learn content). |
+| `src/lib/citefleet/` | Domain logic. `types.ts` (Site, Task, Bot, StoreShape), `store.ts` + `persist.ts` (workspace store, Postgres-backed), `fleet-api.ts` (server fns: onboard/dispatch/audit/runTask/publishListing/attachGithub/setGithubToken), `client.ts` (`useFleet` hook the UI calls), `dispatcher.ts` (`onboardSite`, `dispatchSite`), `auditor.ts`, `playbook.ts` + `bots.ts` (task templates + fleet roster), `botcentral.ts` (catalog lookup/publish; card sends `verifyToken`), `verify-token.ts` + `verify-token.test.ts` (per-domain HMAC BotCentral proof token, the `botcentral-verify=` line), `github.ts` (attach repo config, push origin pack via GitHub contents API — needs PAT), `originPack.ts` (robots/sitemap/llms/.well-known files), `grokApi.ts` + `grokBriefs.ts`, `monitor.ts`, `autopilot.ts`, `control.ts` (freeze/kill switch), `reconcile.ts`, `ops.server.ts` (server-only barrel), `seed.ts` (demo workspace incl. resonanse.app), `course.ts` / `glossary.ts` (learn content). |
 | `src/lib/auth/` | better-auth wiring: server, client, gates, middleware, providers, email/password, PGlite dialect for preview. |
 | `src/lib/app-data/` | Typed app-data client + errors; has node tests. |
 | `src/lib/multiplayer/` | P2P presence helpers. |
@@ -60,6 +60,11 @@ Playwright for e2e. Node 20. ESM (`"type": "module"`).
 
 - Onboard form sends `github.root: "public"`; correct it on the campaign view's
   Folder field for repos whose web root differs (wflowprocess → `frontend/public`).
+- BotCentral proof: the card's `verifyToken` and the `botcentral-verify=<token>` line in the
+  origin pack's `.well-known/botcentral.txt` come from `verify-token.ts` (HMAC of the apex domain,
+  keyed by `BOTCENTRAL_VERIFY_SECRET` or `BOTCENTRAL_SERVICE_TOKEN`), persisted as `site.verifyToken`.
+  Listing fails with "ownership not proven" until that file (or an apex DNS TXT) is live at the origin.
+  The persisted value wins, so rotating the key only changes tokens for sites that never had one persisted.
 - `attachGithub` refuses repo `citefleet` for any site other than citefleet.app.
 - "Save repo" only stores config. "Push origin files" writes to GitHub and needs
   a classic PAT with repo scope saved on Command (or `GITHUB_TOKEN` server-side).

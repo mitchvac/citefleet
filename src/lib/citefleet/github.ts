@@ -1,5 +1,6 @@
 import type { Site, StoreShape } from "./types";
 import { buildOriginPack } from "./originPack";
+import { siteVerifyToken } from "./verify-token.ts";
 import { assertCanAct } from "./control";
 import { getStore, logActivity, mutateStore } from "./store";
 
@@ -159,7 +160,8 @@ export async function pushOriginPack(siteId: string) {
     );
   }
 
-  const files = buildOriginPack(site);
+  const verifyToken = siteVerifyToken(site);
+  const files = buildOriginPack({ ...site, verifyToken });
   const results: Array<{ path: string; sha?: string; url?: string }> = [];
   const message = `CiteFleet origin pack for ${site.domain}`;
   for (const file of files) {
@@ -180,6 +182,7 @@ export async function pushOriginPack(siteId: string) {
   const last = results.find((r) => r.url) || results[results.length - 1];
   await mutateStore((s) => {
     const current = s.sites.find((x) => x.id === siteId);
+    if (current) current.verifyToken = verifyToken;
     if (current?.github) {
       current.github.lastPushAt = new Date().toISOString();
       current.github.lastPushSha = last?.sha;

@@ -73,7 +73,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "6. List on BotCentral",
-        body: "On Command or the campaign header click List on BotCentral. Orion publishes a BotCentral 1.0 card. This is the bot-search catalog at botcentral.org. Assistants do not fill a submit form. You never paste a ChatGPT URL to get listed here.",
+        body: "First prove control: Push origin files from the campaign (or paste the botcentral-verify line shown there into a DNS TXT record) and deploy, so /.well-known/botcentral.txt serves the token as plain text. Then on Command or the campaign header click List on BotCentral. Orion publishes a BotCentral 1.0 card. This is the bot-search catalog at botcentral.org. Assistants do not fill a submit form. You never paste a ChatGPT URL to get listed here.",
       },
       {
         title: "7. Confirm the listing",
@@ -291,7 +291,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "How to list",
-        body: "Onboard the origin, run Live audit, click List on BotCentral. Orion POSTs to BotCentral with a service token. Bots cannot publish.",
+        body: "Onboard the origin, run Live audit, get the botcentral-verify token live at /.well-known/botcentral.txt (Push origin files + deploy, or DNS TXT), then click List on BotCentral. BotCentral fetches that file and rejects the card if the token is missing or the path returns HTML. Orion POSTs with a service token. Bots cannot publish.",
       },
       {
         title: "How to confirm",

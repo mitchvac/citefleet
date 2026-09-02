@@ -77,7 +77,8 @@ export function CampaignView({ siteId }: { siteId: string }) {
             </p>
           ) : (
             <p className="mt-2 text-sm text-[#e2c36d]">
-              Not listed on bot search yet. Audit the origin, then List on BotCentral.
+              Not listed on bot search yet. Audit the origin, serve the proof token (Push
+              origin files, then deploy that repo), then List on BotCentral.
             </p>
           )}
         </div>
@@ -176,6 +177,13 @@ function GithubPanel({
             <span className="mono">{owner || "owner"}/{repo || "repo"}</span>.
             Push saves the repo first, then commits.
           </p>
+          {site.verifyToken && (
+            <p className="mt-2 break-all text-xs text-[#9b95b3]">
+              BotCentral proof line the file must carry:{" "}
+              <span className="mono text-[#cfc8e8]">botcentral-verify={site.verifyToken}</span>
+              {" "}(or the same value in an apex DNS TXT record).
+            </p>
+          )}
           {site.github?.lastPushUrl && (
             <p className="mt-2 text-xs text-[#9b95b3]">
               Last push{" "}

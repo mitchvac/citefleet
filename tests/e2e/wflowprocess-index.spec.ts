@@ -131,9 +131,9 @@ test("lesson 02 steps 5–6: campaign board, attach mitchvac/wflowprocess, List 
 
   // P1 crawl-integrity tasks are on the board (lesson 06 priority order).
   await expect(page.getByRole("heading", { name: SITE_NAME, exact: true })).toBeVisible();
-  await expect(page.getByText("Repair SPA fallback 404s")).toBeVisible();
-  await expect(page.getByText("Welcome AI crawlers in robots.txt")).toBeVisible();
-  await expect(page.getByText("Publish and submit sitemap.xml")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Repair SPA fallback 404s" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome AI crawlers in robots.txt" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Publish and submit sitemap.xml" })).toBeVisible();
 
   await page.getByText(ORIGIN_FILES_HEADING).waitFor({ timeout: 20000 });
   const gh = page.locator("section").filter({ hasText: ORIGIN_FILES_HEADING });
@@ -165,6 +165,10 @@ test("lesson 02 steps 5–6: campaign board, attach mitchvac/wflowprocess, List 
   // Soft so the remaining lessons still run; the suite still reports red if listing failed.
   expect.soft(errorText, "BotCentral publish error banner").toBe("");
   await expect.soft(page.getByText("Live on BotCentral")).toBeVisible({ timeout: 10000 });
+  // The proof line the origin must serve (verify-token.ts); shown once the site has a token.
+  await expect
+    .soft(gh.getByText(/botcentral-verify=[0-9a-f]{32}/), "proof token line in Origin files panel")
+    .toBeVisible({ timeout: 10000 });
 });
 
 test("lesson 02 step 7: confirm the listing on Command and at botcentral.org", async ({

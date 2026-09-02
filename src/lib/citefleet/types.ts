@@ -83,6 +83,8 @@ export interface Site {
   status: SiteStatus;
   sitemapUrl: string;
   indexNowKey?: string;
+  /** BotCentral proof-of-control token; must appear as botcentral-verify=<token> at the origin. */
+  verifyToken?: string;
   routes: string[];
   createdAt: string;
   lastAuditAt?: string;
