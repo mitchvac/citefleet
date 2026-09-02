@@ -9,7 +9,8 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: process.env.E2E_URL || "https://citefleet.app",
-    headless: false,
+    // E2E_HEADLESS=1 for unattended/background runs; default shows the browser.
+    headless: process.env.E2E_HEADLESS === "1",
     // E2E_CHANNEL=chrome launches the installed Google Chrome (needed on macOS 13,
     // which Playwright's bundled Chromium no longer supports).
     channel: process.env.E2E_CHANNEL || undefined,
