@@ -224,6 +224,8 @@ test("lesson 06: Remove property — teardown of the sites this suite created", 
   await page.getByText("Onboard a property").waitFor();
   for (let i = 0; i < 5 && (await siteCard(page).count()) > 0; i++) {
     await siteCard(page).getByRole("link", { name: "Open campaign" }).click();
+    // Wait for the campaign to render before deciding whether the button exists.
+    await page.getByText(ORIGIN_FILES_HEADING).waitFor({ timeout: 20000 });
     const remove = page.getByRole("button", { name: "Remove property" });
     if ((await remove.count()) === 0) {
       test.skip(true, "Remove property is not deployed on this target yet");
