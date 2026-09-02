@@ -44,7 +44,7 @@ export function Shell({
               </Link>
             ))}
             <a
-              href="https://botcentral.org/"
+              href="https://botcentral.org/site/resonanse.app"
               target="_blank"
               rel="noreferrer"
               className="rounded-full px-3 py-1.5 text-sm text-[#4ee0c3] hover:bg-white/5"
@@ -67,7 +67,7 @@ export function Shell({
             </Link>
           ))}
           <a
-            href="https://botcentral.org/"
+            href="https://botcentral.org/site/resonanse.app"
             target="_blank"
             rel="noreferrer"
             className="rounded-full px-3 py-1.5 text-sm text-[#4ee0c3]"

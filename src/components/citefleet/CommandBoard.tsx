@@ -18,8 +18,8 @@ export function CommandBoard() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("https://");
   const [key, setKey] = useState("");
-  const [ghOwner, setGhOwner] = useState("mitchvac");
-  const [ghRepo, setGhRepo] = useState("citefleet");
+  const [ghOwner, setGhOwner] = useState("");
+  const [ghRepo, setGhRepo] = useState("");
   const [ghToken, setGhToken] = useState("");
   const autopilotOn = Boolean(fleet.store?.workspace.autopilot);
 
@@ -41,18 +41,72 @@ export function CommandBoard() {
   const { sites, bots, tasks, engines, activity, workspace } = fleet.store;
   const openTasks = tasks.filter((t) => t.status !== "done").length;
   const working = bots.filter((b) => b.status === "working" || b.status === "assigned").length;
+  const rankedSites = [...sites].sort((a, b) => {
+    const listed = Number(Boolean(b.botcentral?.listed)) - Number(Boolean(a.botcentral?.listed));
+    if (listed) return listed;
+    return (b.scores.overall || 0) - (a.scores.overall || 0);
+  });
+  const listedSites = rankedSites.filter((s) => s.botcentral?.listed);
 
   return (
     <div className="space-y-8">
       <section className="grid gap-4 md:grid-cols-4">
         <Kpi label="Workspace" value={workspace.name} hint={workspace.plan} />
-        <Kpi label="Properties" value={String(sites.length)} hint="customer origins" />
+        <Kpi
+          label="On BotCentral"
+          value={`${listedSites.length}/${sites.length}`}
+          hint="live catalog cards"
+        />
         <Kpi label="Bots assigned" value={`${working}/${bots.length}`} hint="Grok fleet" />
         <Kpi label="Open tasks" value={String(openTasks)} hint="playbook remaining" />
       </section>
 
       {fleet.error && (
         <div className="glass rounded-2xl px-4 py-3 text-sm text-rose-300">{fleet.error}</div>
+      )}
+
+      {listedSites.length > 0 && (
+        <section className="glass rounded-3xl p-5">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+            Live catalog cards
+          </p>
+          <p className="mt-1 text-sm text-[#cfc8e8]">
+            CiteFleet already published these. BotCentral Index is a search box — open the
+            inspector URL below. Do not wait for the homepage to list the card.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {listedSites.map((site) => (
+              <li key={site.id} className="flex flex-wrap items-center gap-3 text-sm">
+                <span className="font-medium">{site.name}</span>
+                <span className="mono text-xs text-[#9b95b3]">{site.domain}</span>
+                <a
+                  href={site.botcentral?.href || `https://botcentral.org/site/${site.domain}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#4ee0c3] underline"
+                >
+                  inspector
+                </a>
+                <a
+                  href={site.botcentral?.api || `https://botcentral.org/v1/site/${site.domain}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#c4b5fd] underline"
+                >
+                  machine JSON
+                </a>
+                <a
+                  href={`https://botcentral.org/v1/search?q=${encodeURIComponent(site.domain)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#9b95b3] underline"
+                >
+                  search hit
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {workspace && fleet.store.control.kill.global && (
@@ -101,7 +155,7 @@ export function CommandBoard() {
 
       <section className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
         <div className="space-y-4">
-          {sites.map((site) => (
+          {rankedSites.map((site) => (
             <SiteCard
               key={site.id}
               site={site}
@@ -327,7 +381,7 @@ function SiteCard({
             <span className="mono text-xs text-[#9b95b3]">{site.domain}</span>
             {site.botcentral?.listed ? (
               <a
-                href={site.botcentral.href || "https://botcentral.org/"}
+                href={site.botcentral.href || `https://botcentral.org/site/${site.domain}`}
                 target="_blank"
                 rel="noreferrer"
                 className="no-underline"
@@ -340,6 +394,11 @@ function SiteCard({
           </div>
           <h2 className="text-xl font-semibold">{site.name}</h2>
           <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">{site.summary}</p>
+          {site.botcentral?.listed ? (
+            <p className="mt-2 break-all font-mono text-xs text-[#4ee0c3]">
+              {site.botcentral.href || `https://botcentral.org/site/${site.domain}`}
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <button
