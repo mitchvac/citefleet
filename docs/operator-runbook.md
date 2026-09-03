@@ -73,7 +73,7 @@ The Training module (lesson 02) is the click-by-click version. In short:
 ## Confirm a BotCentral API-key top-up
 
 BotCentral's **Top up** buttons send developers to `https://citefleet.app/topup`
-with their `bc_live_` key prefix; **Top up** in the console nav opens the same
+with their `bc_live_` key prefix; **Add credit** in the console nav opens the same
 page with an empty form. There is no on-chain checkout yet: BotCentral
 has no treasury address bound, so the customer opens an invoice (a real
 BotCentral `bj_…` id with the quoted amount) and pays out of band.
