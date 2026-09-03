@@ -1,3 +1,4 @@
+import { BrandLogo } from "../BrandLogo";
 import { Pill } from "../Shell";
 
 function Frame({
@@ -10,8 +11,11 @@ function Frame({
   return (
     <div className="overflow-hidden rounded-3xl border border-[#9b7dff]/30 bg-black/30">
       <div className="flex items-center justify-between border-b border-white/8 px-4 py-2">
-        <span className="mono text-[11px] uppercase tracking-[0.16em] text-[#e2c36d]">
-          {label}
+        <span className="flex items-center gap-2">
+          <BrandLogo size={18} className="h-[18px] w-[18px]" />
+          <span className="mono text-[11px] uppercase tracking-[0.16em] text-[#e2c36d]">
+            {label}
+          </span>
         </span>
         <span className="text-[11px] text-[#9b95b3]">training mock — looks like the real screen</span>
       </div>

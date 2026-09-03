@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { BrandLogo } from "./BrandLogo";
 
 const NAV = [
   { to: "/", label: "Command" },
@@ -23,9 +24,7 @@ export function Shell({
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07060f]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4">
           <Link to="/" className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-[#9b7dff] to-[#4ee0c3] text-sm font-semibold text-[#07060f]">
-              CF
-            </span>
+            <BrandLogo size={36} className="h-9 w-9" />
             <span>
               <span className="block text-sm font-semibold tracking-wide">CiteFleet</span>
               <span className="block text-[11px] uppercase tracking-[0.18em] text-[#9b95b3]">

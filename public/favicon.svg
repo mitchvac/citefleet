@@ -1,4 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#9b7dff"/>
-  <text x="16" y="22" text-anchor="middle" font-size="14" font-family="ui-sans-serif,system-ui" fill="#07060f" font-weight="700">CF</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <image href="/favicon.png" width="64" height="64"/>
 </svg>

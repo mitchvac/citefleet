@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { BrandLogo } from "@/components/citefleet/BrandLogo";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -14,8 +15,6 @@ const MESSAGES: Record<string, string> = {
   "github-not-configured": "GitHub sign-in is not enabled on this server yet.",
   "oauth-denied": "Sign-in was cancelled or expired. Try again.",
   "oauth-failed": "That provider could not complete sign-in. Try email, or try again.",
-  "not-allowed": "That email is not on this console's operator allow-list. Ask the operator to add it.",
-  "email-unverified": "That provider account has no verified email address, so it cannot be matched to the allow-list.",
 };
 
 function LoginPage() {
@@ -37,9 +36,7 @@ function LoginPage() {
     <div className="grid min-h-screen place-items-center px-6 py-12">
       <div className="glass w-full max-w-md rounded-3xl p-8">
         <Link to="/" className="flex items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-[#9b7dff] to-[#4ee0c3] text-sm font-semibold text-[#07060f]">
-            CF
-          </span>
+          <BrandLogo size={40} className="h-10 w-10" />
           <span>
             <span className="block text-sm font-semibold tracking-wide">CiteFleet</span>
             <span className="block text-[11px] uppercase tracking-[0.18em] text-[#9b95b3]">
@@ -51,8 +48,8 @@ function LoginPage() {
           {mode === "signin" ? "Sign in" : "Create your account"}
         </h1>
         <p className="mt-2 text-sm text-[#b7b0cc]">
-          Invite-only. Only emails on this console’s operator allow-list can
-          sign in or create an account; the same applies to Google and GitHub.
+          Customers and operators sign in here. List a site, prove origin, and
+          publish to BotCentral from this workspace.
         </p>
         {error && (
           <p
