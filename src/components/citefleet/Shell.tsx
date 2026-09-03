@@ -8,6 +8,9 @@ const NAV = [
   { to: "/playbook", label: "Playbook" },
   { to: "/activity", label: "Audit log" },
   { to: "/learn", label: "Training" },
+  // Public page: BotCentral's Top up buttons link here, and operators need it to
+  // confirm a payment without hunting for the customer's invoice link.
+  { to: "/topup", label: "Top up" },
 ] as const;
 
 export function Shell({
