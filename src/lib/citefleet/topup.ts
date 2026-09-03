@@ -146,6 +146,25 @@ export async function openTopupInvoice(
   return (await res.json()) as TopupInvoice;
 }
 
+/**
+ * Ask BotCentral to check the chain for this payment and settle it if it is
+ * there. Safe to call on a timer: it reads a public ledger and credits nothing
+ * twice. `settles_automatically` says whether this coin is watched at all.
+ */
+export async function verifyTopupInvoice(
+  base: string,
+  id: string,
+): Promise<TopupInvoice & { settles_automatically?: boolean }> {
+  if (!isInvoiceId(id)) throw new Error("That is not a BotCentral invoice id.");
+  const res = await fetch(`${base}/v1/jobs/${encodeURIComponent(id)}/verify`, {
+    method: "POST",
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new Error(await readProblem(res, "BotCentral could not check the payment"));
+  return (await res.json()) as TopupInvoice & { settles_automatically?: boolean };
+}
+
 export async function fetchTopupInvoice(base: string, id: string): Promise<TopupInvoice> {
   if (!isInvoiceId(id)) throw new Error("That is not a BotCentral invoice id.");
   const res = await fetch(`${base}/v1/jobs/${encodeURIComponent(id)}`, {

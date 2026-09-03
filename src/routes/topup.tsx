@@ -12,6 +12,7 @@ import {
   MIN_TOPUP_USD,
   USD_PER_CALL,
   fetchTopupInvoice,
+  verifyTopupInvoice,
   openTopupInvoice,
   parseTopupSearch,
   payInstructions,
@@ -35,7 +36,8 @@ export const Route = createFileRoute("/topup")({
   component: TopupPage,
 });
 
-const POLL_MS = 20_000;
+// Fast enough to feel immediate once a payment confirms; the endpoint is cheap and rate-limited.
+const POLL_MS = 6_000;
 
 function TopupPage() {
   const raw = Route.useSearch();
@@ -51,6 +53,7 @@ function TopupPage() {
   const [tx, setTx] = useState("");
   const [settleError, setSettleError] = useState("");
   const [settleBusy, setSettleBusy] = useState(false);
+  const [automatic, setAutomatic] = useState<boolean | null>(null);
 
   // An invoice id in the URL (BotCentral's invoice link, or a reload) reloads that invoice.
   useEffect(() => {
@@ -70,15 +73,33 @@ function TopupPage() {
     };
   }, [base, parsed.job]);
 
-  // While the invoice is open, watch for the operator's settlement.
+  // While the invoice is open, ask BotCentral to check the chain. On a watched
+  // coin this settles the moment the payment confirms, with nobody involved.
   useEffect(() => {
     if (!invoice || invoice.status !== "invoiced") return;
-    const timer = window.setInterval(() => {
-      fetchTopupInvoice(base, invoice.id)
-        .then((next) => setInvoice(next))
-        .catch(() => {});
-    }, POLL_MS);
-    return () => window.clearInterval(timer);
+    let stop = false;
+    const tick = () => {
+      verifyTopupInvoice(base, invoice.id)
+        .then((next) => {
+          if (stop) return;
+          setInvoice(next);
+          if (typeof next.settles_automatically === "boolean")
+            setAutomatic(next.settles_automatically);
+        })
+        .catch(() => {
+          // Verification unavailable: fall back to simply re-reading the invoice.
+          if (!stop)
+            fetchTopupInvoice(base, invoice.id)
+              .then(setInvoice)
+              .catch(() => {});
+        });
+    };
+    tick();
+    const timer = window.setInterval(tick, POLL_MS);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
   }, [base, invoice]);
 
   async function open(event: FormEvent) {
@@ -282,7 +303,7 @@ function TopupPage() {
         </p>
       )}
 
-      <PayTrust />
+      <PayTrust automatic={automatic} />
 
       <p className="mt-8 text-sm text-[#9b95b3]">
         <Link to="/learn/$slug" params={{ slug: "botcentral" }} className="hover:text-white">

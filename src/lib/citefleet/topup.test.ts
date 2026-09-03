@@ -8,6 +8,7 @@ import {
   parseTopupSearch,
   payInstructions,
   settleRequestBody,
+  verifyTopupInvoice,
   type TopupInvoice,
 } from "./topup.ts";
 
@@ -143,4 +144,29 @@ test("a BotCentral link carrying usd is honoured; otherwise jobs means dollars",
     "no amount given falls back to the minimum",
   );
   assert.equal(parseTopupSearch({ usd: "2" }).usd, MIN_TOPUP_USD, "under the minimum is raised");
+});
+
+test("verifyTopupInvoice refuses anything that is not an invoice id, before any network call", async () => {
+  let called = false;
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    called = true;
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(
+      () => verifyTopupInvoice("https://botcentral.org", "bj_short"),
+      /not a BotCentral invoice id/,
+    );
+    await assert.rejects(
+      () => verifyTopupInvoice("https://botcentral.org", "'; drop table jobs; --"),
+      /not a BotCentral invoice id/,
+    );
+    assert.equal(called, false, "a malformed id must never reach the network");
+    // Positive control: a well-formed id does call out.
+    await verifyTopupInvoice("https://botcentral.org", "bj_" + "a".repeat(32)).catch(() => {});
+    assert.equal(called, true);
+  } finally {
+    globalThis.fetch = original;
+  }
 });

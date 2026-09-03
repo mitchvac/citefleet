@@ -14,7 +14,12 @@ import { botcentralBase, MIN_TOPUP_USD, USD_PER_CALL } from "@/lib/citefleet/top
  *
  * Keep this honest. If a statement here stops being true, change the statement.
  */
-export function PayTrust() {
+export function PayTrust({
+  /** Whether this coin settles from the chain. null while unknown. */
+  automatic,
+}: {
+  automatic?: boolean | null;
+}) {
   const base = botcentralBase().replace(/^https?:\/\//, "");
   return (
     <section className="glass mt-6 rounded-3xl p-6" data-testid="pay-trust">
@@ -48,10 +53,20 @@ export function PayTrust() {
           <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
             How it is confirmed
           </dt>
-          <dd className="mt-1">
-            A person checks that the payment arrived and confirms it on this page. CiteFleet does
-            not watch any blockchain and cannot see your transaction by itself, which is why
-            confirmation is not instant.
+          <dd className="mt-1" data-testid="pay-trust-confirm">
+            {automatic === false ? (
+              <>
+                By a person, for this coin only. Its receiving account is shared with other
+                customers, so a payment there cannot be tied to your invoice by reading the chain.
+                Pay with RLUSD, XRP, BTC, ETH or XDC and it confirms by itself instead.
+              </>
+            ) : (
+              <>
+                Automatically. This page watches the ledger and credits your key as soon as the
+                payment confirms, usually within a minute or two. Nothing to click and nobody to
+                wait for.
+              </>
+            )}
           </dd>
         </div>
         <div>
@@ -59,9 +74,9 @@ export function PayTrust() {
             If something goes wrong
           </dt>
           <dd className="mt-1">
-            Keep the invoice id shown above and your transaction hash. Together they identify the
-            payment. An invoice you never pay simply expires and credits nothing; you are not billed
-            for it and no reminder is sent.
+            Keep the invoice id shown above. If the credit has not appeared a few minutes after your
+            payment confirmed, send that id and your transaction hash and it will be settled by
+            hand. An invoice you never pay simply expires and credits nothing.
           </dd>
         </div>
       </dl>
