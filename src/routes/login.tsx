@@ -36,7 +36,7 @@ function LoginPage() {
     <div className="grid min-h-screen place-items-center px-6 py-12">
       <div className="glass w-full max-w-md rounded-3xl p-8">
         <Link to="/" className="flex items-center gap-3">
-          <BrandLogo size={40} className="h-10 w-10" />
+          <BrandLogo size={48} className="h-12 w-12" />
           <span>
             <span className="block text-sm font-semibold tracking-wide">CiteFleet</span>
             <span className="block text-[11px] uppercase tracking-[0.18em] text-[#9b95b3]">

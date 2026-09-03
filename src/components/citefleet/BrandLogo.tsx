@@ -1,3 +1,5 @@
+import logoUrl from "@/assets/citefleet-logo.png";
+
 export function BrandLogo({
   size = 36,
   className = "",
@@ -7,11 +9,12 @@ export function BrandLogo({
 }) {
   return (
     <img
-      src="/logo.png"
-      alt="CiteFleet"
+      src={logoUrl}
+      alt=""
       width={size}
       height={size}
-      className={`shrink-0 object-contain ${className}`.trim()}
+      decoding="async"
+      className={`block shrink-0 object-contain ${className}`.trim()}
     />
   );
 }
