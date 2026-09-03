@@ -17,6 +17,8 @@ const NETWORK_TONE: Record<TopupAsset, string> = {
   btc: "from-[#e2c36d] to-[#f4a259]",
   hbar: "from-[#cfc8e8] to-[#9b95b3]",
   xdc: "from-[#4ee0c3] to-[#e2c36d]",
+  cc: "from-[#e2c36d] to-[#9b7dff]",
+  eth: "from-[#9b7dff] to-[#4ee0c3]",
 };
 
 function split(label: string): { ticker: string; network: string } {
@@ -34,7 +36,12 @@ export function AssetPicker({
   name?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(() => Math.max(0, TOPUP_ASSETS.findIndex((a) => a.id === value)));
+  const [active, setActive] = useState(() =>
+    Math.max(
+      0,
+      TOPUP_ASSETS.findIndex((a) => a.id === value),
+    ),
+  );
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
   const current = TOPUP_ASSETS.find((a) => a.id === value) ?? TOPUP_ASSETS[0];
@@ -152,7 +159,14 @@ export function AssetPicker({
                   <span className="text-[#9b95b3]">{network}</span>
                 </span>
                 {selected && (
-                  <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 text-[#4ee0c3]" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    className="h-4 w-4 text-[#4ee0c3]"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <path d="M4 10.5l4 4 8-9" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}

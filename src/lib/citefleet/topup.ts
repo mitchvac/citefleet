@@ -15,6 +15,8 @@ export const TOPUP_ASSETS = [
   { id: "btc", label: "BTC · Bitcoin" },
   { id: "hbar", label: "HBAR · Hedera" },
   { id: "xdc", label: "XDC · XDC Network" },
+  { id: "cc", label: "CC · Canton Network" },
+  { id: "eth", label: "ETH · Ethereum" },
 ] as const;
 
 export type TopupAsset = (typeof TOPUP_ASSETS)[number]["id"];
@@ -80,6 +82,8 @@ export type TopupInvoice = {
   created: string;
   pay: {
     via: "citefleet" | "direct";
+    /** How BotCentral identifies the payment; decides what the payer must send. */
+    matching?: "destination_tag" | "memo" | "unique_amount";
     topup: string;
     network: string;
     network_name: string;
@@ -94,7 +98,11 @@ export type TopupInvoice = {
 };
 
 async function readProblem(res: Response, fallback: string): Promise<string> {
-  const body = (await res.json().catch(() => ({}))) as { detail?: string; title?: string; error?: string };
+  const body = (await res.json().catch(() => ({}))) as {
+    detail?: string;
+    title?: string;
+    error?: string;
+  };
   return body.detail || body.error || body.title || `${fallback} (${res.status})`;
 }
 
@@ -105,7 +113,12 @@ export async function openTopupInvoice(
   const res = await fetch(`${base}/v1/jobs`, {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ kind: "topup", asset: input.asset, jobs: input.jobs, prefix: input.prefix || undefined }),
+    body: JSON.stringify({
+      kind: "topup",
+      asset: input.asset,
+      jobs: input.jobs,
+      prefix: input.prefix || undefined,
+    }),
     signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error(await readProblem(res, "BotCentral could not open the invoice"));
@@ -126,11 +139,17 @@ export async function fetchTopupInvoice(base: string, id: string): Promise<Topup
 /** What the customer must do to pay this invoice, as plain lines. Honest about the missing treasury. */
 export function payInstructions(invoice: TopupInvoice): string[] {
   const pay = invoice.pay;
-  const lines = [`Send exactly ${pay.amount} ${pay.ticker} on ${pay.network_name} for $${invoice.usd} (${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"}).`];
+  const lines = [
+    `Send exactly ${pay.amount} ${pay.ticker} on ${pay.network_name} for $${invoice.usd} (${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"}).`,
+  ];
   if (pay.address) {
     lines.push(`Pay to ${pay.address}.`);
-    if (typeof pay.destination_tag === "number") lines.push(`Destination tag ${pay.destination_tag} is required; a payment without it cannot be matched.`);
-    if (pay.memo) lines.push(`Memo ${pay.memo} is required; a payment without it cannot be matched.`);
+    if (typeof pay.destination_tag === "number")
+      lines.push(
+        `Destination tag ${pay.destination_tag} is required; a payment without it cannot be matched.`,
+      );
+    if (pay.memo)
+      lines.push(`Memo ${pay.memo} is required; a payment without it cannot be matched.`);
     if (pay.issuer) lines.push(`Issuer ${pay.issuer} (${pay.currency ?? pay.ticker}).`);
   } else {
     lines.push(
@@ -144,11 +163,16 @@ export function payInstructions(invoice: TopupInvoice): string[] {
 export type SettleRequest = { id: string; tx: string; prefix?: string };
 
 /** Validate what the operator submits before it reaches BotCentral. Throws on anything malformed. */
-export function settleRequestBody(input: { id?: unknown; tx?: unknown; prefix?: unknown }): SettleRequest {
+export function settleRequestBody(input: {
+  id?: unknown;
+  tx?: unknown;
+  prefix?: unknown;
+}): SettleRequest {
   const id = str(input.id);
   if (!isInvoiceId(id)) throw new Error("Invoice id must look like bj_<32 hex>.");
   const tx = str(input.tx);
-  if (tx.length < 4 || tx.length > 128) throw new Error("Enter the transaction hash or receipt reference (4–128 characters).");
+  if (tx.length < 4 || tx.length > 128)
+    throw new Error("Enter the transaction hash or receipt reference (4–128 characters).");
   const prefix = cleanPrefix(input.prefix);
   return prefix ? { id, tx, prefix } : { id, tx };
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { payTarget } from "./pay-uri.ts";
-import type { TopupInvoice } from "./topup.ts";
+import { payTarget, toBaseUnits } from "./pay-uri.ts";
+import { TOPUP_ASSETS, type TopupInvoice } from "./topup.ts";
 
 /** A BotCentral invoice with the `pay` block overridden. */
 function invoice(pay: Partial<TopupInvoice["pay"]>): TopupInvoice {
@@ -23,84 +23,165 @@ function invoice(pay: Partial<TopupInvoice["pay"]>): TopupInvoice {
       ticker: "XRP",
       amount: "1.000000",
       address: null,
+      matching: "destination_tag",
       ...pay,
     },
   };
 }
 
-test("no treasury address bound → no payment target (this is production today)", () => {
+test("no treasury address bound → no payment target", () => {
   assert.equal(payTarget(invoice({ address: null })), null);
   assert.equal(payTarget(invoice({ address: "   " })), null);
-  // Positive control: the same invoice with an address does produce one.
-  assert.ok(payTarget(invoice({ address: "rP9jPyP5kyvFRb6ZiRghAGw5u8SGAmU4bd" })));
+  assert.ok(
+    payTarget(invoice({ address: "rH9eQkvc43gC4pVrMUSbCnjypcxzVnirQK" })),
+    "positive control",
+  );
 });
 
 test("XRP Ledger: QR carries the address; the destination tag must be typed", () => {
-  const t = payTarget(invoice({ address: "rP9jPyP5kyvFRb6ZiRghAGw5u8SGAmU4bd", destination_tag: 2623752267 }))!;
-  assert.equal(t.qr, "rP9jPyP5kyvFRb6ZiRghAGw5u8SGAmU4bd");
+  const t = payTarget(
+    invoice({ address: "rH9eQkvc43gC4pVrMUSbCnjypcxzVnirQK", destination_tag: 2623752267 }),
+  )!;
+  assert.equal(t.qr, "rH9eQkvc43gC4pVrMUSbCnjypcxzVnirQK");
   assert.equal(t.isUri, false);
   assert.equal(t.matchingLabel, "Destination tag");
-  assert.equal(t.matchingValue, "2623752267");
   assert.match(t.warning, /destination tag 2623752267/);
   assert.match(t.warning, /cannot be matched/);
 });
 
-test("RLUSD on the XRP Ledger keeps the issuer so a trust line can be checked", () => {
+test("RLUSD keeps the issuer so a trust line can be checked", () => {
   const t = payTarget(
     invoice({
-      address: "rP9jPyP5kyvFRb6ZiRghAGw5u8SGAmU4bd",
+      address: "rH9eQkvc43gC4pVrMUSbCnjypcxzVnirQK",
       ticker: "RLUSD",
-      currency: "RLUSD",
       issuer: "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
       destination_tag: 7,
     }),
   )!;
   assert.equal(t.issuer, "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De");
-  assert.equal(t.ticker, "RLUSD");
 });
 
-test("Bitcoin: BIP-21 URI with the exact amount, trailing zeros trimmed", () => {
+test("Bitcoin: BIP-21 URI, exact-amount warning, and no memo shown", () => {
   const t = payTarget(
     invoice({
       network: "bitcoin",
       network_name: "Bitcoin",
       ticker: "BTC",
       amount: "0.00042000",
-      address: "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+      address: "3FY1L4qH7aCRRjVEk9f4JczoNsmHS5Rkov",
+      matching: "unique_amount",
+      memo: "bj_deadbeef", // BotCentral's own reference; meaningless on Bitcoin
     }),
   )!;
-  assert.equal(t.qr, "bitcoin:bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq?amount=0.00042");
+  assert.equal(t.qr, "bitcoin:3FY1L4qH7aCRRjVEk9f4JczoNsmHS5Rkov?amount=0.00042");
   assert.equal(t.isUri, true);
-  assert.equal(t.amount, "0.00042000", "the displayed amount stays exactly as BotCentral quoted it");
-  assert.match(t.warning, /exact amount/i);
+  assert.equal(t.matchingLabel, "Exact amount");
+  assert.equal(t.matchingValue, "0.00042000 BTC");
+  assert.doesNotMatch(t.warning, /memo/i, "a memo instruction on Bitcoin is unfollowable");
+  assert.notEqual(t.matchingValue, "bj_deadbeef");
 });
 
-test("Stellar: SEP-0007 URI carries destination, amount and memo", () => {
+test("Ethereum: EIP-681 URI carries the value in wei", () => {
+  const t = payTarget(
+    invoice({
+      network: "ethereum",
+      network_name: "Ethereum",
+      ticker: "ETH",
+      amount: "0.000412160379847011",
+      address: "0xf7D9618FC3C9A36337bE9B2e51487ec24eF09E6B",
+      matching: "unique_amount",
+      memo: "bj_deadbeef",
+    }),
+  )!;
+  assert.equal(t.qr, "ethereum:0xf7D9618FC3C9A36337bE9B2e51487ec24eF09E6B?value=412160379847011");
+  assert.equal(t.isUri, true);
+  assert.doesNotMatch(t.warning, /memo/i);
+});
+
+test("XDC: amount-matched with no URI scheme, so the QR is the address", () => {
+  const t = payTarget(
+    invoice({
+      network: "xdc",
+      network_name: "XDC Network",
+      ticker: "XDC",
+      amount: "36.153331",
+      address: "xdc1b87bc5003759cf477f05a0378fc8bc708f7de40",
+      matching: "unique_amount",
+      memo: "bj_deadbeef",
+    }),
+  )!;
+  assert.equal(t.qr, "xdc1b87bc5003759cf477f05a0378fc8bc708f7de40");
+  assert.equal(t.isUri, false);
+  assert.match(t.warning, /exact amount/i);
+  assert.doesNotMatch(t.warning, /memo/i);
+});
+
+test("Stellar: SEP-0007 carries the operator's fixed memo", () => {
   const t = payTarget(
     invoice({
       network: "stellar",
       network_name: "Stellar",
       ticker: "XLM",
-      amount: "3.5000000",
-      address: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
-      memo: "bj-7",
+      amount: "5.6818182",
+      address: "GC7WKJQQJBKKBFP5YVRWW4KJSNCCLV3DDYOZZ5TLDLEGNSQGXSORJZQG",
+      matching: "memo",
+      memo: "234305006",
     }),
   )!;
-  assert.equal(t.isUri, true);
   assert.ok(t.qr.startsWith("web+stellar:pay?"), t.qr);
   const params = new URLSearchParams(t.qr.slice("web+stellar:pay?".length));
-  assert.equal(params.get("destination"), "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN");
-  assert.equal(params.get("amount"), "3.5");
-  assert.equal(params.get("memo"), "bj-7");
-  assert.equal(params.get("memo_type"), "MEMO_TEXT");
-  assert.equal(t.warning, "", "the URI carries the memo, so nothing must be typed");
+  assert.equal(
+    params.get("destination"),
+    "GC7WKJQQJBKKBFP5YVRWW4KJSNCCLV3DDYOZZ5TLDLEGNSQGXSORJZQG",
+  );
+  assert.equal(params.get("amount"), "5.6818182");
+  assert.equal(params.get("memo"), "234305006");
+  assert.match(t.warning, /memo 234305006 is required/);
 });
 
-test("memo-matched networks without a URI scheme warn about the memo", () => {
-  const t = payTarget(
-    invoice({ network: "hedera", network_name: "Hedera", ticker: "HBAR", address: "0.0.123456", memo: "bj-9" }),
+test("Hedera and Canton: address-only QR, memo called out as required", () => {
+  const hbar = payTarget(
+    invoice({
+      network: "hedera",
+      network_name: "Hedera",
+      ticker: "HBAR",
+      amount: "13.44411283",
+      address: "0.0.6942669",
+      matching: "memo",
+      memo: "2337356342",
+    }),
   )!;
-  assert.equal(t.qr, "0.0.123456");
-  assert.equal(t.matchingLabel, "Memo");
-  assert.match(t.warning, /memo bj-9/);
+  assert.equal(hbar.qr, "0.0.6942669");
+  assert.equal(hbar.matchingValue, "2337356342");
+  assert.match(hbar.warning, /cannot be credited/);
+
+  const cc = payTarget(
+    invoice({
+      network: "canton",
+      network_name: "Canton Network",
+      ticker: "CC",
+      amount: "9.1227558021",
+      address: "party::122089d2680447a14a15e38969368f11c52a9ad7a16e41601e1c828fa74c00b89a6d",
+      matching: "memo",
+      memo: "2341540831",
+    }),
+  )!;
+  assert.equal(
+    cc.qr,
+    "party::122089d2680447a14a15e38969368f11c52a9ad7a16e41601e1c828fa74c00b89a6d",
+  );
+  assert.equal(cc.matchingValue, "2341540831");
+});
+
+test("toBaseUnits converts exactly, without floating point", () => {
+  assert.equal(toBaseUnits("1", 18), "1000000000000000000");
+  assert.equal(toBaseUnits("0.000412160379847011", 18), "412160379847011");
+  assert.equal(toBaseUnits("0.1", 8), "10000000");
+  // A value that a float would mangle.
+  assert.equal(toBaseUnits("0.000000000000000001", 18), "1");
+});
+
+test("the picker offers every rail BotCentral prices, including the new ones", () => {
+  const ids = TOPUP_ASSETS.map((a) => a.id);
+  assert.deepEqual(ids, ["rlusd", "xrp", "xlm", "btc", "hbar", "xdc", "cc", "eth"]);
 });
