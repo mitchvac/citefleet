@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AssetPicker } from "@/components/citefleet/AssetPicker";
+import { PayQr } from "@/components/citefleet/PayQr";
 import { Shell } from "@/components/citefleet/Shell";
 import { settleTopupFn } from "@/lib/citefleet/fleet-api";
 import {
@@ -178,6 +179,8 @@ function TopupPage() {
               <li key={line}>{line}</li>
             ))}
           </ul>
+          {/* Scan-to-pay: renders only when BotCentral bound a treasury address for the network. */}
+          {!paid && <PayQr invoice={invoice} />}
           {paid ? (
             <p className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
               Payment confirmed. BotCentral has credited {invoice.jobs} job{invoice.jobs === 1 ? "" : "s"}
