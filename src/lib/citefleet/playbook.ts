@@ -265,7 +265,9 @@ export const PLAYBOOK: PlaybookStep[] = [
         href: "https://www.producthunt.com/posts/new",
       },
       {
-        label: "AlternativeTo listing vs category incumbents",
+        // Members-only page (404 when signed out). AlternativeTo FAQ: sign in → user icon →
+        // "Suggest new application"; a verified email is required.
+        label: "AlternativeTo listing vs category incumbents (sign in first: user icon → Suggest new application)",
         href: "https://alternativeto.net/manage/new/",
       },
       { label: "SaaSHub submitted", href: "https://www.saashub.com/submit" },

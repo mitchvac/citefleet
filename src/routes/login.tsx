@@ -1,21 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/citefleet/BrandLogo";
+import { loginMessage } from "@/lib/auth/login-messages";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
-
-const MESSAGES: Record<string, string> = {
-  "bad-credentials": "That email or password is not right.",
-  exists: "An account with that email already exists. Sign in instead.",
-  invalid: "Use a real email and a password of at least 8 characters.",
-  "bad-token": "That sign-in was not accepted.",
-  locked: "Too many attempts. Wait a minute, then try again.",
-  "not-configured": "This server is not ready for sign-in yet.",
-  "google-not-configured": "Google sign-in is not enabled on this server yet.",
-  "github-not-configured": "GitHub sign-in is not enabled on this server yet.",
-  "oauth-denied": "Sign-in was cancelled or expired. Try again.",
-  "oauth-failed": "That provider could not complete sign-in. Try email, or try again.",
-};
 
 function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -23,7 +11,7 @@ function LoginPage() {
   const [oauth, setOauth] = useState<{ google: boolean; github: boolean }>({ google: true, github: true });
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("error");
-    setError(code ? (MESSAGES[code] ?? "Sign-in failed.") : null);
+    setError(loginMessage(code));
     fetch("/api/oauth/providers")
       .then((r) => r.json())
       .then((d) => {

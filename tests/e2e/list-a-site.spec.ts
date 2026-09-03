@@ -186,9 +186,12 @@ test(`lesson 02 steps 5–6: campaign board, attach ${GH_OWNER}/${GH_REPO}, List
   await expect(gh.getByPlaceholder("public")).toHaveValue(GH_ROOT);
 
   // Step 6: List on BotCentral (Orion publishes the 1.0 card).
-  const listBtn = page.getByRole("button", {
-    name: /Refresh BotCentral card|List on BotCentral/i,
-  });
+  // The campaign header button; the BotCentral task row carries a button with the same name (it runs the same publish).
+  const listBtn = page
+    .getByRole("button", {
+      name: /Refresh BotCentral card|List on BotCentral/i,
+    })
+    .first();
   await listBtn.scrollIntoViewIfNeeded();
   await listBtn.click();
   await expect(listBtn).toBeEnabled({ timeout: 60000 });

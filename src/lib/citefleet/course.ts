@@ -177,7 +177,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "Local audit and Send to Grok",
-        body: "Local audit on a technical task re-runs the live audit; on a mention or press task it advances the next unchecked item. Send to Grok copies the task brief for Grok to work. Checkboxes can also be toggled by hand when you finished the work outside the app.",
+        body: "Local audit on a technical task re-runs the live audit; on a mention or press task it advances the next unchecked item. The BotCentral task row shows List on BotCentral instead, because that button publishes the card (same as the header button). Send to Grok copies the task brief for Grok to work. Checkboxes can also be toggled by hand when you finished the work outside the app.",
       },
       {
         title: "Remove property",

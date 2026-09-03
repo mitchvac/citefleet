@@ -31,7 +31,9 @@ const DOOR: Record<string, { system: string; url: string; alreadyLikelyDone?: bo
     },
     directories: {
       system: "AlternativeTo + Trustpilot + Product Hunt",
-      url: "https://alternativeto.net/software/new/",
+      // Same door as the playbook checklist (playbook.ts). Members-only: AlternativeTo's FAQ says
+      // sign in → user icon → "Suggest new application", verified email required.
+      url: "https://alternativeto.net/manage/new/",
     },
     press: {
       system: "Email / outlet contact forms",

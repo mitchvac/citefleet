@@ -462,7 +462,8 @@ function TaskRow({
             disabled={!!busy || task.status === "done"}
             className="rounded-full border border-white/10 px-3 py-1.5 text-xs hover:bg-white/5 disabled:opacity-40"
           >
-            Local audit
+            {/* runTask publishes for the BotCentral task (an outward act behind the catalog door) — say so; every other row audits or advances locally. */}
+            {task.playbookId === "botcentral_list" ? "List on BotCentral" : "Local audit"}
           </button>
         </div>
       </div>
