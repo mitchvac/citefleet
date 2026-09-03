@@ -70,6 +70,26 @@ The Training module (lesson 02) is the click-by-click version. In short:
    and secret. Every deploy then re-checks the proof and refreshes the card
    without anyone clicking. Any non-GitHub CI can call the deploy hook instead.
 
+## Confirm a BotCentral API-key top-up
+
+BotCentral's **Top up** buttons send developers to `https://citefleet.app/topup`
+with their `bc_live_` key prefix. There is no on-chain checkout yet: BotCentral
+has no treasury address bound, so the customer opens an invoice (a real
+BotCentral `bj_…` id with the quoted amount) and pays out of band.
+
+1. Take the payment and verify it yourself (explorer, exchange receipt, or
+   invoice reference). Nothing on the page checks a chain.
+2. Open the invoice link the customer sends (`/topup?prefix=…&job=bj_…`), sign
+   in if asked, paste the transaction hash or receipt reference into
+   **Operator: transaction hash or receipt reference**, and click
+   **Confirm payment received**.
+3. The page shows **Payment confirmed**; BotCentral credits that many jobs to
+   the prefix (`https://botcentral.org/keys` on the customer's account shows
+   Active with the credit). The Audit log records `Settled BotCentral invoice …`.
+
+Refused when the **spend** door (or the global kill switch) is on in Monitor,
+when you are signed out, or when `BOTCENTRAL_SERVICE_TOKEN` is missing.
+
 ## What the errors mean
 
 | Message | Cause | Do |

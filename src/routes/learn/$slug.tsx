@@ -1,9 +1,29 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { LESSONS } from "@/lib/citefleet/course";
 import { Shell } from "@/components/citefleet/Shell";
 import { LessonMock } from "@/components/citefleet/training/Mocks";
 
-export const Route = createFileRoute("/learn/$slug")({ component: LessonPage });
+type TopupLinkSearch = { prefix?: string; jobs?: string; usd?: string; asset?: string; job?: string };
+
+const str = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" ? String(v) : undefined);
+
+export const Route = createFileRoute("/learn/$slug")({
+  // BotCentral's Top up buttons link to /learn/botcentral?prefix=…; carry the
+  // query through and send those visitors to the checkout page.
+  validateSearch: (s: Record<string, unknown>): TopupLinkSearch => ({
+    prefix: str(s.prefix),
+    jobs: str(s.jobs),
+    usd: str(s.usd),
+    asset: str(s.asset),
+    job: str(s.job),
+  }),
+  beforeLoad: ({ params, search }) => {
+    if (params.slug === "botcentral" && (search.prefix || search.job || search.jobs || search.usd)) {
+      throw redirect({ to: "/topup", search });
+    }
+  },
+  component: LessonPage,
+});
 
 function LessonPage() {
   const { slug } = Route.useParams();

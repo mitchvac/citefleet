@@ -16,6 +16,7 @@ export { checkOriginProof } from "./proof.ts";
 export { runAutopilotTick, setAutopilot } from "./autopilot";
 export { grokConfigured } from "./grokApi";
 export { hydrateListings, lookupListing, publisherReady } from "./botcentral";
+export { settleTopup } from "./topup.server";
 export { runMonitorCycle } from "./monitor";
 export { applyKill, ensureControl } from "./control";
 export { defaultControl } from "./control";

@@ -301,6 +301,10 @@ export const LESSONS: Lesson[] = [
         title: "How to confirm",
         body: "Command shows Listed on BotCentral. Search q=your-topic on botcentral.org. Open the inspector, not only the raw JSON tab.",
       },
+      {
+        title: "Top up an API key",
+        body: "Developers mint a bc_live_ key at botcentral.org/keys; every job run is $1.00. Each Top up button on BotCentral opens citefleet.app/topup with that key prefix. The customer opens an invoice there and pays the quoted amount; an operator confirms receipt on the same page with the transaction hash, and BotCentral credits the prefix. Nothing on this page moves money by itself.",
+      },
     ],
   },
   {

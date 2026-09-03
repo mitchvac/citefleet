@@ -197,3 +197,12 @@ export const setGithubTokenFn = createServerFn({ method: "POST" })
     const { setGithubToken } = await import("./ops.server");
     return setGithubToken(data.token);
   });
+
+/** Operator confirms a BotCentral top-up payment; BotCentral credits the prefix. Behind the spend kill door. */
+export const settleTopupFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((d: { id: string; tx: string; prefix?: string }) => d)
+  .handler(async ({ data }) => {
+    const { settleTopup } = await import("./ops.server");
+    return settleTopup(data);
+  });
