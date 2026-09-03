@@ -93,6 +93,8 @@ export function botcentralBase(): string {
 export type TopupInvoice = {
   id: string;
   status: "invoiced" | "paid" | "done" | "failed" | "expired";
+  /** Set when a payment arrived but could not be settled: short, or after the quote expired. */
+  note?: string;
   usd: string;
   jobs: number;
   asset: string;

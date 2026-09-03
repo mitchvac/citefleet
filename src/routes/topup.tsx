@@ -242,6 +242,24 @@ function TopupPage() {
           </ul>
           {/* Scan-to-pay: renders only when BotCentral bound a treasury address for the network. */}
           {!paid && <PayQr invoice={invoice} />}
+          {/* A payment arrived that could not be settled automatically. Saying so is
+              the difference between a stranded payment and a solved one. */}
+          {invoice.note ? (
+            <p
+              className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100"
+              data-testid="invoice-note"
+            >
+              {invoice.note}
+            </p>
+          ) : null}
+          {invoice.status === "expired" && !invoice.note ? (
+            <p
+              className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[#cfc8e8]"
+              data-testid="invoice-expired"
+            >
+              This quote has expired and nothing was charged. Open a new one to get a current price.
+            </p>
+          ) : null}
           {paid ? (
             <p className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
               Payment confirmed. BotCentral has credited {invoice.jobs} job
