@@ -18,6 +18,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as OpsRouteImport } from './routes/ops'
 import { Route as PlaybookRouteImport } from './routes/playbook'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TopupRouteImport } from './routes/topup'
 import { Route as ApiLoginRouteImport } from './routes/api/login'
 import { Route as ApiLogoutRouteImport } from './routes/api/logout'
 import { Route as ApiSignupRouteImport } from './routes/api/signup'
@@ -77,6 +78,11 @@ const PlaybookRoute = PlaybookRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TopupRoute = TopupRouteImport.update({
+  id: '/topup',
+  path: '/topup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLoginRoute = ApiLoginRouteImport.update({
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/topup': typeof TopupRoute
   '/api/login': typeof ApiLoginRoute
   '/api/logout': typeof ApiLogoutRoute
   '/api/signup': typeof ApiSignupRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/topup': typeof TopupRoute
   '/api/login': typeof ApiLoginRoute
   '/api/logout': typeof ApiLogoutRoute
   '/api/signup': typeof ApiSignupRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/topup': typeof TopupRoute
   '/api/login': typeof ApiLoginRoute
   '/api/logout': typeof ApiLogoutRoute
   '/api/signup': typeof ApiSignupRoute
@@ -246,6 +255,7 @@ export interface FileRouteTypes {
     | '/ops'
     | '/playbook'
     | '/sitemap.xml'
+    | '/topup'
     | '/api/login'
     | '/api/logout'
     | '/api/signup'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/ops'
     | '/playbook'
     | '/sitemap.xml'
+    | '/topup'
     | '/api/login'
     | '/api/logout'
     | '/api/signup'
@@ -298,6 +309,7 @@ export interface FileRouteTypes {
     | '/ops'
     | '/playbook'
     | '/sitemap.xml'
+    | '/topup'
     | '/api/login'
     | '/api/logout'
     | '/api/signup'
@@ -325,6 +337,7 @@ export interface RootRouteChildren {
   OpsRoute: typeof OpsRoute
   PlaybookRoute: typeof PlaybookRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TopupRoute: typeof TopupRoute
   ApiLoginRoute: typeof ApiLoginRoute
   ApiLogoutRoute: typeof ApiLogoutRoute
   ApiSignupRoute: typeof ApiSignupRoute
@@ -405,6 +418,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/topup': {
+      id: '/topup'
+      path: '/topup'
+      fullPath: '/topup'
+      preLoaderRoute: typeof TopupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/login': {
@@ -525,6 +545,7 @@ const rootRouteChildren: RootRouteChildren = {
   OpsRoute: OpsRoute,
   PlaybookRoute: PlaybookRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TopupRoute: TopupRoute,
   ApiLoginRoute: ApiLoginRoute,
   ApiLogoutRoute: ApiLogoutRoute,
   ApiSignupRoute: ApiSignupRoute,
