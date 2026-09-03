@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { AssetPicker } from "@/components/citefleet/AssetPicker";
 import { Shell } from "@/components/citefleet/Shell";
 import { settleTopupFn } from "@/lib/citefleet/fleet-api";
 import {
-  TOPUP_ASSETS,
   botcentralBase,
   fetchTopupInvoice,
   openTopupInvoice,
@@ -122,7 +122,7 @@ function TopupPage() {
         .
       </p>
 
-      <form onSubmit={open} className="glass grid gap-4 rounded-3xl p-6 md:grid-cols-[minmax(0,1.4fr)_7rem_minmax(0,1fr)_auto] md:items-end">
+      <form onSubmit={open} className="glass relative z-20 grid gap-4 rounded-3xl p-6 md:grid-cols-[minmax(0,1.4fr)_7rem_minmax(0,1fr)_auto] md:items-end">
         <label className="block text-sm text-[#cfc8e8]">
           Key prefix
           <input
@@ -145,21 +145,10 @@ function TopupPage() {
             className="mono mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
           />
         </label>
-        <label className="block text-sm text-[#cfc8e8]">
+        <div className="block text-sm text-[#cfc8e8]">
           Pay with
-          <select
-            name="asset"
-            value={asset}
-            onChange={(e) => setAsset(e.target.value as TopupAsset)}
-            className="mt-2 w-full rounded-xl border border-white/10 bg-[#0d0b1a] px-3 py-2 text-sm text-white"
-          >
-            {TOPUP_ASSETS.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <AssetPicker value={asset} onChange={setAsset} />
+        </div>
         <button type="submit" disabled={busy} className="btn-light rounded-full px-5 py-2 text-sm font-semibold disabled:opacity-50">
           {busy ? "Opening…" : "Open invoice"}
         </button>
