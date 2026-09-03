@@ -22,12 +22,19 @@ export const TOPUP_ASSETS = [
 export type TopupAsset = (typeof TOPUP_ASSETS)[number]["id"];
 
 export const MAX_JOBS = 10_000;
+/** Smallest top-up BotCentral accepts. Every payment is confirmed by a person. */
+export const MIN_TOPUP_USD = 5;
+export const MAX_TOPUP_USD = 10_000;
+/** What one API call costs, so the page can say what an amount buys. */
+export const USD_PER_CALL = 1;
 const PREFIX_RE = /^bc_live_[0-9a-f]{1,48}$/;
 const INVOICE_RE = /^bj_[0-9a-f]{32}$/;
 
 export type TopupSearch = {
   prefix: string;
   jobs: number;
+  /** Dollars to add. The amount is the real quantity; `jobs` is what it buys. */
+  usd: number;
   asset: TopupAsset;
   job: string;
 };
@@ -43,6 +50,14 @@ export function cleanPrefix(raw: unknown): string {
   return value;
 }
 
+/** A typed amount clamped to the accepted range and rounded to whole cents. */
+export function clampTopupUsd(raw: unknown): number {
+  const value = typeof raw === "number" ? raw : Number(str(raw));
+  if (!Number.isFinite(value)) return MIN_TOPUP_USD;
+  const cents = Math.round(value * 100);
+  return Math.min(Math.max(cents, MIN_TOPUP_USD * 100), MAX_TOPUP_USD * 100) / 100;
+}
+
 export function isInvoiceId(raw: unknown): boolean {
   return INVOICE_RE.test(str(raw));
 }
@@ -56,9 +71,14 @@ export function parseTopupSearch(raw: Record<string, unknown>): TopupSearch {
   jobs = Math.max(1, Math.min(jobs || 1, MAX_JOBS));
   const assetRaw = str(raw.asset).toLowerCase();
   const asset = TOPUP_ASSETS.some((a) => a.id === assetRaw) ? (assetRaw as TopupAsset) : "rlusd";
+  // An explicit `usd` wins; otherwise the job count is the same number of dollars.
+  // The call count is then derived from the clamped amount, so the two can never
+  // disagree — a link asking for 3 calls opens a $5 invoice, which buys 5.
+  const usd = clampTopupUsd(Number.isFinite(usdRaw) && usdRaw > 0 ? usdRaw : jobs * USD_PER_CALL);
   return {
     prefix: cleanPrefix(raw.prefix),
-    jobs,
+    jobs: Math.floor(usd / USD_PER_CALL),
+    usd,
     asset,
     job: isInvoiceId(raw.job) ? str(raw.job) : "",
   };
@@ -108,7 +128,7 @@ async function readProblem(res: Response, fallback: string): Promise<string> {
 
 export async function openTopupInvoice(
   base: string,
-  input: { asset: TopupAsset; jobs: number; prefix: string },
+  input: { asset: TopupAsset; usd: number; prefix: string },
 ): Promise<TopupInvoice> {
   const res = await fetch(`${base}/v1/jobs`, {
     method: "POST",
@@ -116,7 +136,8 @@ export async function openTopupInvoice(
     body: JSON.stringify({
       kind: "topup",
       asset: input.asset,
-      jobs: input.jobs,
+      // `usd` is the amount to add; BotCentral credits exactly this, to the cent.
+      usd: clampTopupUsd(input.usd),
       prefix: input.prefix || undefined,
     }),
     signal: AbortSignal.timeout(20_000),

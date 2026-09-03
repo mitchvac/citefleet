@@ -6,6 +6,10 @@ import { Shell } from "@/components/citefleet/Shell";
 import { settleTopupFn } from "@/lib/citefleet/fleet-api";
 import {
   botcentralBase,
+  clampTopupUsd,
+  MAX_TOPUP_USD,
+  MIN_TOPUP_USD,
+  USD_PER_CALL,
   fetchTopupInvoice,
   openTopupInvoice,
   parseTopupSearch,
@@ -16,7 +20,8 @@ import {
 
 type RawSearch = { prefix?: string; jobs?: string; usd?: string; asset?: string; job?: string };
 
-const str = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" ? String(v) : undefined);
+const str = (v: unknown) =>
+  typeof v === "string" ? v : typeof v === "number" ? String(v) : undefined;
 
 export const Route = createFileRoute("/topup")({
   validateSearch: (s: Record<string, unknown>): RawSearch => ({
@@ -37,7 +42,7 @@ function TopupPage() {
   const parsed = useMemo(() => parseTopupSearch(raw), [raw]);
   const base = botcentralBase();
   const [prefix, setPrefix] = useState(parsed.prefix);
-  const [jobs, setJobs] = useState(parsed.jobs);
+  const [usd, setUsd] = useState(String(parsed.usd));
   const [asset, setAsset] = useState<TopupAsset>(parsed.asset);
   const [invoice, setInvoice] = useState<TopupInvoice | null>(null);
   const [error, setError] = useState("");
@@ -80,7 +85,7 @@ function TopupPage() {
     setBusy(true);
     setError("");
     try {
-      const next = await openTopupInvoice(base, { asset, jobs, prefix });
+      const next = await openTopupInvoice(base, { asset, usd: clampTopupUsd(usd), prefix });
       setInvoice(next);
       setTx("");
       setSettleError("");
@@ -98,7 +103,9 @@ function TopupPage() {
     setSettleBusy(true);
     setSettleError("");
     try {
-      setInvoice(await settleTopupFn({ data: { id: invoice.id, tx, prefix: prefix || undefined } }));
+      setInvoice(
+        await settleTopupFn({ data: { id: invoice.id, tx, prefix: prefix || undefined } }),
+      );
     } catch (err) {
       setSettleError(err instanceof Error ? err.message : "Could not confirm the payment");
     } finally {
@@ -113,17 +120,20 @@ function TopupPage() {
   return (
     <Shell eyebrow="BotCentral billing" title="Top up a BotCentral API key">
       <p className="-mt-6 mb-8 max-w-2xl text-sm leading-6 text-[#b7b0cc]">
-        Every BotCentral job run is $1.00, paid in RLUSD, XRP, XLM, BTC, HBAR, or XDC.
-        Open an invoice for your <span className="mono">bc_live_</span> key prefix, pay
-        the quoted amount, and a CiteFleet operator confirms the payment here. BotCentral
-        then credits the prefix. Mint a key at{" "}
+        Every BotCentral job run is $1.00, paid in RLUSD, XRP, XLM, BTC, HBAR, or XDC. Open an
+        invoice for your <span className="mono">bc_live_</span> key prefix, pay the quoted amount,
+        and a CiteFleet operator confirms the payment here. BotCentral then credits the prefix. Mint
+        a key at{" "}
         <a href={`${base}/keys`} className="text-[#4ee0c3] hover:underline" rel="noreferrer">
           {base.replace(/^https?:\/\//, "")}/keys
         </a>
         .
       </p>
 
-      <form onSubmit={open} className="glass relative z-20 grid gap-4 rounded-3xl p-6 md:grid-cols-[minmax(0,1.4fr)_7rem_minmax(0,1fr)_auto] md:items-end">
+      <form
+        onSubmit={open}
+        className="glass relative z-20 grid gap-4 rounded-3xl p-6 md:grid-cols-[minmax(0,1.4fr)_7rem_minmax(0,1fr)_auto] md:items-end"
+      >
         <label className="block text-sm text-[#cfc8e8]">
           Key prefix
           <input
@@ -135,24 +145,53 @@ function TopupPage() {
           />
         </label>
         <label className="block text-sm text-[#cfc8e8]">
-          Jobs
-          <input
-            name="jobs"
-            type="number"
-            min={1}
-            max={10000}
-            value={jobs}
-            onChange={(e) => setJobs(Math.max(1, Math.min(10000, Math.floor(Number(e.target.value)) || 1)))}
-            className="mono mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
-          />
+          Amount (USD)
+          <div className="mono mt-2 flex items-center rounded-xl border border-white/10 bg-white/5 px-3 focus-within:border-[#9b7dff]">
+            <span className="text-sm text-[#9b95b3]">$</span>
+            <input
+              name="usd"
+              type="number"
+              inputMode="decimal"
+              min={MIN_TOPUP_USD}
+              max={MAX_TOPUP_USD}
+              step="0.01"
+              value={usd}
+              onChange={(e) => setUsd(e.target.value)}
+              onBlur={() => setUsd(String(clampTopupUsd(usd)))}
+              className="mono w-full bg-transparent px-2 py-2 text-sm text-white outline-none"
+            />
+          </div>
         </label>
         <div className="block text-sm text-[#cfc8e8]">
           Pay with
           <AssetPicker value={asset} onChange={setAsset} />
         </div>
-        <button type="submit" disabled={busy} className="btn-light rounded-full px-5 py-2 text-sm font-semibold disabled:opacity-50">
-          {busy ? "Opening…" : "Open invoice"}
+        <button
+          type="submit"
+          disabled={busy}
+          className="btn-light rounded-full px-5 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {busy ? "Opening…" : "Add credit"}
         </button>
+        <div className="flex flex-wrap items-center gap-2 md:col-span-4">
+          {[5, 10, 25, 50, 100].map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              onClick={() => setUsd(String(amount))}
+              className={`rounded-full border px-3 py-1 text-xs ${
+                Number(usd) === amount
+                  ? "border-[#9b7dff]/60 bg-[#9b7dff]/15 text-white"
+                  : "border-white/10 text-[#cfc8e8] hover:bg-white/5"
+              }`}
+            >
+              ${amount}
+            </button>
+          ))}
+          <span className="text-xs text-[#9b95b3]">
+            {`Minimum $${MIN_TOPUP_USD}. Buys about ${Math.floor(clampTopupUsd(usd) / USD_PER_CALL)} calls at $${USD_PER_CALL.toFixed(2)} each; the balance is drawn down as you use it.`}
+          </span>
+        </div>
       </form>
       {error ? <p className="mt-3 text-sm text-rose-200">{error}</p> : null}
 
@@ -163,8 +202,8 @@ function TopupPage() {
           </p>
           <p className="mono mt-2 text-sm text-white">{invoice.id}</p>
           <p className="mt-2 text-sm text-[#cfc8e8]">
-            {invoice.jobs} job{invoice.jobs === 1 ? "" : "s"} · ${invoice.usd} · {invoice.pay.amount}{" "}
-            {invoice.pay.ticker} on {invoice.pay.network_name}
+            {invoice.jobs} job{invoice.jobs === 1 ? "" : "s"} · ${invoice.usd} ·{" "}
+            {invoice.pay.amount} {invoice.pay.ticker} on {invoice.pay.network_name}
             {prefix ? (
               <>
                 {" "}
@@ -183,7 +222,8 @@ function TopupPage() {
           {!paid && <PayQr invoice={invoice} />}
           {paid ? (
             <p className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-              Payment confirmed. BotCentral has credited {invoice.jobs} job{invoice.jobs === 1 ? "" : "s"}
+              Payment confirmed. BotCentral has credited {invoice.jobs} job
+              {invoice.jobs === 1 ? "" : "s"}
               {prefix ? ` to ${prefix}` : ""}. Check the key on{" "}
               <a href={`${base}/keys`} className="underline" rel="noreferrer">
                 BotCentral
@@ -191,7 +231,10 @@ function TopupPage() {
               .
             </p>
           ) : (
-            <form onSubmit={settle} className="mt-6 grid gap-3 border-t border-white/10 pt-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <form
+              onSubmit={settle}
+              className="mt-6 grid gap-3 border-t border-white/10 pt-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
+            >
               <label className="block text-sm text-[#cfc8e8]">
                 Operator: transaction hash or receipt reference
                 <input
@@ -233,8 +276,8 @@ function TopupPage() {
         </section>
       ) : (
         <p className="glass mt-6 rounded-3xl p-6 text-sm text-[#b7b0cc]">
-          No invoice open yet. Fill in the key prefix and job count, then open one. Reloading
-          an invoice link (<span className="mono">?job=bj_…</span>) shows its live status.
+          No invoice open yet. Fill in the key prefix and job count, then open one. Reloading an
+          invoice link (<span className="mono">?job=bj_…</span>) shows its live status.
         </p>
       )}
 

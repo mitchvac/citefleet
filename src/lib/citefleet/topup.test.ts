@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cleanPrefix, parseTopupSearch, payInstructions, settleRequestBody, type TopupInvoice } from "./topup.ts";
+import {
+  cleanPrefix,
+  clampTopupUsd,
+  MAX_TOPUP_USD,
+  MIN_TOPUP_USD,
+  parseTopupSearch,
+  payInstructions,
+  settleRequestBody,
+  type TopupInvoice,
+} from "./topup.ts";
 
 function invoice(over: Partial<TopupInvoice["pay"]> = {}): TopupInvoice {
   return {
@@ -29,28 +38,43 @@ function invoice(over: Partial<TopupInvoice["pay"]> = {}): TopupInvoice {
 }
 
 test("parseTopupSearch: BotCentral's link params normalize; hostile input degrades to defaults", () => {
-  assert.deepEqual(parseTopupSearch({ prefix: "bc_live_ab12cd34", jobs: "3", asset: "xrp", job: "1" }), {
-    prefix: "bc_live_ab12cd34",
-    jobs: 3,
-    asset: "xrp",
-    job: "",
-  });
+  assert.deepEqual(
+    parseTopupSearch({ prefix: "bc_live_ab12cd34", jobs: "3", asset: "xrp", job: "1" }),
+    {
+      prefix: "bc_live_ab12cd34",
+      // $3 is under the $5 minimum, so the invoice is raised to $5 — which buys 5 calls.
+      jobs: 5,
+      usd: 5,
+      asset: "xrp",
+      job: "",
+    },
+  );
   assert.deepEqual(parseTopupSearch({ prefix: "bc_live_pending", usd: "5.00", asset: "DOGE" }), {
     prefix: "",
     jobs: 5,
+    usd: 5,
     asset: "rlusd",
     job: "",
   });
-  assert.deepEqual(parseTopupSearch({ prefix: "'; DROP TABLE api_keys; --", jobs: "-4", asset: "" }), {
-    prefix: "",
-    jobs: 1,
-    asset: "rlusd",
-    job: "",
-  });
+  assert.deepEqual(
+    parseTopupSearch({ prefix: "'; DROP TABLE api_keys; --", jobs: "-4", asset: "" }),
+    {
+      prefix: "",
+      jobs: 5,
+      usd: 5,
+      asset: "rlusd",
+      job: "",
+    },
+  );
   assert.equal(parseTopupSearch({ jobs: "999999" }).jobs, 10_000);
-  assert.equal(parseTopupSearch({ job: "bj_0123456789abcdef0123456789abcdef" }).job, "bj_0123456789abcdef0123456789abcdef");
+  assert.equal(parseTopupSearch({ jobs: "999999" }).usd, 10_000);
+  assert.equal(
+    parseTopupSearch({ job: "bj_0123456789abcdef0123456789abcdef" }).job,
+    "bj_0123456789abcdef0123456789abcdef",
+  );
   assert.equal(parseTopupSearch({ job: "bj_short" }).job, "");
-  assert.deepEqual(parseTopupSearch({}), { prefix: "", jobs: 1, asset: "rlusd", job: "" });
+  // With nothing given, the invoice opens at the minimum rather than at one call.
+  assert.deepEqual(parseTopupSearch({}), { prefix: "", jobs: 5, usd: 5, asset: "rlusd", job: "" });
 });
 
 test("cleanPrefix accepts only bc_live_ hex prefixes", () => {
@@ -73,14 +97,50 @@ test("payInstructions: with a treasury address it names amount, address and tag;
 
 test("settleRequestBody validates the operator's input before it reaches BotCentral", () => {
   assert.deepEqual(
-    settleRequestBody({ id: "bj_0123456789abcdef0123456789abcdef", tx: " ABCD1234 ", prefix: "bc_live_ab12cd34" }),
+    settleRequestBody({
+      id: "bj_0123456789abcdef0123456789abcdef",
+      tx: " ABCD1234 ",
+      prefix: "bc_live_ab12cd34",
+    }),
     { id: "bj_0123456789abcdef0123456789abcdef", tx: "ABCD1234", prefix: "bc_live_ab12cd34" },
   );
-  assert.deepEqual(settleRequestBody({ id: "bj_0123456789abcdef0123456789abcdef", tx: "hash", prefix: "junk" }), {
-    id: "bj_0123456789abcdef0123456789abcdef",
-    tx: "hash",
-  });
+  assert.deepEqual(
+    settleRequestBody({ id: "bj_0123456789abcdef0123456789abcdef", tx: "hash", prefix: "junk" }),
+    {
+      id: "bj_0123456789abcdef0123456789abcdef",
+      tx: "hash",
+    },
+  );
   assert.throws(() => settleRequestBody({ id: "nope", tx: "hash" }), /Invoice id/);
-  assert.throws(() => settleRequestBody({ id: "bj_0123456789abcdef0123456789abcdef", tx: "ab" }), /4–128/);
-  assert.throws(() => settleRequestBody({ id: "bj_0123456789abcdef0123456789abcdef", tx: "x".repeat(129) }), /4–128/);
+  assert.throws(
+    () => settleRequestBody({ id: "bj_0123456789abcdef0123456789abcdef", tx: "ab" }),
+    /4–128/,
+  );
+  assert.throws(
+    () => settleRequestBody({ id: "bj_0123456789abcdef0123456789abcdef", tx: "x".repeat(129) }),
+    /4–128/,
+  );
+});
+
+test("top-up amounts: the minimum is enforced and cents survive", () => {
+  assert.equal(clampTopupUsd(5), 5, "the minimum itself is allowed");
+  assert.equal(clampTopupUsd(7.5), 7.5, "a fractional amount is kept exactly");
+  assert.equal(clampTopupUsd(1), MIN_TOPUP_USD, "below the minimum is raised to it");
+  assert.equal(clampTopupUsd(0), MIN_TOPUP_USD);
+  assert.equal(clampTopupUsd(-100), MIN_TOPUP_USD, "a negative amount can never credit");
+  assert.equal(clampTopupUsd(99_999), MAX_TOPUP_USD, "a typo cannot quote a fortune");
+  assert.equal(clampTopupUsd("25"), 25, "a typed string works");
+  assert.equal(clampTopupUsd("abc"), MIN_TOPUP_USD, "junk falls back to the minimum");
+  assert.equal(clampTopupUsd(7.999), 8, "sub-cent precision is rounded away");
+});
+
+test("a BotCentral link carrying usd is honoured; otherwise jobs means dollars", () => {
+  assert.equal(parseTopupSearch({ usd: "25.50" }).usd, 25.5);
+  assert.equal(parseTopupSearch({ jobs: "12" }).usd, 12, "twelve calls is twelve dollars");
+  assert.equal(
+    parseTopupSearch({}).usd,
+    MIN_TOPUP_USD,
+    "no amount given falls back to the minimum",
+  );
+  assert.equal(parseTopupSearch({ usd: "2" }).usd, MIN_TOPUP_USD, "under the minimum is raised");
 });
