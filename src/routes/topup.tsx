@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AssetPicker } from "@/components/citefleet/AssetPicker";
 import { PayQr } from "@/components/citefleet/PayQr";
+import { PayTrust } from "@/components/citefleet/PayTrust";
 import { Shell } from "@/components/citefleet/Shell";
 import { settleTopupFn } from "@/lib/citefleet/fleet-api";
 import {
@@ -280,6 +281,8 @@ function TopupPage() {
           invoice link (<span className="mono">?job=bj_…</span>) shows its live status.
         </p>
       )}
+
+      <PayTrust />
 
       <p className="mt-8 text-sm text-[#9b95b3]">
         <Link to="/learn/$slug" params={{ slug: "botcentral" }} className="hover:text-white">
