@@ -1,8 +1,9 @@
 #!/bin/sh
-# Apply pending SQL when DATABASE_URL is set (Neon / Postgres).
-# Without it this is a no-op; PGLite applies bundled migrations on first query.
+# The app does NO schema work. Migrations live in supabase/migrations/ and are
+# applied by the Supabase CLI from CI (.github/workflows/supabase-migrations.yml)
+# before this container is rolled, so a boot never mutates the database.
+#
+# DATABASE_URL is required — src/lib/db.ts has no embedded fallback and throws
+# with instructions if it is unset.
 set -eu
-if [ -f /app/scripts/migrate.mjs ]; then
-  node /app/scripts/migrate.mjs
-fi
 exec node /app/.output/server/index.mjs

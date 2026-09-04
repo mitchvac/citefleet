@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getStore } from "@/lib/citefleet/store";
 import { publisherReady } from "@/lib/citefleet/botcentral";
-import { dbSource } from "@/lib/db";
+import { dbConfigured } from "@/lib/db";
 
 export const Route = createFileRoute("/health")({
   server: {
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/health")({
           sites: store.sites.length,
           listed,
           publisher,
-          db: dbSource === "pglite" ? "pglite" : "postgres",
+          db: dbConfigured ? "postgres" : "unconfigured",
         });
       },
     },
