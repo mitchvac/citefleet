@@ -31,8 +31,20 @@ TanStack Start + React 19 + Nitro. Docker on a shared VPS
 
 ```bash
 npm ci
+npm run db:start                       # local Postgres 17, same major as production
+npm run db:reset                       # replay supabase/migrations/ into it
+export DATABASE_URL=$(supabase status -o env | sed -n 's/^DB_URL="\(.*\)"$/\1/p')
 CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) npm run dev   # then sign in at http://localhost:8080/login with that value
 ```
+
+`DATABASE_URL` is required — there is no embedded fallback, so the first query
+throws with these instructions if it is unset. Schema lives in
+`supabase/migrations/` and is applied only by the Supabase CLI: locally with
+`npm run db:reset`, in production by
+[.github/workflows/supabase-migrations.yml](.github/workflows/supabase-migrations.yml)
+on merge to `main`. The app itself performs no DDL. After adding a migration
+(`npm run db:new <name>`), regenerate types with `npm run db:types` in the same
+change.
 
 The console is behind a session gate (`/login`): invite-only accounts
 (email/password, Google, GitHub) for the emails in `CITEFLEET_OPERATOR_EMAILS`,

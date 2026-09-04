@@ -1,3 +1,6 @@
+-- Invite-only console accounts (email/password, scrypt hashes).
+-- Gated by CITEFLEET_OPERATOR_EMAILS; see src/lib/auth/users.server.ts.
+
 CREATE TABLE IF NOT EXISTS citefleet_users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,

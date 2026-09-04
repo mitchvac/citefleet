@@ -1,0 +1,76 @@
+# Schema changes reach production from here, and only from here.
+#
+# The app container does no DDL (see docker-entrypoint.sh), so this workflow is
+# the single path from `supabase/migrations/` to the live database.
+#
+# Required repository secrets:
+#   SUPABASE_ACCESS_TOKEN  personal access token (Account -> Access Tokens)
+#   SUPABASE_DB_PASSWORD   the project's postgres password
+name: Supabase migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase-migrations.yml"
+  pull_request:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase-migrations.yml"
+
+# Never let two pushes race the same database.
+concurrency:
+  group: supabase-migrations
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: suwikadkcqgozlaxfyrv
+
+jobs:
+  # Replay every migration from empty on a throwaway Postgres. A migration that
+  # only works against the current production state fails here, not in prod.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Start local Postgres
+        run: supabase db start
+      - name: Replay all migrations from scratch
+        run: supabase db reset
+      - name: Lint the resulting schema
+        run: supabase db lint --level warning
+
+  deploy:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Link the project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Show what is pending
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase migration list
+      - name: Apply pending migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push
+      - name: Confirm local and remote agree
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase migration list
