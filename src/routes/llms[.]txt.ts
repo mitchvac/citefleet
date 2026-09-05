@@ -1,5 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+/**
+ * NOTE: this route is SHADOWED in production. `public/llms.txt` is served as a
+ * static asset and wins, so what bots actually read is that file — which
+ * CiteFleet's own origin pack writes. Verified 2026-09-05 by fetching
+ * https://citefleet.app/llms.txt and getting the static file's body, not this
+ * one. Keep the two in step until one of them is retired.
+ */
 export const Route = createFileRoute("/llms.txt")({
   server: {
     handlers: {
