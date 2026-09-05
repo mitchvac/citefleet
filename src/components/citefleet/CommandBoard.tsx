@@ -2,7 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useFleet } from "@/lib/citefleet/client";
 import { Pill, Score } from "./Shell";
-import type { Site, Task } from "@/lib/citefleet/types";
+import { scoredTasks } from "@/lib/citefleet/playbook";
+import type { Site, SiteMonitor, Task } from "@/lib/citefleet/types";
 
 function statusTone(status: string) {
   if (["done", "indexed", "covered", "ok"].includes(status)) return "good" as const;
@@ -42,7 +43,7 @@ export function CommandBoard() {
     return <p className="text-rose-300">{fleet.error || "Workspace unavailable"}</p>;
   }
 
-  const { sites, bots, tasks, engines, activity, workspace } = fleet.store;
+  const { sites, bots, tasks, engines, activity, workspace, control } = fleet.store;
   const openTasks = tasks.filter((t) => t.status !== "done").length;
   const working = bots.filter((b) => b.status === "working" || b.status === "assigned").length;
   const rankedSites = [...sites].sort((a, b) => {
@@ -164,6 +165,7 @@ export function CommandBoard() {
               key={site.id}
               site={site}
               tasks={tasks.filter((t) => t.siteId === site.id)}
+              monitor={control.snapshots[site.id]}
               busy={fleet.busy}
               onDispatch={() => fleet.dispatch(site.id)}
               onAudit={() => fleet.audit(site.id)}
@@ -360,9 +362,23 @@ function Field({
   );
 }
 
+/**
+ * The recurring watch is not a checklist item, so it is reported as state rather
+ * than counted toward a total. Every branch is a real value from the last
+ * monitor cycle (`drift` is set when any non-info check failed); "not run" means
+ * no snapshot exists, never "fine".
+ */
+function monitorState(monitor?: SiteMonitor) {
+  if (!monitor) return { label: "not run", className: "text-[#9b95b3]" };
+  if (monitor.blockedByKill) return { label: "held", className: "text-[#e2c36d]" };
+  if (monitor.drift) return { label: "regressed", className: "text-[#e2c36d]" };
+  return { label: "green", className: "text-emerald-300" };
+}
+
 function SiteCard({
   site,
   tasks,
+  monitor,
   busy,
   onDispatch,
   onAudit,
@@ -370,12 +386,17 @@ function SiteCard({
 }: {
   site: Site;
   tasks: Task[];
+  monitor?: SiteMonitor;
   busy: string | null;
   onDispatch: () => void;
   onAudit: () => void;
   onPublish: () => void;
 }) {
-  const done = tasks.filter((t) => t.status === "done").length;
+  // Count exactly the tasks the three scores average, so this total and the
+  // Technical / Submissions / Mentions figures describe the same work. `monitor`
+  // is scored by nothing and is excluded from both (see SCORE_BUCKETS).
+  const scored = scoredTasks(tasks);
+  const done = scored.filter((t) => t.status === "done").length;
   return (
     <article className="glass rounded-3xl p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -390,7 +411,13 @@ function SiteCard({
                 rel="noreferrer"
                 className="no-underline"
               >
-                <Pill tone="good">Listed on BotCentral</Pill>
+                {/* Listed is not the same as proven: BotCentral leaves a card up
+                    after its 6-hourly recheck stops finding the proof token. */}
+                <Pill tone={site.botcentral.verified === false ? "gold" : "good"}>
+                  {site.botcentral.verified === false
+                    ? "On BotCentral · unverified"
+                    : "Listed on BotCentral"}
+                </Pill>
               </a>
             ) : (
               <Pill tone="gold">Not on BotCentral</Pill>
@@ -452,7 +479,10 @@ function SiteCard({
         <Score label="Mentions" value={site.scores.mentions} />
       </div>
       <p className="mt-4 text-xs text-[#9b95b3]">
-        {done}/{tasks.length} playbook tasks complete
+        {done}/{scored.length} playbook tasks ·{" "}
+        <span className={monitorState(monitor).className}>
+          monitor: {monitorState(monitor).label}
+        </span>
         {site.lastAuditAt
           ? ` · last audit ${new Date(site.lastAuditAt).toLocaleString()}`
           : ""}

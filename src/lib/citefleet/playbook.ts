@@ -13,6 +13,36 @@ export interface PlaybookStep {
   operatorHint: string;
 }
 
+/**
+ * The playbook ids each score is computed from — the ONE definition, shared by
+ * `recalcScores` (which averages them) and the campaign card (which counts
+ * them). They were separate lists once: the card's denominator was every task
+ * while the scores covered eleven of twelve, so "9/12 complete" and the three
+ * scores were counting different things and finishing `monitor` moved no number.
+ *
+ * `monitor` is deliberately in no bucket. It is the ongoing crawl → index → cite
+ * watch, not a door that closes, so it is scored by nothing — and therefore must
+ * not sit in the completion total either. A total the scores do not use is a
+ * total that misreports progress.
+ */
+export const SCORE_BUCKETS = {
+  technical: ["spa_fallback", "robots_ai", "sitemap", "app_health"],
+  submissions: ["gsc_submit", "bing_webmaster", "indexnow", "botcentral_list"],
+  mentions: ["x_mentions", "directories", "press"],
+} as const satisfies Record<string, readonly PlaybookId[]>;
+
+/** Every id that feeds a score. Excludes `monitor` — see SCORE_BUCKETS. */
+export const SCORED_PLAYBOOK_IDS: readonly PlaybookId[] = [
+  ...SCORE_BUCKETS.technical,
+  ...SCORE_BUCKETS.submissions,
+  ...SCORE_BUCKETS.mentions,
+];
+
+/** Tasks that count toward the campaign card's "N/M playbook tasks complete". */
+export function scoredTasks(tasks: Task[]): Task[] {
+  return tasks.filter((t) => SCORED_PLAYBOOK_IDS.includes(t.playbookId));
+}
+
 export function specLabel(spec: ChecklistSpec) {
   return typeof spec === "string" ? spec : spec.label;
 }

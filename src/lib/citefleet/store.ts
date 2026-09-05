@@ -5,8 +5,9 @@ import type {
   StoreShape,
   Task,
 } from "./types";
-import { seedStore } from "./seed";
-import { loadSnapshot, mergeSnapshot, saveSnapshot } from "./persist";
+import { SCORE_BUCKETS } from "./playbook.ts";
+import { seedStore } from "./seed.ts";
+import { loadSnapshot, mergeSnapshot, saveSnapshot } from "./persist.ts";
 
 let cache: StoreShape | null = null;
 let boot: Promise<StoreShape> | null = null;
@@ -103,28 +104,25 @@ export function recalcScores(store: StoreShape, siteId: string) {
   const site = getSite(store, siteId);
   if (!site) return;
   const tasks = store.tasks.filter((t) => t.siteId === siteId);
-  const ratio = (ids: string[]) => {
+  const ratio = (ids: readonly string[]) => {
     const slice = tasks.filter((t) => ids.includes(t.playbookId));
     if (!slice.length) return 0;
     const done = slice.filter((t) => t.status === "done").length;
+    // Work in flight earns partial credit. "blocked" does NOT: a blocked task is
+    // stalled waiting on a person, so paying it 45% reported progress where there
+    // was none (wflowprocess.app showed Mentions 45 with zero mention work done).
+    // It scores 0 here and stays visible as a blocked row for the operator to act on.
     const partial = slice.filter((t) =>
-      ["assigned", "running", "blocked"].includes(t.status),
+      ["assigned", "running"].includes(t.status),
     ).length;
     return Math.round(((done + partial * 0.45) / slice.length) * 100);
   };
-  site.scores.technical = ratio([
-    "spa_fallback",
-    "robots_ai",
-    "sitemap",
-    "app_health",
-  ]);
-  site.scores.submissions = ratio([
-    "gsc_submit",
-    "bing_webmaster",
-    "indexnow",
-    "botcentral_list",
-  ]);
-  site.scores.mentions = ratio(["x_mentions", "directories", "press"]);
+  // Buckets live in playbook.ts so the campaign card's completion total counts
+  // exactly the tasks these scores average. See SCORE_BUCKETS for why `monitor`
+  // is in neither.
+  site.scores.technical = ratio(SCORE_BUCKETS.technical);
+  site.scores.submissions = ratio(SCORE_BUCKETS.submissions);
+  site.scores.mentions = ratio(SCORE_BUCKETS.mentions);
   site.scores.overall = Math.round(
     site.scores.technical * 0.4 +
       site.scores.submissions * 0.3 +

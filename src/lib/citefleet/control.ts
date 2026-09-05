@@ -1,5 +1,5 @@
 import type { ActDoor, ControlPlane, KillSwitch, PlaybookId, StoreShape } from "./types";
-import { logActivity } from "./store";
+import { logActivity } from "./store.ts";
 
 export const ACT_DOORS: ActDoor[] = [
   "catalog",

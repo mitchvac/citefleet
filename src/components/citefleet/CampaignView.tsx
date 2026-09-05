@@ -60,7 +60,29 @@ export function CampaignView({ siteId }: { siteId: string }) {
               <span className="mono">{site.hosting.evidence.join(" · ") || "no signals"}</span>
             </p>
           )}
-          {site.botcentral?.listed ? (
+          {site.botcentral?.listed && site.botcentral.verified === false ? (
+            // The card is still on the catalog, but BotCentral's own recheck no
+            // longer finds the proof token at the origin. Listed, not proven.
+            <p className="mt-2 text-sm text-[#e2c36d]" data-testid="botcentral-unverified">
+              On BotCentral but unverified — the proof token is no longer
+              answering at this origin, so the card is listed without proof.
+              Re-serve <span className="mono">botcentral-verify={site.verifyToken}</span>{" "}
+              (Push origin files, then deploy that repo), then List on BotCentral.
+              {site.botcentral.href ? (
+                <>
+                  {" "}
+                  <a
+                    href={site.botcentral.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    inspector
+                  </a>
+                </>
+              ) : null}
+            </p>
+          ) : site.botcentral?.listed ? (
             <p className="mt-2 text-sm text-emerald-300">
               Live on BotCentral —{" "}
               <a
@@ -148,6 +170,8 @@ export function CampaignView({ siteId }: { siteId: string }) {
         <Stat label="Submissions" value={`${site.scores.submissions}`} />
         <Stat label="Mentions" value={`${site.scores.mentions}`} />
       </div>
+
+      <ReconcilePanel site={site} />
 
       <GithubPanel site={site} fleet={fleet} />
       <AutoListingPanel site={site} fleet={fleet} />
@@ -410,6 +434,59 @@ function GithubPanel({
         </div>
       </form>
     </section>
+  );
+}
+
+// The two systems score the same site and disagree, because they measure
+// different things: CiteFleet's `overall` is how many playbook doors are closed;
+// BotCentral's `quality` is crawl priority for the declared home page. Nothing
+// reconciled them, so a site could read 59 here and 93 there with no way to see
+// which was stale. Both numbers now sit side by side.
+//
+// Read from the card `hydrateListings` already fetches — no extra request. That
+// matters: /v1/site, /v1/score, /v1/search and /v1/changes share ONE 30/min
+// IP-keyed bucket for the entire install.
+//
+// No target, no "gap to 100", no per-component maximum. About 40 of the 100
+// points are probe-verified (proof, freshness); the rest are publisher-declared,
+// and the last consent point is only purchasable by conceding text-and-data
+// mining. A number to chase here would push customers to declare more rather
+// than do more, so this panel reports and does not advise.
+function ReconcilePanel({ site }: { site: Site }) {
+  const bc = site.botcentral;
+  if (!bc?.listed || typeof bc.quality !== "number") return null;
+  const delta = bc.quality - site.scores.overall;
+  return (
+    <div className="glass rounded-3xl p-5" data-testid="reconcile">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="text-sm font-semibold">Scores side by side</h2>
+        <p className="text-xs text-[#9b95b3]">
+          CiteFleet <span className="text-[#cfc8e8]">{site.scores.overall}</span> — doors closed ·
+          BotCentral <span className="text-[#cfc8e8]">{bc.quality}</span> — crawl priority ·{" "}
+          <span className={Math.abs(delta) >= 20 ? "text-[#e2c36d]" : "text-[#9b95b3]"}>
+            {delta > 0 ? "+" : ""}
+            {delta} apart
+          </span>
+        </p>
+      </div>
+      {bc.rank ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {Object.entries(bc.rank).map(([part, points]) => (
+            <span
+              key={part}
+              className="mono rounded-full border border-white/10 px-3 py-1 text-xs text-[#cfc8e8]"
+            >
+              {part} <span className="text-[#9b95b3]">{points}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <p className="mt-3 text-xs text-[#9b95b3]">
+        proof and freshness are checked against the live origin; the rest is read from
+        the card as published.
+        {bc.verificationNote ? ` ${bc.verificationNote}` : ""}
+      </p>
+    </div>
   );
 }
 

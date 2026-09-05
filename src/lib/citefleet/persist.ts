@@ -1,5 +1,5 @@
-import { getSql } from "../db";
-import { applyPlaybookHrefs } from "./playbook";
+import { getSql } from "../db.ts";
+import { applyPlaybookHrefs } from "./playbook.ts";
 import type { StoreShape } from "./types";
 
 const SNAPSHOT_ID = "default";

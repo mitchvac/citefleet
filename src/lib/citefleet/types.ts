@@ -116,6 +116,35 @@ export interface Site {
   };
   botcentral?: {
     listed: boolean;
+    /**
+     * Whether the live card's proof still resolves on BotCentral's side.
+     * BotCentral revalidates origins on its own schedule and answers
+     * `verification.method: "unverified"` for a card whose proof has stopped
+     * serving — the listing stays up, but it is no longer proven.
+     * `undefined` means the card carried no verification block at all, which is
+     * "unknown", not "unproven": it must never revoke anything on its own.
+     */
+    verified?: boolean;
+    /** The method the card reports: "well-known-file", "dns-txt", "unverified", … */
+    verificationMethod?: string;
+    /** BotCentral's own words on the last proof check — the remediation to show. */
+    verificationNote?: string;
+    /**
+     * BotCentral's crawl-priority score for this origin's home page (0-100) and
+     * its six components, read straight off the card. Kept beside CiteFleet's
+     * own `scores` so the two can be compared: they measure different things and
+     * nothing else reconciles them.
+     *
+     * Deliberately NOT turned into a "gap" or a target here. Roughly 40 of the
+     * 100 points (proof, freshness) are externally verified by BotCentral's
+     * probe; the rest are publisher-declared, and some are only reachable by
+     * conceding rights (`tdm: "open"` pays a point). Which of the remainder are
+     * legitimate to pursue is a judgement about the customer's business, so the
+     * per-component maxima stay BotCentral's to publish rather than ours to
+     * guess.
+     */
+    quality?: number;
+    rank?: Record<string, number>;
     href?: string;
     api?: string;
     updated?: string;
