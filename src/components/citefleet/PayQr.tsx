@@ -36,7 +36,7 @@ function Row({ label, value, mono = true }: { label: string; value: string; mono
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-2 first:border-t-0">
       <span className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">{label}</span>
       <span className="flex min-w-0 items-center gap-2">
-        <span className={`${mono ? "mono" : ""} truncate text-sm text-white`} title={value}>
+        <span className={`${mono ? "mono" : ""} min-w-0 truncate text-sm text-white`} title={value}>
           {value}
         </span>
         <Copy label={label} value={value} />

@@ -23,9 +23,7 @@ function Snapshot({ snap }: { snap: SiteMonitor }) {
     <article className="glass rounded-3xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
-            Origin
-          </p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">Origin</p>
           <h3 className="mt-1 text-lg font-semibold">{snap.name || snap.domain}</h3>
           <a
             href={snap.url || `https://${snap.domain}`}
@@ -35,9 +33,7 @@ function Snapshot({ snap }: { snap: SiteMonitor }) {
           >
             {snap.url || `https://${snap.domain}`}
           </a>
-          <p className="mt-1 text-sm text-[#cfc8e8]">
-            {snap.drift ? "Drift" : "In balance"}
-          </p>
+          <p className="mt-1 text-sm text-[#cfc8e8]">{snap.drift ? "Drift" : "In balance"}</p>
         </div>
         <div className="flex gap-2">
           <Pill tone={snap.catalogListed ? "good" : "warn"}>
@@ -50,9 +46,8 @@ function Snapshot({ snap }: { snap: SiteMonitor }) {
       </div>
       <p className="mt-2 text-xs text-[#9b95b3]">
         {snap.probes.length} probes · sitemap {snap.sitemapUrlCount} urls ·{" "}
-        {snap.llms ? "llms.txt" : "no llms.txt"} ·{" "}
-        {snap.wellKnown ? "well-known" : "no well-known"} ·{" "}
-        {new Date(snap.at).toLocaleString()}
+        {snap.llms ? "llms.txt" : "no llms.txt"} · {snap.wellKnown ? "well-known" : "no well-known"}{" "}
+        · {new Date(snap.at).toLocaleString()}
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {snap.probes.map((p) => (
@@ -60,29 +55,23 @@ function Snapshot({ snap }: { snap: SiteMonitor }) {
             key={p.path}
             className="flex items-center justify-between gap-2 rounded-2xl border border-white/8 px-3 py-2 text-sm"
           >
-            <span className="mono truncate text-xs" title={p.url}>
+            {/* min-w-0 is required for truncate to work in a flex row: a flex
+                item will not shrink below its content without it, so the URL
+                pushed the status pill off a 320px screen instead of ellipsing. */}
+            <span className="mono min-w-0 truncate text-xs" title={p.url}>
               {p.url || p.path}
             </span>
-            <Pill
-              tone={
-                p.kind === "ok"
-                  ? "good"
-                  : p.kind === "payment402"
-                    ? "gold"
-                    : "bad"
-              }
-            >
-              {p.kind === "ok" ? String(p.status) : p.kind}
-            </Pill>
+            <span className="shrink-0">
+              <Pill tone={p.kind === "ok" ? "good" : p.kind === "payment402" ? "gold" : "bad"}>
+                {p.kind === "ok" ? String(p.status) : p.kind}
+              </Pill>
+            </span>
           </div>
         ))}
       </div>
       <ul className="mt-4 space-y-2">
         {snap.checks.map((c) => (
-          <li
-            key={c.id}
-            className="rounded-2xl border border-white/8 px-3 py-2"
-          >
+          <li key={c.id} className="rounded-2xl border border-white/8 px-3 py-2">
             <div className="flex items-center gap-2">
               <Pill tone={checkTone(c)}>{c.ok ? "pass" : c.severity}</Pill>
               <span className="text-sm font-medium">{c.title}</span>
@@ -117,8 +106,8 @@ export function ControlPlaneView() {
           Origins this page is watching
         </p>
         <p className="mt-1 text-sm text-[#b7b0cc]">
-          Every probe, snapshot, and reconcile check belongs to one of these URLs —
-          not to the CiteFleet / BotCentral platform cards below.
+          Every probe, snapshot, and reconcile check belongs to one of these URLs — not to the
+          CiteFleet / BotCentral platform cards below.
         </p>
         <ul className="mt-4 space-y-3">
           {sites.map((site) => {
@@ -165,15 +154,13 @@ export function ControlPlaneView() {
       <section className="glass rounded-3xl p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
-              Kill switch
-            </p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">Kill switch</p>
             <h2 className="mt-1 text-2xl font-semibold">
               {kill.global ? "All acts frozen" : "Acts allowed"}
             </h2>
             <p className="mt-2 max-w-xl text-sm text-[#b7b0cc]">
-              Observe (audit, monitor, reconcile) always runs. Act (publish, mentions,
-              spend, autopilot) stops when a switch is on. This is the maker–checker freeze.
+              Observe (audit, monitor, reconcile) always runs. Act (publish, mentions, spend,
+              autopilot) stops when a switch is on. This is the maker–checker freeze.
             </p>
           </div>
           <button
@@ -223,20 +210,15 @@ export function ControlPlaneView() {
 
       <section className="glass flex flex-wrap items-center justify-between gap-4 rounded-3xl p-5">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
-            Control cycle
-          </p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">Control cycle</p>
           <p className="mt-1 text-sm text-[#cfc8e8]">
-            Probe origins, classify 200 / 404 / 402, diff sitemap vs card vs ticks, ping
-            both platforms. Last cycle{" "}
-            {control.lastCycleAt
-              ? new Date(control.lastCycleAt).toLocaleString()
-              : "never"}
-            .
+            Probe origins, classify 200 / 404 / 402, diff sitemap vs card vs ticks, ping both
+            platforms. Last cycle{" "}
+            {control.lastCycleAt ? new Date(control.lastCycleAt).toLocaleString() : "never"}.
           </p>
           <p className="mt-1 text-xs text-[#9b95b3]">
-            Autopilot {workspace.autopilot ? "on" : "off"} — freeze autopilot if Sentinel
-            should only watch.
+            Autopilot {workspace.autopilot ? "on" : "off"} — freeze autopilot if Sentinel should
+            only watch.
           </p>
         </div>
         <button
