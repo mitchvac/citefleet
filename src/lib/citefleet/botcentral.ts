@@ -1,7 +1,7 @@
-import type { Site, StoreShape } from "./types";
-import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook";
-import { getStore, mutateStore, recalcScores } from "./store";
-import { stripSecrets } from "./github";
+import type { Site, StoreShape, TaskStatus } from "./types";
+import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook.ts";
+import { getStore, logActivity, mutateStore, recalcScores } from "./store.ts";
+import { stripSecrets } from "./github.ts";
 import { siteVerifyToken } from "./verify-token.ts";
 
 const DEFAULT_URL = "https://botcentral.org";
@@ -9,6 +9,13 @@ const FETCH_UA = "CiteFleetPublisher/1.0 (+https://citefleet.app)";
 
 export type ListingStatus = {
   listed: boolean;
+  /** See Site["botcentral"].verified — `undefined` is "unknown", never "unproven". */
+  verified?: boolean;
+  verificationMethod?: string;
+  verificationNote?: string;
+  /** BotCentral's crawl-priority score for the home page, and its components. */
+  quality?: number;
+  rank?: Record<string, number>;
   href?: string;
   api?: string;
   updated?: string;
@@ -29,9 +36,58 @@ export function publisherReady() {
   return serviceToken().length >= 16;
 }
 
+/**
+ * Read the card's proof state. BotCentral revalidates every listed origin on a
+ * 6-hour cycle and reports `method: "unverified"` once an origin stops serving
+ * its proof — the card stays listed and is simply no longer proven. A card that
+ * carries no `verification` block at all is UNKNOWN, not unproven: returning
+ * `undefined` there keeps a shape change on BotCentral's side from silently
+ * revoking every listing here.
+ */
+function cardVerification(card: Record<string, unknown>) {
+  const block = card.verification;
+  if (!block || typeof block !== "object") {
+    return { verified: undefined, verificationMethod: undefined };
+  }
+  const { method: raw, note } = block as { method?: unknown; note?: unknown };
+  const method = typeof raw === "string" ? raw : undefined;
+  const verificationNote = typeof note === "string" ? note : undefined;
+  if (!method) {
+    return { verified: undefined, verificationMethod: undefined, verificationNote };
+  }
+  return { verified: method !== "unverified", verificationMethod: method, verificationNote };
+}
+
+/**
+ * BotCentral's own score for this origin, read off the card CiteFleet already
+ * fetches — no extra request, which matters because /v1/site, /v1/score,
+ * /v1/search and /v1/changes all draw on ONE 30/min IP-keyed bucket shared by
+ * the whole install (measured 2026-09-05).
+ *
+ * The card carries no top-level score; the home page entry does. Match on
+ * `rel: "home"` rather than trusting position, and fall back to the first page.
+ */
+function cardQuality(card: Record<string, unknown>) {
+  const pages = Array.isArray(card.pages)
+    ? (card.pages as Array<Record<string, unknown>>)
+    : [];
+  const home = pages.find((p) => p.rel === "home") ?? pages[0];
+  if (!home) return { quality: undefined, rank: undefined };
+  const quality = typeof home.score === "number" ? home.score : undefined;
+  const raw = home.rank;
+  if (!raw || typeof raw !== "object") return { quality, rank: undefined };
+  const rank: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === "number") rank[key] = value;
+  }
+  return { quality, rank: Object.keys(rank).length ? rank : undefined };
+}
+
 function listingFromCard(host: string, card: Record<string, unknown>): ListingStatus {
   return {
     listed: true,
+    ...cardVerification(card),
+    ...cardQuality(card),
     href: `${catalogUrl()}/site/${host}`,
     api: `${catalogUrl()}/v1/site/${host}`,
     updated: typeof card.updated === "string" ? card.updated : undefined,
@@ -57,6 +113,30 @@ export async function lookupListing(domain: string): Promise<ListingStatus> {
       error: err instanceof Error ? err.message : "catalog unreachable",
     };
   }
+}
+
+/**
+ * Whether a live catalog read should grant, revoke, or leave alone the
+ * `botcentral_list` task. Pure so the rule can be tested without a store.
+ *
+ * The asymmetry is deliberate:
+ *  - GRANT needs the card to be listed AND not affirmatively unproven.
+ *  - REVOKE needs an ANSWER. `error` means the catalog was unreachable, which is
+ *    evidence of nothing; a transient outage must never un-list a customer.
+ *  - `verified === undefined` (a card with no verification block at all) is
+ *    UNKNOWN, not unproven, so it never revokes on its own. Only BotCentral
+ *    saying `method: "unverified"` does.
+ */
+export type ListingTransition = "grant" | "revoke" | "none";
+
+export function listingTransition(
+  listing: ListingStatus,
+  taskStatus: TaskStatus,
+): ListingTransition {
+  const proven = listing.listed && listing.verified !== false;
+  if (proven) return taskStatus === "done" ? "none" : "grant";
+  if (listing.error) return "none";
+  return taskStatus === "done" ? "revoke" : "none";
 }
 
 function defaultTopics(site: Site): string[] {
@@ -195,18 +275,62 @@ export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> 
           store.tasks.push(task);
         }
       }
-      if (task && update.listing.listed && task.status !== "done") {
+      // This task's state is derived from the live card, in BOTH directions.
+      // Granting only (the old behaviour) let a listing rot on BotCentral's side
+      // — it revalidates origins every 6 hours and does not auto-unpublish, so a
+      // downgraded site stays listed and merely stops being proven — while
+      // CiteFleet went on scoring it as a completed submission forever.
+      //
+      // Revoking requires an ANSWER, not a silence: `error` means the catalog was
+      // unreachable, which is not evidence of anything. Fail slowly — a transient
+      // outage must never un-list a customer.
+      const now = new Date().toISOString();
+      const move = task ? listingTransition(update.listing, task.status) : "none";
+      if (task && move === "grant") {
         task.status = "done";
-        task.completedAt = update.listing.updated || new Date().toISOString();
+        task.completedAt = update.listing.updated || now;
+        task.blockedReason = undefined;
+        task.updatedAt = now;
         task.checklist = task.checklist.map((c) => ({ ...c, done: true }));
         task.evidence.unshift({
           id: crypto.randomUUID(),
-          at: new Date().toISOString(),
+          at: now,
           kind: "http",
           label: "Live on BotCentral",
           detail: update.listing.href,
           url: update.listing.href,
           ok: true,
+        });
+        recalcScores(store, site.id);
+      } else if (task && move === "revoke") {
+        // BotCentral's own note names the exact remediation ("Add DNS TXT
+        // botcentral-verify=<token> or a plain-text /.well-known/botcentral.txt")
+        // and is more specific than anything phrased from this side.
+        const reason = update.listing.listed
+          ? `Listed on BotCentral but no longer proven (${update.listing.verificationMethod ?? "unverified"}). ${update.listing.verificationNote ?? "Re-serve the proof token at the origin, then List on BotCentral."}`
+          : "The BotCentral card for this domain is gone from the catalog.";
+        task.status = "blocked";
+        task.blockedReason = reason;
+        task.completedAt = undefined;
+        task.updatedAt = now;
+        task.checklist = task.checklist.map((c) => ({ ...c, done: false }));
+        task.evidence.unshift({
+          id: crypto.randomUUID(),
+          at: now,
+          kind: "http",
+          label: update.listing.listed
+            ? "BotCentral listing unproven"
+            : "BotCentral listing gone",
+          detail: reason,
+          url: update.listing.href,
+          ok: false,
+        });
+        logActivity(store, {
+          actor: "botcentral",
+          kind: "monitor",
+          message: `${site.domain}: ${reason}`,
+          siteId: site.id,
+          taskId: task.id,
         });
         recalcScores(store, site.id);
       }
