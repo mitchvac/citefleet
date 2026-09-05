@@ -53,7 +53,7 @@ function Snapshot({ snap }: { snap: SiteMonitor }) {
         {snap.probes.map((p) => (
           <div
             key={p.path}
-            className="flex items-center justify-between gap-2 rounded-2xl border border-white/8 px-3 py-2 text-sm"
+            className="flex min-w-0 items-center justify-between gap-2 rounded-2xl border border-white/8 px-3 py-2 text-sm"
           >
             {/* min-w-0 is required for truncate to work in a flex row: a flex
                 item will not shrink below its content without it, so the URL
