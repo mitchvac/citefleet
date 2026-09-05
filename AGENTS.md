@@ -130,10 +130,24 @@ Playwright for e2e. Node 20. ESM (`"type": "module"`).
   reachable only by conceding text-and-data mining (`tdm: "open"`). Do not add a target, a "gap to 100",
   or per-component maxima here — those belong to BotCentral's planned `next: []` array, and a number to
   chase would push customers to declare more rather than do more.
-- Mobile: audited at 390px (iPhone 13) against the live site, not eyeballed. Two rules the layout broke
-  before 2026-09-05 and must not break again: (1) a wide child needs `min-w-0` on its container or
-  `overflow-x-auto` does nothing — a grid/flex item defaults to `min-width:auto` and grows to its
-  content, which is how the 720px engine table pushed the whole page 84px wide; (2) fixed column
-  widths (`w-40`, `w-32`) must be `sm:` prefixed or they eat a phone screen and render the remaining
-  text one word per line. The mobile nav is one horizontally scrolling row, never `flex-wrap`.
+- Mobile: verified 56/56 page-viewport combinations with no horizontal overflow — every route at
+  320 (iPhone SE) / 390 (iPhone 13) / 412 (Pixel 7) / 768 (iPad Mini), measured against the live
+  deployment by comparing `document.scrollWidth` to `clientWidth`. Re-measure that way after any
+  layout change; reading the markup does not show these. Note a clipped child still reports its full
+  `getBoundingClientRect()`, so an element "sticking out" is only a real overflow when no ancestor
+  has `overflow-x` set — checking that is what separates the cause from the symptom.
+  The five rules this cost, each learned from a real failure:
+  1. **A grid or flex CHILD defaults to `min-width:auto`** and grows to its own min-content width,
+     ignoring the track. It needs `min-w-0`. This one bug appeared four separate times — the onboard
+     aside, the ops probe row, the card column, the audit-log row.
+  2. `overflow-x-auto` does nothing without rule 1 on the same element. The 720px engine table had
+     the scroll container already; `min-w-0` was the missing half.
+  3. `truncate` in a flex row needs `min-w-0` for the same reason, or the text sets the width and
+     pushes its siblings off screen instead of ellipsing.
+  4. Fixed widths (`w-40`, `min-w-[16rem]`) must be `sm:` prefixed. 16rem is wider than a 320px
+     screen's content box.
+  5. Any row of pills or buttons needs `flex-wrap`, and grid text columns need `minmax(0,1fr)`
+     rather than `1fr`.
+  The mobile nav is one horizontally scrolling row, never `flex-wrap`, and it switches to the
+  desktop nav at `lg` — nine items plus the logo and Sign out do not fit at `md` (768px).
 - `test-results/` is Playwright output (videos, screenshots, traces); never commit.
