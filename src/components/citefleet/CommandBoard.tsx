@@ -182,8 +182,12 @@ export function CommandBoard() {
         </div>
       </section>
 
+      {/* min-w-0 on both grid children: the default is min-width:auto, so a
+          child grows to its content's min-content width instead of being
+          constrained by the column. That is what made the onboard aside 394px
+          wide inside a 342px column and pushed the page sideways at 390px. */}
       <section className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {rankedSites.map((site) => (
             <SiteCard
               key={site.id}
@@ -198,7 +202,7 @@ export function CommandBoard() {
           ))}
         </div>
 
-        <aside className="glass rounded-3xl p-5">
+        <aside className="glass min-w-0 rounded-3xl p-5">
           <h2 className="mb-1 text-sm font-semibold">Onboard a property</h2>
           <p className="mb-4 text-sm text-[#9b95b3]">
             Grok Dispatcher will assign each specialist bot a playbook task for Google,
@@ -290,7 +294,7 @@ export function CommandBoard() {
           <input
             type="password"
             autoComplete="off"
-            className="min-w-[16rem] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[#9b7dff]"
+            className="w-full flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[#9b7dff] sm:w-auto sm:min-w-[16rem]"
             value={ghToken}
             onChange={(e) => setGhToken(e.target.value)}
             placeholder="ghp_…"
