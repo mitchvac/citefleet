@@ -45,7 +45,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
           <Link to="/" className="text-xs text-[#9b95b3] hover:text-white">
             ← Command
           </Link>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Pill tone="gold">{site.status}</Pill>
             <span className="mono text-xs text-[#9b95b3]">{site.domain}</span>
           </div>

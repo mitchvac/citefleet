@@ -438,7 +438,9 @@ function SiteCard({
     <article className="glass rounded-3xl p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="mb-2 flex items-center gap-2">
+          {/* flex-wrap: four pills in one unwrapped row set this card's
+              min-content width and carried the page past 390px. */}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
             <Pill tone={statusTone(site.status)}>{site.status}</Pill>
             <span className="mono text-xs text-[#9b95b3]">{site.domain}</span>
             {site.botcentral?.listed ? (
