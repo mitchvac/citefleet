@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { BrandLogo } from "./BrandLogo";
 
 const NAV = [
+  { to: "/start", label: "Get started" },
   { to: "/", label: "Command" },
   { to: "/ops", label: "Monitor" },
   { to: "/fleet", label: "Grok Fleet" },
@@ -62,12 +63,14 @@ export function Shell({
             </form>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-7xl flex-wrap gap-1 px-6 pb-3 md:hidden">
+        {/* One scrolling row, not a wrapping block. Eight pills wrapped into three
+            ragged lines on a phone and pushed the page content below the fold. */}
+        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6 pb-3 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
           {NAV.map((item) => (
             <Link
               key={item.to}
               to={item.to}
-              className="rounded-full px-3 py-1.5 text-sm text-[#cfc8e8] hover:bg-white/5 hover:text-white"
+              className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-[#cfc8e8] hover:bg-white/5 hover:text-white"
             >
               {item.label}
             </Link>
@@ -76,7 +79,7 @@ export function Shell({
             href="https://botcentral.org"
             target="_blank"
             rel="noreferrer"
-            className="rounded-full px-3 py-1.5 text-sm text-[#4ee0c3]"
+            className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-[#4ee0c3]"
           >
             BotCentral
           </a>

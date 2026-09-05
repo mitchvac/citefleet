@@ -158,6 +158,30 @@ export function CommandBoard() {
         </div>
       </section>
 
+      {/* First thing on the page for someone who has not listed anything yet.
+          Once a property exists it stops being the loudest element and moves
+          out of the way. */}
+      <section className="glass rounded-3xl p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-white">
+              {sites.length ? "Listing another site?" : "New here? Start with the three steps"}
+            </h2>
+            <p className="mt-1 text-sm text-[#9b95b3]">
+              Get a BotCentral API key, add credit to it, then work the training
+              module to get indexed.
+            </p>
+          </div>
+          <Link
+            to="/start"
+            data-testid="get-started"
+            className="shrink-0 rounded-full bg-gradient-to-r from-[#6d4aff] to-[#4ee0c3] px-5 py-2.5 text-center text-sm font-semibold text-[#07060f] no-underline"
+          >
+            Get started
+          </Link>
+        </div>
+      </section>
+
       <section className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
         <div className="space-y-4">
           {rankedSites.map((site) => (
@@ -289,7 +313,11 @@ export function CommandBoard() {
             </p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        {/* min-w-0 is what makes overflow-x-auto work here. A grid/flex child
+            defaults to min-width:auto, so it grows to its content instead of
+            scrolling — the 720px table pushed the whole page 84px wide on a
+            phone rather than scrolling inside this box. */}
+        <div className="min-w-0 max-w-full overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="text-[11px] uppercase tracking-wide text-[#9b95b3]">
               <tr>
@@ -319,14 +347,19 @@ export function CommandBoard() {
 
       <section className="glass rounded-3xl p-5">
         <h2 className="mb-4 text-sm font-semibold">Latest ops events</h2>
+        {/* Rows stack on a phone. The two fixed columns (w-40 + w-32) ate 288px
+            of a 390px screen and left the message rendering one word per line;
+            they only become columns once there is room for them. */}
         <ol className="space-y-3">
           {activity.slice(0, 8).map((event) => (
-            <li key={event.id} className="flex gap-3 text-sm">
-              <span className="mono w-40 shrink-0 text-[11px] text-[#9b95b3]">
+            <li key={event.id} className="flex flex-col gap-1 text-sm sm:flex-row sm:gap-3">
+              <span className="mono text-[11px] text-[#9b95b3] sm:w-40 sm:shrink-0">
                 {new Date(event.at).toLocaleString()}
               </span>
-              <span className="w-32 shrink-0 text-[#e2c36d]">{event.actor}</span>
-              <span className="text-[#e8e4f6]">{event.message}</span>
+              <span className="text-xs text-[#e2c36d] sm:w-32 sm:shrink-0 sm:text-sm">
+                {event.actor}
+              </span>
+              <span className="min-w-0 text-[#e8e4f6]">{event.message}</span>
             </li>
           ))}
         </ol>

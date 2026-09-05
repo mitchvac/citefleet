@@ -19,6 +19,7 @@ import { Route as OpsRouteImport } from './routes/ops'
 import { Route as PlaybookRouteImport } from './routes/playbook'
 import { Route as ResetRouteImport } from './routes/reset'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as StartRouteImport } from './routes/start'
 import { Route as TopupRouteImport } from './routes/topup'
 import { Route as ApiForgotRouteImport } from './routes/api/forgot'
 import { Route as ApiLoginRouteImport } from './routes/api/login'
@@ -86,6 +87,11 @@ const ResetRoute = ResetRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StartRoute = StartRouteImport.update({
+  id: '/start',
+  path: '/start',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TopupRoute = TopupRouteImport.update({
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/playbook': typeof PlaybookRoute
   '/reset': typeof ResetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/start': typeof StartRoute
   '/topup': typeof TopupRoute
   '/api/forgot': typeof ApiForgotRoute
   '/api/login': typeof ApiLoginRoute
@@ -220,6 +227,7 @@ export interface FileRoutesByTo {
   '/playbook': typeof PlaybookRoute
   '/reset': typeof ResetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/start': typeof StartRoute
   '/topup': typeof TopupRoute
   '/api/forgot': typeof ApiForgotRoute
   '/api/login': typeof ApiLoginRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/playbook': typeof PlaybookRoute
   '/reset': typeof ResetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/start': typeof StartRoute
   '/topup': typeof TopupRoute
   '/api/forgot': typeof ApiForgotRoute
   '/api/login': typeof ApiLoginRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/playbook'
     | '/reset'
     | '/sitemap.xml'
+    | '/start'
     | '/topup'
     | '/api/forgot'
     | '/api/login'
@@ -313,6 +323,7 @@ export interface FileRouteTypes {
     | '/playbook'
     | '/reset'
     | '/sitemap.xml'
+    | '/start'
     | '/topup'
     | '/api/forgot'
     | '/api/login'
@@ -343,6 +354,7 @@ export interface FileRouteTypes {
     | '/playbook'
     | '/reset'
     | '/sitemap.xml'
+    | '/start'
     | '/topup'
     | '/api/forgot'
     | '/api/login'
@@ -374,6 +386,7 @@ export interface RootRouteChildren {
   PlaybookRoute: typeof PlaybookRoute
   ResetRoute: typeof ResetRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  StartRoute: typeof StartRoute
   TopupRoute: typeof TopupRoute
   ApiForgotRoute: typeof ApiForgotRoute
   ApiLoginRoute: typeof ApiLoginRoute
@@ -464,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/start': {
+      id: '/start'
+      path: '/start'
+      fullPath: '/start'
+      preLoaderRoute: typeof StartRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/topup': {
@@ -606,6 +626,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlaybookRoute: PlaybookRoute,
   ResetRoute: ResetRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  StartRoute: StartRoute,
   TopupRoute: TopupRoute,
   ApiForgotRoute: ApiForgotRoute,
   ApiLoginRoute: ApiLoginRoute,
