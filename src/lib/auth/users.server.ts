@@ -58,6 +58,29 @@ export async function createUser(input: {
   return { ok: true, user: { id, email, name } };
 }
 
+/**
+ * Set a new password hash and return the account's email, or null if the user
+ * is gone. Used only by the reset flow, which has already spent a single-use
+ * token before calling this — there is no current-password check here because
+ * the token IS the proof.
+ *
+ * Works on an OAuth-only account (password_hash is nullable): resetting adds a
+ * password rather than refusing, so the user keeps both ways in.
+ */
+export async function setPassword(
+  userId: string,
+  password: string,
+): Promise<string | null> {
+  if (password.length < 8) return null;
+  const sql = await getSql();
+  const password_hash = await hashPassword(password);
+  const rows = await sql.query<{ email: string }>(
+    "UPDATE citefleet_users SET password_hash = $1 WHERE id = $2 RETURNING email",
+    [password_hash, userId],
+  );
+  return rows[0]?.email ?? null;
+}
+
 export async function verifyUser(
   emailRaw: string,
   password: string,

@@ -121,6 +121,17 @@ fi
   if [[ -s /root/citefleet-github.token ]]; then
     printf 'GITHUB_TOKEN=%s\n' "$(tr -d '\n' < /root/citefleet-github.token)"
   fi
+  # Gmail submission for password-reset email (src/lib/mail/smtp.ts).
+  # Two lines: the sending address, then a Google APP PASSWORD (2FA required —
+  # the account password is refused with 535). Absent, /login simply does not
+  # offer a reset; nothing else changes.
+  #   printf '%s\n%s\n' 'ops@example.com' 'xxxx xxxx xxxx xxxx' \
+  #     > /root/citefleet-gmail.smtp && chmod 600 /root/citefleet-gmail.smtp
+  if [[ -s /root/citefleet-gmail.smtp ]]; then
+    mapfile -t _m < /root/citefleet-gmail.smtp
+    printf 'CITEFLEET_SMTP_USER=%s\n' "${_m[0]//$'\r'/}"
+    printf 'CITEFLEET_SMTP_PASSWORD=%s\n' "${_m[1]//$'\r'/}"
+  fi
   if [[ -s /root/citefleet-google.oauth ]]; then
     mapfile -t _g < /root/citefleet-google.oauth
     printf 'GOOGLE_CLIENT_ID=%s\n' "${_g[0]//$'\r'/}"
