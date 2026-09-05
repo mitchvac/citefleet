@@ -1,9 +1,9 @@
 import type { StoreShape } from "./types";
-import { buildOriginPack } from "./originPack";
+import { buildOriginPack } from "./originPack.ts";
 import { siteVerifyToken } from "./verify-token.ts";
 import { maskStoreSecrets } from "./secrets.ts";
-import { assertCanAct } from "./control";
-import { getStore, logActivity, mutateStore } from "./store";
+import { assertCanAct } from "./control.ts";
+import { getStore, logActivity, mutateStore } from "./store.ts";
 
 const API = "https://api.github.com";
 

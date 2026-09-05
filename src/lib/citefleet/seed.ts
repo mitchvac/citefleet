@@ -1,6 +1,6 @@
-import { FLEET_TEMPLATE } from "./bots";
-import { ENGINE_MATRIX, applyPlaybookHrefs } from "./playbook";
-import { defaultControl } from "./control";
+import { FLEET_TEMPLATE } from "./bots.ts";
+import { ENGINE_MATRIX, applyPlaybookHrefs } from "./playbook.ts";
+import { defaultControl } from "./control.ts";
 import type { StoreShape } from "./types";
 
 /**
