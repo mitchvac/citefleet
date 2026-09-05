@@ -139,7 +139,7 @@ export function CommandBoard() {
             Set XAI_API_KEY in .env.local to have Grok write mention drafts into task evidence. Autopilot does not log into Bing or X.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
             to="/ops"
             className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
@@ -477,7 +477,7 @@ function SiteCard({
             </p>
           ) : null}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={onAudit}
             className="rounded-full border border-white/10 px-3 py-1.5 text-xs hover:bg-white/5 disabled:opacity-50"

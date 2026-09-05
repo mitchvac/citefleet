@@ -26,7 +26,7 @@ export function Shell({
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07060f]/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:gap-6 sm:px-6">
           <Link to="/" className="flex items-center gap-3">
             <BrandLogo size={36} className="h-9 w-9" />
             <span>
@@ -65,7 +65,7 @@ export function Shell({
         </div>
         {/* One scrolling row, not a wrapping block. Eight pills wrapped into three
             ragged lines on a phone and pushed the page content below the fold. */}
-        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6 pb-3 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
+        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
           {NAV.map((item) => (
             <Link
               key={item.to}
@@ -85,7 +85,7 @@ export function Shell({
           </a>
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-7xl px-6 py-8">
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
         {(eyebrow || title) && (
           <div className="mb-8">
             {eyebrow && (
