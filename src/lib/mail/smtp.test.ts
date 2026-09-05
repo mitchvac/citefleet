@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   assertHeaderSafe,
   authPlainToken,
+  normalizeAppPassword,
   buildMessage,
   dotStuff,
   parseReply,
@@ -67,8 +68,22 @@ test("dot-stuffing protects a body line that starts with a period", () => {
 });
 
 test("AUTH PLAIN is NUL-delimited base64 (RFC 4616)", () => {
-  const token = authPlainToken("me@gmail.com", "app pass");
-  assert.equal(Buffer.from(token, "base64").toString("utf8"), "\0me@gmail.com\0app pass");
+  const token = authPlainToken("me@gmail.com", "apppass");
+  assert.equal(Buffer.from(token, "base64").toString("utf8"), "\0me@gmail.com\0apppass");
+});
+
+test("a Google App Password works whether or not the operator keeps the spaces", () => {
+  // Google shows "abcd efgh ijkl mnop"; the credential is the 16 characters.
+  // --env-file passes the spaces through verbatim, so without this the copied
+  // value fails with a 535 that is indistinguishable from a wrong password.
+  const spaced = authPlainToken("me@gmail.com", "abcd efgh ijkl mnop");
+  const bare = authPlainToken("me@gmail.com", "abcdefghijklmnop");
+  assert.equal(spaced, bare);
+  assert.equal(
+    Buffer.from(spaced, "base64").toString("utf8"),
+    "\0me@gmail.com\0abcdefghijklmnop",
+  );
+  assert.equal(normalizeAppPassword("  abcd efgh\tijkl mnop \n"), "abcdefghijklmnop");
 });
 
 test("headers refuse injection and non-ASCII rather than mangling them", () => {

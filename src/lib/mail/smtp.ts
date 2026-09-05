@@ -79,7 +79,19 @@ export function dotStuff(body: string): string {
 
 /** AUTH PLAIN is base64 of NUL user NUL password (RFC 4616). */
 export function authPlainToken(user: string, password: string): string {
-  return Buffer.from(`\0${user}\0${password}`, "utf8").toString("base64");
+  return Buffer.from(`\0${user}\0${normalizeAppPassword(password)}`, "utf8").toString("base64");
+}
+
+/**
+ * Google prints an App Password in four groups of four ("abcd efgh ijkl mnop")
+ * and the spaces are presentation only — the credential is 16 characters. The
+ * operator copies what is on screen, `--env-file` passes the spaces through
+ * verbatim, and the result is a 535 that looks exactly like a wrong password.
+ * Strip whitespace so both forms work. Safe because this client speaks only to
+ * Gmail, where an App Password never legitimately contains a space.
+ */
+export function normalizeAppPassword(password: string): string {
+  return password.replace(/\s+/g, "");
 }
 
 /**
@@ -238,7 +250,7 @@ function reader(socket: TLSSocket) {
  */
 export async function sendMail(m: Mail): Promise<void> {
   const user = (process.env.CITEFLEET_SMTP_USER || "").trim();
-  const password = process.env.CITEFLEET_SMTP_PASSWORD || "";
+  const password = normalizeAppPassword(process.env.CITEFLEET_SMTP_PASSWORD || "");
   const from = mailFrom();
   if (!user || !password || !from) {
     throw new Error("mail is not configured (CITEFLEET_SMTP_USER / _PASSWORD)");
