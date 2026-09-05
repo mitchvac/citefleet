@@ -25,7 +25,7 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   return timingSafeEqual(actual, expected);
 }
 
-export type CiteFleetUser = { id: string; email: string; name: string };
+export type CiteFleetUser = { id: string; email: string; name: string; imageUrl?: string | null };
 
 // A real scrypt hash of an unguessable value, used so that "no such account"
 // and "not allow-listed" cost the same time as a wrong password.
@@ -107,6 +107,8 @@ export async function upsertOAuthUser(input: {
   email: string;
   name: string;
   githubToken?: string;
+  /** Provider CDN URL, https-only (see httpsImage in oauth.server.ts). */
+  image?: string;
 }): Promise<CiteFleetUser> {
   const email = normalizeEmail(input.email);
   const name = input.name.trim() || email.split("@")[0] || "CiteFleet user";
@@ -116,14 +118,18 @@ export async function upsertOAuthUser(input: {
     [input.provider, input.providerId],
   );
   if (byProvider[0]) {
-    if (input.githubToken) {
-      await sql.query("UPDATE citefleet_users SET github_token = $1, name = $2 WHERE id = $3", [
-        input.githubToken,
-        name,
-        byProvider[0].id,
-      ]);
-    }
-    return byProvider[0];
+    // Refresh on every sign-in: the picture is the provider's to change, and a
+    // stale CDN URL 404s silently. COALESCE keeps the old one when a provider
+    // returns none rather than blanking a working picture.
+    await sql.query(
+      `UPDATE citefleet_users
+          SET name = $1,
+              image_url = COALESCE($2, image_url),
+              github_token = COALESCE($3, github_token)
+        WHERE id = $4`,
+      [name, input.image ?? null, input.githubToken || null, byProvider[0].id],
+    );
+    return { ...byProvider[0], imageUrl: input.image ?? null };
   }
   const byEmail = await sql.query<{ id: string; email: string; name: string }>(
     "SELECT id, email, name FROM citefleet_users WHERE email = $1",
@@ -131,15 +137,19 @@ export async function upsertOAuthUser(input: {
   );
   if (byEmail[0]) {
     await sql.query(
-      "UPDATE citefleet_users SET provider = $1, provider_id = $2, name = $3, github_token = COALESCE($4, github_token) WHERE id = $5",
-      [input.provider, input.providerId, name, input.githubToken || null, byEmail[0].id],
+      `UPDATE citefleet_users
+          SET provider = $1, provider_id = $2, name = $3,
+              github_token = COALESCE($4, github_token),
+              image_url = COALESCE($5, image_url)
+        WHERE id = $6`,
+      [input.provider, input.providerId, name, input.githubToken || null, input.image ?? null, byEmail[0].id],
     );
-    return { id: byEmail[0].id, email, name };
+    return { id: byEmail[0].id, email, name, imageUrl: input.image ?? null };
   }
   const id = randomBytes(16).toString("hex");
   await sql.query(
-    "INSERT INTO citefleet_users (id, email, name, password_hash, provider, provider_id, github_token) VALUES ($1, $2, $3, NULL, $4, $5, $6)",
-    [id, email, name, input.provider, input.providerId, input.githubToken || null],
+    "INSERT INTO citefleet_users (id, email, name, password_hash, provider, provider_id, github_token, image_url) VALUES ($1, $2, $3, NULL, $4, $5, $6, $7)",
+    [id, email, name, input.provider, input.providerId, input.githubToken || null, input.image ?? null],
   );
   return { id, email, name };
 }

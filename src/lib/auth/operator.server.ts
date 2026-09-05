@@ -1,6 +1,7 @@
 import { getRequest } from "@tanstack/react-start/server";
 import { assertSameSiteRequest } from "./isolation.server";
 import { isAllowedEmail } from "./operator-allowlist.ts";
+import { sessionUser, type SessionUser } from "./operator-core.ts";
 import {
   OPERATOR_COOKIE,
   attemptLogin,
@@ -50,6 +51,16 @@ function loginError(reason: string, retryAfterMs?: number): Response {
   const headers: Record<string, string> = { Location: `/login?error=${reason}` };
   if (retryAfterMs) headers["Retry-After"] = String(Math.ceil(retryAfterMs / 1000));
   return new Response(null, { status: 303, headers });
+}
+
+/**
+ * The account behind the request's session, or null. Null is a normal answer,
+ * not an error: the operator token path is a break-glass credential with no
+ * account behind it, and the header simply shows nothing for it.
+ */
+export function currentSessionUser(request: Request): SessionUser | null {
+  const id = readCookie(request.headers.get("cookie"), OPERATOR_COOKIE);
+  return sessionUser(id);
 }
 
 export function requireOperator(): void {
@@ -103,7 +114,10 @@ export async function handleLogin(request: Request): Promise<Response> {
       return loginError("bad-credentials");
     }
     clearFailures(key);
-    return signedInResponse(request, createSession());
+    return signedInResponse(
+      request,
+      createSession(Date.now(), { email: user.email, name: user.name, imageUrl: user.imageUrl }),
+    );
   }
   const result = attemptLogin(fields.token, clientKey(request));
   if (!result.ok) return loginError(result.reason, result.retryAfterMs);

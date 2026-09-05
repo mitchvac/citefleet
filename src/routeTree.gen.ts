@@ -24,6 +24,7 @@ import { Route as TopupRouteImport } from './routes/topup'
 import { Route as ApiForgotRouteImport } from './routes/api/forgot'
 import { Route as ApiLoginRouteImport } from './routes/api/login'
 import { Route as ApiLogoutRouteImport } from './routes/api/logout'
+import { Route as ApiMeRouteImport } from './routes/api/me'
 import { Route as ApiResetRouteImport } from './routes/api/reset'
 import { Route as ApiSignupRouteImport } from './routes/api/signup'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
@@ -114,6 +115,11 @@ const ApiLogoutRoute = ApiLogoutRouteImport.update({
   path: '/api/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMeRoute = ApiMeRouteImport.update({
+  id: '/api/me',
+  path: '/api/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiResetRoute = ApiResetRouteImport.update({
   id: '/api/reset',
   path: '/api/reset',
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/api/forgot': typeof ApiForgotRoute
   '/api/login': typeof ApiLoginRoute
   '/api/logout': typeof ApiLogoutRoute
+  '/api/me': typeof ApiMeRoute
   '/api/reset': typeof ApiResetRoute
   '/api/signup': typeof ApiSignupRoute
   '/learn/$slug': typeof LearnSlugRoute
@@ -232,6 +239,7 @@ export interface FileRoutesByTo {
   '/api/forgot': typeof ApiForgotRoute
   '/api/login': typeof ApiLoginRoute
   '/api/logout': typeof ApiLogoutRoute
+  '/api/me': typeof ApiMeRoute
   '/api/reset': typeof ApiResetRoute
   '/api/signup': typeof ApiSignupRoute
   '/learn/$slug': typeof LearnSlugRoute
@@ -264,6 +272,7 @@ export interface FileRoutesById {
   '/api/forgot': typeof ApiForgotRoute
   '/api/login': typeof ApiLoginRoute
   '/api/logout': typeof ApiLogoutRoute
+  '/api/me': typeof ApiMeRoute
   '/api/reset': typeof ApiResetRoute
   '/api/signup': typeof ApiSignupRoute
   '/learn/$slug': typeof LearnSlugRoute
@@ -297,6 +306,7 @@ export interface FileRouteTypes {
     | '/api/forgot'
     | '/api/login'
     | '/api/logout'
+    | '/api/me'
     | '/api/reset'
     | '/api/signup'
     | '/learn/$slug'
@@ -328,6 +338,7 @@ export interface FileRouteTypes {
     | '/api/forgot'
     | '/api/login'
     | '/api/logout'
+    | '/api/me'
     | '/api/reset'
     | '/api/signup'
     | '/learn/$slug'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/api/forgot'
     | '/api/login'
     | '/api/logout'
+    | '/api/me'
     | '/api/reset'
     | '/api/signup'
     | '/learn/$slug'
@@ -391,6 +403,7 @@ export interface RootRouteChildren {
   ApiForgotRoute: typeof ApiForgotRoute
   ApiLoginRoute: typeof ApiLoginRoute
   ApiLogoutRoute: typeof ApiLogoutRoute
+  ApiMeRoute: typeof ApiMeRoute
   ApiResetRoute: typeof ApiResetRoute
   ApiSignupRoute: typeof ApiSignupRoute
   LearnSlugRoute: typeof LearnSlugRoute
@@ -514,6 +527,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/me': {
+      id: '/api/me'
+      path: '/api/me'
+      fullPath: '/api/me'
+      preLoaderRoute: typeof ApiMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/reset': {
       id: '/api/reset'
       path: '/api/reset'
@@ -631,6 +651,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiForgotRoute: ApiForgotRoute,
   ApiLoginRoute: ApiLoginRoute,
   ApiLogoutRoute: ApiLogoutRoute,
+  ApiMeRoute: ApiMeRoute,
   ApiResetRoute: ApiResetRoute,
   ApiSignupRoute: ApiSignupRoute,
   LearnSlugRoute: LearnSlugRoute,

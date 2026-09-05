@@ -16,7 +16,17 @@ export const MAX_FAILURES = 5;
 export const LOCKOUT_MS = 60_000;
 const MIN_TOKEN_LENGTH = 32;
 
-const sessions = new Map<string, { createdAt: number; expiresAt: number }>();
+/**
+ * Who a session belongs to. Optional because the operator TOKEN path is a
+ * break-glass credential with no account behind it — that session is genuinely
+ * anonymous and must stay that way rather than being attributed to someone.
+ */
+export type SessionUser = { email: string; name: string; imageUrl?: string | null };
+
+const sessions = new Map<
+  string,
+  { createdAt: number; expiresAt: number; user?: SessionUser }
+>();
 const failures = new Map<string, { count: number; lockedUntil: number; lastAt: number }>();
 const FAILURE_TTL_MS = 60 * 60 * 1000;
 const MAX_TRACKED_CLIENTS = 10_000;
@@ -86,10 +96,22 @@ export function attemptLogin(
   return { ok: true, sessionId: createSession(now) };
 }
 
-export function createSession(now = Date.now()): string {
+export function createSession(now = Date.now(), user?: SessionUser): string {
   const id = randomBytes(32).toString("hex");
-  sessions.set(id, { createdAt: now, expiresAt: now + SESSION_TTL_MS });
+  sessions.set(id, { createdAt: now, expiresAt: now + SESSION_TTL_MS, user });
   return id;
+}
+
+/**
+ * The account behind a session, or null for the token path and for anything
+ * expired. Read through the same expiry check as `hasSession` so a stale
+ * session can never surface a name.
+ */
+export function sessionUser(id: string | undefined, now = Date.now()): SessionUser | null {
+  if (!id) return null;
+  const s = sessions.get(id);
+  if (!s || s.expiresAt <= now) return null;
+  return s.user ?? null;
 }
 
 export function hasSession(id: string | undefined, now = Date.now()): boolean {

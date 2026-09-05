@@ -148,14 +148,33 @@ chmod 600 .env
 
 BK="/root/nginx-backup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BK"
-cp -a /etc/nginx/sites-enabled/. "$BK"/ 2>/dev/null || true
+# -L DEREFERENCES. sites-enabled holds symlinks into sites-available, so a plain
+# `cp -a` backs up dangling links whose targets this script then overwrites --
+# the backup was useless at the one moment it was needed (2026-09-05).
+cp -aL /etc/nginx/sites-enabled/. "$BK"/ 2>/dev/null || true
 
-cp -f deploy/nginx-citefleet.app.conf /etc/nginx/sites-available/citefleet
-ln -sfn /etc/nginx/sites-available/citefleet /etc/nginx/sites-enabled/citefleet
-nginx -t
-systemctl reload nginx
-
+# BUILD FIRST. Everything below this line mutates live serving state, so a build
+# failure must happen while nothing has been touched yet. This ordering is not
+# cosmetic: on 2026-09-05 a stale COPY in the Dockerfile failed the build AFTER
+# nginx had already been reloaded onto the plain-HTTP bootstrap config, and
+# citefleet.app served without its certificate until someone noticed.
 docker build -t "$IMAGE" .
+
+CERT_DIR="$(ls -d /etc/letsencrypt/live/*citefleet* 2>/dev/null | head -1 || true)"
+
+# The bootstrap vhost is plain HTTP -- it exists so certbot has something to
+# answer on before a certificate is issued. Laying it over a working TLS vhost
+# is a downgrade, so it is only used when there is genuinely no cert yet.
+if [[ -z "$CERT_DIR" || ! -f "$CERT_DIR/fullchain.pem" ]]; then
+  echo "No certificate for $DOMAIN yet -- installing the plain-HTTP bootstrap vhost."
+  cp -f deploy/nginx-citefleet.app.conf /etc/nginx/sites-available/citefleet
+  ln -sfn /etc/nginx/sites-available/citefleet /etc/nginx/sites-enabled/citefleet
+  nginx -t
+  systemctl reload nginx
+else
+  echo "Certificate present ($CERT_DIR) -- leaving the TLS vhost in place until the new one is written."
+fi
+
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 docker run -d \
   --name "$CONTAINER" \
@@ -164,7 +183,8 @@ docker run -d \
   --env-file .env \
   -p "$HOST_PORT":3000 \
   "$IMAGE"
-CERT_DIR="$(ls -d /etc/letsencrypt/live/*citefleet* 2>/dev/null | head -1 || true)"
+
+# CERT_DIR was resolved before the build (see above).
 if [[ -n "$CERT_DIR" && -f "$CERT_DIR/fullchain.pem" ]]; then
   cat > /etc/nginx/sites-available/citefleet <<NGX
 server {

@@ -1,5 +1,65 @@
 import { Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { BrandLogo } from "./BrandLogo";
+
+type Me = { email: string; name: string; imageUrl?: string | null } | null;
+
+/**
+ * Who is signed in, for the header. Null is normal — the operator token path
+ * has no account behind it — so this renders nothing rather than a placeholder.
+ */
+function useMe(): Me {
+  const [me, setMe] = useState<Me>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/me", { headers: { Accept: "application/json" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (live && d && typeof d.email === "string") setMe(d);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+  return me;
+}
+
+function initials(name: string, email: string): string {
+  const from = (name || email).trim();
+  const parts = from.split(/[\s@._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
+function Avatar({ me }: { me: NonNullable<Me> }) {
+  const [broken, setBroken] = useState(false);
+  const label = me.name || me.email;
+  // A provider CDN URL can 404 without warning when someone changes their
+  // picture, so initials are the fallback rather than a broken-image icon.
+  if (me.imageUrl && !broken) {
+    return (
+      <img
+        src={me.imageUrl}
+        alt={label}
+        title={me.email}
+        referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
+        className="h-8 w-8 shrink-0 rounded-full border border-white/15 object-cover"
+        data-testid="avatar"
+      />
+    );
+  }
+  return (
+    <span
+      title={me.email}
+      aria-label={label}
+      data-testid="avatar"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[11px] font-semibold text-[#cfc8e8]"
+    >
+      {initials(me.name, me.email)}
+    </span>
+  );
+}
 
 const NAV = [
   { to: "/start", label: "Get started" },
@@ -23,6 +83,7 @@ export function Shell({
   title?: string;
   eyebrow?: string;
 }) {
+  const me = useMe();
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07060f]/80 backdrop-blur-xl">
@@ -57,7 +118,8 @@ export function Shell({
               BotCentral
             </a>
           </nav>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {me && <Avatar me={me} />}
             <form method="post" action="/api/logout">
               <button className="rounded-full border border-white/10 px-3 py-1 text-xs text-[#cfc8e8] hover:bg-white/5">
                 Sign out

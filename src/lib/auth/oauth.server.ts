@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { isAllowedEmail } from "./operator-allowlist.ts";
+import type { SessionUser } from "./operator-core.ts";
 import {
   createSession,
   readCookie,
@@ -10,6 +11,20 @@ const STATE_COOKIE = "citefleet_oauth";
 const STATE_TTL = 10 * 60;
 
 type Provider = "google" | "github";
+
+/**
+ * Only an https URL is ever stored or rendered. A provider response is remote
+ * input: anything else — http, data:, javascript: — must not reach an <img src>,
+ * and an http image would break the page's mixed-content posture anyway.
+ */
+function httpsImage(raw: unknown): string | undefined {
+  if (typeof raw !== "string" || !raw) return undefined;
+  try {
+    return new URL(raw).protocol === "https:" ? raw : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function env(name: string): string {
   return (process.env[name] || "").trim();
@@ -54,8 +69,14 @@ function loginError(reason: string): Response {
   return redirect(`/login?error=${reason}`);
 }
 
-function signedIn(request: Request, extraCookies: string[] = []): Response {
-  const session = sessionCookie(createSession(), { secure: isSecure(request) });
+function signedIn(
+  request: Request,
+  user?: SessionUser,
+  extraCookies: string[] = [],
+): Response {
+  const session = sessionCookie(createSession(Date.now(), user ?? undefined), {
+    secure: isSecure(request),
+  });
   const cookies = [session, stateCookie("", request, 0), ...extraCookies];
   return new Response(null, {
     status: 303,
@@ -114,8 +135,13 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
         providerId: profile.id,
         email: profile.email,
         name: profile.name,
+        image: profile.image,
       });
-      return signedIn(request);
+      return signedIn(request, {
+        email: profile.email,
+        name: profile.name,
+        imageUrl: profile.image ?? null,
+      });
     }
     const profile = await githubProfile(code, publicOrigin(request));
     // Checked BEFORE the workspace GitHub token is touched.
@@ -128,18 +154,23 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
       email: profile.email,
       name: profile.name,
       githubToken: profile.token,
+      image: profile.image,
     });
     if (profile.token) {
       const { setGithubToken } = await import("@/lib/citefleet/github");
       await setGithubToken(profile.token);
     }
-    return signedIn(request);
+    return signedIn(request, {
+      email: profile.email,
+      name: profile.name,
+      imageUrl: profile.image ?? null,
+    });
   } catch {
     return loginError("oauth-failed");
   }
 }
 
-async function googleProfile(code: string, origin: string): Promise<{ id: string; email: string; name: string; verified: boolean }> {
+async function googleProfile(code: string, origin: string): Promise<{ id: string; email: string; name: string; verified: boolean; image?: string }> {
   const body = new URLSearchParams({
     code,
     client_id: env("GOOGLE_CLIENT_ID"),
@@ -159,15 +190,21 @@ async function googleProfile(code: string, origin: string): Promise<{ id: string
     headers: { Authorization: `Bearer ${tokenJson.access_token}` },
   });
   if (!me.ok) throw new Error("google userinfo");
-  const profile = (await me.json()) as { id?: string; email?: string; name?: string; verified_email?: boolean };
+  const profile = (await me.json()) as { id?: string; email?: string; name?: string; verified_email?: boolean; picture?: string };
   if (!profile.id || !profile.email) throw new Error("google profile");
-  return { id: profile.id, email: profile.email, name: profile.name || profile.email, verified: profile.verified_email === true };
+  return {
+    id: profile.id,
+    email: profile.email,
+    name: profile.name || profile.email,
+    verified: profile.verified_email === true,
+    image: httpsImage(profile.picture),
+  };
 }
 
 async function githubProfile(
   code: string,
   origin: string,
-): Promise<{ id: string; email: string; name: string; token: string; verified: boolean }> {
+): Promise<{ id: string; email: string; name: string; token: string; verified: boolean; image?: string }> {
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
@@ -186,7 +223,7 @@ async function githubProfile(
     headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "citefleet" },
   });
   if (!me.ok) throw new Error("github user");
-  const user = (await me.json()) as { id?: number; login?: string; name?: string; email?: string | null };
+  const user = (await me.json()) as { id?: number; login?: string; name?: string; email?: string | null; avatar_url?: string };
   // Only a VERIFIED address may match the allow-list: the public profile email
   // and the noreply fallback are not proof of anything.
   let email = "";
@@ -206,6 +243,7 @@ async function githubProfile(
     email,
     name: user.name || user.login || email,
     token,
+    image: httpsImage(user.avatar_url),
   };
 }
 
