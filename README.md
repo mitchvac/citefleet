@@ -7,6 +7,17 @@ and Meta AI coverage.
 
 Live domain: [citefleet.app](https://citefleet.app)
 
+## Find the web before you crawl it.
+
+BotCentral is an owner-proven discovery registry for AI agents. Search verified
+websites, understand retrieval/training/action consent, and discover
+machine-readable resources before crawling the open web.
+
+CiteFleet is the publisher side of that registry: it onboards an origin, proves
+ownership, and publishes the card. BotCentral is the neutral registry bots query
+— the two stay separate on purpose. The card format is specified in
+`draft-mitchell-botcentral-card-00`, an active IETF Internet-Draft.
+
 ## How a site gets listed
 
 1. Onboard the origin on Command (a customer is only a URL; nothing customer-specific is in code).

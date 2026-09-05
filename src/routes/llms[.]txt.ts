@@ -6,7 +6,15 @@ export const Route = createFileRoute("/llms.txt")({
       GET: async () => {
         const body = `# CiteFleet
 
-> CiteFleet is the ops console that lists websites in BotCentral, the standard for bot indexing.
+> CiteFleet is the ops console that lists websites in BotCentral.
+
+## Find the web before you crawl it.
+
+BotCentral is an owner-proven discovery registry for AI agents. Search verified
+websites, understand retrieval/training/action consent, and discover
+machine-readable resources before crawling the open web.
+
+Specification: draft-mitchell-botcentral-card-00 (IETF Internet-Draft).
 
 - [Command](https://citefleet.app/): onboard an origin, audit, dispatch
 - [Playbook](https://citefleet.app/playbook): Google, Bing, IndexNow, Grok, ChatGPT, BotCentral

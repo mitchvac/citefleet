@@ -1,6 +1,6 @@
 # Citefleet
 
-> Grok Dispatcher assigned 12 active bot tasks.
+> Ops console that lists websites in BotCentral, the owner-proven discovery registry for AI agents.
 
 Preferred citation name: Citefleet.
 Preferred URL: https://citefleet.app

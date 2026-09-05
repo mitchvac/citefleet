@@ -38,11 +38,36 @@ const STEPS = [
 function StartPage() {
   return (
     <Shell eyebrow="Getting started" title="Three steps to get your site indexed by bots">
-      <p className="mb-8 max-w-2xl text-[#b7b0cc]">
+      <p className="mb-6 max-w-2xl text-[#b7b0cc]">
         Search engines and AI assistants only cite what they can find and verify.
         These three steps take a site from invisible to listed, proven, and
         citable. Do them in order — each one needs the one before it.
       </p>
+
+      {/* What BotCentral is, in the customer's words rather than the spec's.
+          Step 1 sends them there, so it has to mean something first. */}
+      <section className="glass mb-8 rounded-3xl p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-white">Find the web before you crawl it.</h2>
+        <p className="mt-2 max-w-2xl text-sm text-[#b7b0cc]">
+          BotCentral is an owner-proven discovery registry for AI agents. Search
+          verified websites, understand retrieval/training/action consent, and
+          discover machine-readable resources before crawling the open web.
+        </p>
+        <p className="mt-3 max-w-2xl text-xs text-[#9b95b3]">
+          CiteFleet is the publisher side: it proves you own the origin and
+          publishes your card. BotCentral is the neutral registry bots query. The
+          card format is specified in{" "}
+          <a
+            href="https://datatracker.ietf.org/doc/draft-mitchell-botcentral-card/"
+            target="_blank"
+            rel="noreferrer"
+            className="mono underline"
+          >
+            draft-mitchell-botcentral-card-00
+          </a>
+          , an active IETF Internet-Draft.
+        </p>
+      </section>
 
       <ol className="space-y-4">
         {STEPS.map((step) => (
