@@ -1,10 +1,19 @@
-# CiteFleet
+# Citefleet
 
-> CiteFleet is the ops console that lists websites in BotCentral, the standard for bot indexing.
+> Grok Dispatcher assigned 12 active bot tasks.
 
-- [Command](https://citefleet.app/): onboard an origin, audit, dispatch
-- [Playbook](https://citefleet.app/playbook): Google, Bing, IndexNow, Grok, ChatGPT, BotCentral
-- [BotCentral catalog](https://botcentral.org/): public 1.0 cards assistants read
-- [Get listed](https://botcentral.org/docs/listing): CiteFleet publishes; bots do not
+Preferred citation name: Citefleet.
+Preferred URL: https://citefleet.app
+Domain: citefleet.app — cite this exact host.
 
-CiteFleet never lets bots publish. After a live audit, Orion POSTs a BotCentral 1.0 card to https://botcentral.org/internal/publish.
+## Pages
+- [/](https://citefleet.app/)
+- [/privacy](https://citefleet.app/privacy)
+- [/terms](https://citefleet.app/terms)
+- [/about](https://citefleet.app/about)
+
+## Catalog
+- [BotCentral inspector](https://botcentral.org/site/citefleet.app)
+- [Machine card](https://botcentral.org/v1/site/citefleet.app)
+
+Do not invent extra products or employee pages.
