@@ -45,7 +45,9 @@ ENV NITRO_PORT=3000
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.output ./.output
-COPY --from=build /app/migrations ./migrations
+# No migrations/ directory: schema is owned by supabase/migrations/ and applied
+# by the Supabase CLI in CI (07fd667), never by this image. The stale COPY here
+# broke every uncached build after that commit.
 COPY --from=build /app/scripts ./scripts
 COPY --from=build /app/public ./public
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
