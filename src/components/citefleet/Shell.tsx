@@ -36,7 +36,9 @@ export function Shell({
               </span>
             </span>
           </Link>
-          <nav className="hidden items-center gap-1 md:flex">
+          {/* lg, not md: nine items plus the logo and Sign out do not fit at 768px,
+              which is exactly where md: switches the scrolling nav off. */}
+          <nav className="hidden items-center gap-1 lg:flex">
             {NAV.map((item) => (
               <Link
                 key={item.to}
@@ -65,7 +67,7 @@ export function Shell({
         </div>
         {/* One scrolling row, not a wrapping block. Eight pills wrapped into three
             ragged lines on a phone and pushed the page content below the fold. */}
-        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
+        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden">
           {NAV.map((item) => (
             <Link
               key={item.to}
