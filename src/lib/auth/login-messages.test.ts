@@ -20,6 +20,19 @@ function serverErrorCodes(): string[] {
   const reasons = read("operator-core.ts").match(/reason: ((?:"[a-z-]+"(?: \| )?)+)/);
   assert.ok(reasons, "positive control: LoginResult reasons found in operator-core.ts");
   for (const m of reasons![1].matchAll(/"([a-z-]+)"/g)) codes.add(m[1]);
+  // reset.server.ts redirects with literal `?error=` strings rather than
+  // loginError(), plus `reset-${result.reason}` built from ConsumeResult.
+  const reset = read("reset.server.ts");
+  // Only LITERAL codes: the lookahead requires the string to end right after
+  // the code, so `?error=reset-${result.reason}` is not scraped as "reset-".
+  for (const m of reset.matchAll(/[?&]error=([a-z-]+)(?=["'`])/g)) codes.add(m[1]);
+  if (/error=reset-\$\{result\.reason\}/.test(reset)) {
+    const rejections = read("password-reset.ts").match(
+      /export type ResetRejection =\s*((?:"[a-z-]+"(?:\s*\|\s*)?)+)/,
+    );
+    assert.ok(rejections, "positive control: ResetRejection union found in password-reset.ts");
+    for (const m of rejections![1].matchAll(/"([a-z-]+)"/g)) codes.add(`reset-${m[1]}`);
+  }
   return [...codes].sort();
 }
 
@@ -28,6 +41,13 @@ test("every login error code the server emits has a specific message on /login",
   // Positive control: the scan sees the codes that were missing on 2026-09-03.
   assert.ok(codes.includes("not-allowed"), `scan found: ${codes.join(", ")}`);
   assert.ok(codes.includes("email-unverified"), `scan found: ${codes.join(", ")}`);
+  // Positive control for the reset half: the scan must reach reset.server.ts and
+  // expand the ResetRejection union, or it silently covers nothing there.
+  assert.ok(codes.includes("mail-unavailable"), `scan found: ${codes.join(", ")}`);
+  assert.ok(codes.includes("reset-expired"), `scan found: ${codes.join(", ")}`);
+  assert.ok(codes.includes("reset-weak-password"), `scan found: ${codes.join(", ")}`);
+  // Negative control: the template literal must not leak a truncated code.
+  assert.ok(!codes.includes("reset-"), `scan scraped a partial code: ${codes.join(", ")}`);
   assert.ok(
     codes.length >= 10,
     `positive control: expected at least 10 codes, found ${codes.length}`,

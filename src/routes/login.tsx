@@ -6,12 +6,17 @@ import { loginMessage } from "@/lib/auth/login-messages";
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
   const [oauth, setOauth] = useState<{ google: boolean; github: boolean }>({ google: true, github: true });
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("error");
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("error");
     setError(loginMessage(code));
+    // /api/forgot always redirects here with ?sent=1, whether or not the address
+    // has an account — see handleForgot. The wording must not imply it did.
+    setSent(params.get("sent") === "1");
     fetch("/api/oauth/providers")
       .then((r) => r.json())
       .then((d) => {
@@ -47,6 +52,15 @@ function LoginPage() {
             {error}
           </p>
         )}
+        {sent && !error && (
+          <p
+            className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200"
+            data-testid="login-sent"
+          >
+            If that address has a CiteFleet account, a reset link is on its way.
+            It works once and expires in 30 minutes.
+          </p>
+        )}
 
         <div className="mt-6 space-y-2">
           <a
@@ -80,7 +94,13 @@ function LoginPage() {
 
         <form
           method="post"
-          action={mode === "signup" ? "/api/signup" : "/api/login"}
+          action={
+            mode === "forgot"
+              ? "/api/forgot"
+              : mode === "signup"
+                ? "/api/signup"
+                : "/api/login"
+          }
           className="space-y-3"
         >
           {mode === "signup" && (
@@ -105,21 +125,41 @@ function LoginPage() {
               placeholder="you@company.com"
             />
           </label>
-          <label className="block text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
-            Password
-            <input
-              name="password"
-              type="password"
-              required
-              minLength={8}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case tracking-normal text-white"
-              placeholder="At least 8 characters"
-            />
-          </label>
+          {mode !== "forgot" && (
+            <label className="block text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
+              Password
+              <input
+                name="password"
+                type="password"
+                required
+                minLength={8}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case tracking-normal text-white"
+                placeholder="At least 8 characters"
+              />
+            </label>
+          )}
           <button className="w-full rounded-xl bg-gradient-to-r from-[#6d4aff] to-[#4ee0c3] px-4 py-2.5 text-sm font-semibold text-[#07060f]">
-            {mode === "signin" ? "Sign in" : "Create account"}
+            {mode === "forgot"
+              ? "Email me a reset link"
+              : mode === "signin"
+                ? "Sign in"
+                : "Create account"}
           </button>
+          {mode === "signin" && (
+            <button
+              type="button"
+              className="w-full text-center text-xs text-[#9b95b3] underline-offset-4 hover:text-[#cfc8e8] hover:underline"
+              data-testid="forgot-password"
+              onClick={() => {
+                setMode("forgot");
+                setError(null);
+                setSent(false);
+              }}
+            >
+              Forgot your password?
+            </button>
+          )}
         </form>
         <p className="mt-5 text-center text-sm text-[#9b95b3]">
           {mode === "signin" ? (
