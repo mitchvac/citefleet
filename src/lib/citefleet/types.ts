@@ -100,6 +100,26 @@ export interface Site {
     /** Recent delivery ids (GitHub retries / replays are answered without re-running the check). */
     recentDeliveries?: string[];
   };
+  /**
+   * The customer's own BotCentral API key, by prefix (bc_live_…). Publishing
+   * sends it ONLY while CITEFLEET_BOTCENTRAL_BILLING=on; BotCentral debits a
+   * listing year from that key when the proven card is written. Never a secret:
+   * the prefix is what BotCentral's own top-up links carry.
+   */
+  billing?: { keyPrefix: string; setAt: string };
+  /**
+   * The paid term, as BotCentral last reported it (publish response or the
+   * site.lapsed webhook). Lives beside `botcentral`, not inside it, because
+   * `hydrateListings` rebuilds `botcentral` from the public card on every load
+   * and the public card carries no term.
+   */
+  term?: import("./listing-term").ListingTerm & { at: string; source: "publish" | "webhook" };
+  /** The last 402 from a publish: what BotCentral wants and where to fund it. Cleared by a successful publish. */
+  payment?: import("./listing-term").PaymentRequired & { at: string };
+  /** The `paidUntil` a renewal notice was last sent for, so each term is warned about once. */
+  renewalNoticeFor?: string;
+  /** Last signed BotCentral event received at /api/hooks/botcentral for this host. */
+  catalogHook?: { lastEventAt: string; lastEvent: string };
   routes: string[];
   createdAt: string;
   lastAuditAt?: string;

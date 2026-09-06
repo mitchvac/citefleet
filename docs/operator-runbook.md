@@ -27,7 +27,7 @@ Any other email is refused, and an empty list refuses everyone.
   restart or redeploy signs everyone out. Five wrong attempts from one address
   (token or password) lock that address out for 60 seconds.
 - Public without sign-in: `/health`, `/llms.txt`, `/sitemap.xml`, the
-  Training pages, `/login`, and the two hook endpoints.
+  Training pages, `/login`, and the three hook endpoints (signature only).
 
 Local development:
 
@@ -91,6 +91,49 @@ BotCentral `bj_…` id with the quoted amount) and pays out of band.
 Refused when the **spend** door (or the global kill switch) is on in Monitor,
 when you are signed out, or when `BOTCENTRAL_SERVICE_TOKEN` is missing.
 
+## The listing year (BotCentral billing)
+
+BotCentral bills like a domain registry (its brief of 2026-09-06): **$10.00 per
+host per year**, debited from the customer's own `bc_live_` key when the proven
+card is written. Edits inside the year are free, reads are free, a failed proof
+costs nothing, and a year nobody renews lapses — the card stays in the catalog,
+unproven, until a publish with a funded key renews it. CiteFleet collects (the
+customer tops up at `/topup`); BotCentral debits the key.
+
+Nothing is charged until this install sends the key prefix, and the brief is
+explicit: **do not send it until a key is funded**, because every publish with
+an unfunded key is a 402. In order:
+
+1. **Fund a key end to end.** The customer creates a key on botcentral.org,
+   opens an invoice at `/topup?prefix=bc_live_…&product=botcentral`, pays, and
+   the balance is credited (automatically for RLUSD/XRP/BTC/ETH/XDC, by your
+   confirmation otherwise — see the top-up section above). A year needs $10 on
+   the key, so the $5 minimum alone is not enough.
+2. **Enter the key on the campaign page** (Listing year panel → BotCentral API
+   key prefix → Save). It is stored, not sent, while the switch is off.
+3. **Turn the switch on**: `ssh root@144.91.66.158 'touch /root/citefleet-billing.on'`
+   then redeploy. `/health` shows `"billing":"on"`. From then on **List on
+   BotCentral** carries the key: the first proven publish buys the year
+   (`billed: true`, the audit log names the end date), every later publish
+   inside the year is a free edit, and a 402 blocks the task with the top-up
+   link instead of writing anything. A publish that would carry a key also
+   needs the **spend** door open on Monitor.
+4. **Watch the year.** The campaign page shows when the year ends; the
+   reconcile check `BotCentral listing year` goes warn 30 days out and critical
+   once lapsed; each control cycle emails every allow-listed operator once per
+   term end (if SMTP is configured) and writes the same line to the audit log.
+   Renewal is a top-up plus **List on BotCentral**; the new year runs from that
+   day.
+
+BotCentral also tells CiteFleet when a card changes without a publish:
+`POST /api/hooks/botcentral` receives `site.reverified` (the 6-hour recheck
+downgraded or restored the card), `site.lapsed`, `site.listed` and
+`site.unpublished`, signed with the shared service token (or
+`BOTCENTRAL_WEBHOOK_SECRET` if both sides set one). Events for hosts that are
+not properties here — BotCentral's two seed fixtures fail every pass — are
+acknowledged and ignored. `/health` reports `catalogHook` and whether its
+signature can be verified.
+
 ## What the errors mean
 
 | Message | Cause | Do |
@@ -102,6 +145,9 @@ when you are signed out, or when `BOTCENTRAL_SERVICE_TOKEN` is missing.
 | Hook answers `401` | Wrong secret, unknown repository/domain, or tampered body — all look the same on purpose. | Rotate the secret and update the repository webhook. |
 | Hook answers `202 duplicate` / `in-progress` | GitHub redelivered an id, or a check from a moment ago is still running. | Nothing; the running check picks up the deploy. |
 | `BotCentral publish blocked` on the task | The catalog refused or the kill switch is on. | Read the evidence line; thaw on Monitor if frozen. |
+| `BotCentral needs a funded key` / `… does not hold the $10.00 …` (402) | Billing is on and the key cannot pay for a year: `insufficient`, `unknown` (no key matches the prefix), `revoked`, or `lapsed` (the year ended and no key was sent). Nothing was written. | Fund the key at the top-up link in the message, then List on BotCentral. |
+| `spend door is frozen` on List on BotCentral | Billing is on, the property has a key, and the spend door is closed. | Thaw spend on Monitor, or clear the key to publish unbilled. |
+| `Listing year ended …` on the campaign header | `site.lapsed` arrived or the stored end date passed. The card is listed but unproven; rechecks do not restore it. | Top up the key, then List on BotCentral. |
 
 ## Cleanup
 

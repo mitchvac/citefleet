@@ -1,5 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Site, StoreShape } from "./types";
+import type { ListingStatus, ListingTransition } from "./botcentral.ts";
+import { describeTerm, readTerm } from "./listing-term.ts";
 
 /**
  * GitHub webhook intake for automatic listing. A customer (or our own repos)
@@ -12,6 +14,7 @@ import type { Site, StoreShape } from "./types";
 
 export const GITHUB_HOOK_PATH = "/api/hooks/github";
 export const DEPLOYED_HOOK_PATH = "/api/hooks/deployed";
+export const BOTCENTRAL_HOOK_PATH = "/api/hooks/botcentral";
 
 export function payloadUrl(origin = process.env.PUBLIC_ORIGIN || "https://citefleet.app"): string {
   return `${origin.replace(/\/$/, "")}${GITHUB_HOOK_PATH}`;
@@ -19,6 +22,21 @@ export function payloadUrl(origin = process.env.PUBLIC_ORIGIN || "https://citefl
 
 export function deployedUrl(origin = process.env.PUBLIC_ORIGIN || "https://citefleet.app"): string {
   return `${origin.replace(/\/$/, "")}${DEPLOYED_HOOK_PATH}`;
+}
+
+export function botcentralHookUrl(origin = process.env.PUBLIC_ORIGIN || "https://citefleet.app"): string {
+  return `${origin.replace(/\/$/, "")}${BOTCENTRAL_HOOK_PATH}`;
+}
+
+/**
+ * What BotCentral signs its webhooks with (its src/lib/publisher.ts
+ * `webhookSecret`): BOTCENTRAL_WEBHOOK_SECRET when set, else the publisher's
+ * own token — which for CiteFleet is the shared BOTCENTRAL_SERVICE_TOKEN.
+ * Verified live 2026-09-06: the secret is unset on botcentral.org and the
+ * service token is identical on both boxes. Empty means fail closed.
+ */
+export function botcentralHookSecret(env: NodeJS.ProcessEnv = process.env): string {
+  return env.BOTCENTRAL_WEBHOOK_SECRET?.trim() || env.BOTCENTRAL_SERVICE_TOKEN?.trim() || "";
 }
 
 export function newWebhookSecret(): string {
@@ -208,4 +226,134 @@ export async function handleDeployedHook(
     return { status: 202, body: { ok: true, action: "duplicate", reason: "delivery already processed", site: site.domain } };
   }
   return finishDelivery(deps, site, { event: "deployed", delivery, actor: "CI", action: "check", reason: "deploy reported" });
+}
+
+/**
+ * BotCentral → CiteFleet. The catalog tells whoever listed a host when its
+ * card changes without a publish: the 6-hour recheck downgraded or restored
+ * it (site.reverified), its paid year ended (site.lapsed), a publisher
+ * removed it (site.unpublished), or a publish landed (site.listed).
+ *
+ * Contract (BotCentral src/lib/publisher.ts `notifyPublisher`): POST, headers
+ * `x-botcentral-event` and `x-botcentral-signature: sha256=<HMAC-SHA256 of the
+ * raw body>`, body `{botcentral, event, created, publisher, domain, href,
+ * verification, [term]}`. There is no delivery id; applying the same answer
+ * twice is a no-op because `listingTransition` only moves a task that is not
+ * already where the answer says it should be.
+ *
+ * A signed event for a host that is not a CiteFleet property is acknowledged
+ * and ignored — BotCentral's seed fixtures fail every pass and would otherwise
+ * be eight audit-log lines a day about sites nobody here owns.
+ */
+export const BOTCENTRAL_EVENTS = ["site.listed", "site.unpublished", "site.reverified", "site.lapsed"] as const;
+/** Matches `publisherReady()`'s floor on the service token, which is the default secret. */
+export const MIN_HOOK_SECRET = 16;
+export type BotcentralEvent = (typeof BOTCENTRAL_EVENTS)[number];
+
+function isBotcentralEvent(value: unknown): value is BotcentralEvent {
+  return typeof value === "string" && (BOTCENTRAL_EVENTS as readonly string[]).includes(value);
+}
+
+export interface CatalogHookDeps {
+  getStore: () => Promise<StoreShape>;
+  mutateStore: (fn: (store: StoreShape) => void) => Promise<unknown>;
+  /** `applyCatalogState` from botcentral.ts — injected so this module stays free of the store. */
+  apply: (store: StoreShape, site: Site, listing: ListingStatus, opts: { now: string }) => ListingTransition;
+  /** Where cards live, for the inspector link (`${catalog}/site/${domain}`). */
+  catalogUrl: string;
+  /** Defaults to `botcentralHookSecret()`; tests inject. */
+  secret?: string;
+  now?: () => Date;
+}
+
+function verificationOf(payload: Record<string, unknown>): Pick<ListingStatus, "verified" | "verificationMethod" | "verificationNote"> {
+  const block = payload.verification;
+  if (!block || typeof block !== "object") return { verified: undefined, verificationMethod: undefined, verificationNote: undefined };
+  const { method, note } = block as { method?: unknown; note?: unknown };
+  const verificationMethod = typeof method === "string" ? method : undefined;
+  const verificationNote = typeof note === "string" ? note : undefined;
+  return {
+    verified: verificationMethod ? verificationMethod !== "unverified" : undefined,
+    verificationMethod,
+    verificationNote,
+  };
+}
+
+export async function handleBotcentralWebhook(
+  input: { rawBody: string; header: (name: string) => string | null },
+  deps: CatalogHookDeps,
+): Promise<HookResponse> {
+  // Same floor /health reports (`catalogHookSecret`): a secret shorter than the
+  // service token's minimum is "not configured", whoever supplied it.
+  const secret = (deps.secret ?? botcentralHookSecret()).trim();
+  // Same `sha256=` hex format GitHub uses, so the same verifier applies.
+  if (secret.length < MIN_HOOK_SECRET || !verifyGithubSignature(input.rawBody, input.header("x-botcentral-signature"), secret)) {
+    return UNAUTHORIZED;
+  }
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(input.rawBody) as Record<string, unknown>;
+  } catch {
+    return { status: 400, body: { error: "body is not JSON" } };
+  }
+  const event = payload.event;
+  const headerEvent = input.header("x-botcentral-event");
+  // BotCentral always sends the header (publisher.ts `notifyPublisher`); a
+  // body that names an event its header does not is not BotCentral.
+  if (!isBotcentralEvent(event) || headerEvent !== event) {
+    return { status: 400, body: { error: "unknown or mismatched event" } };
+  }
+  const domain = typeof payload.domain === "string" ? payload.domain.trim().toLowerCase().replace(/^www\./, "") : "";
+  if (!domain) return { status: 400, body: { error: "domain is required" } };
+
+  const store = await deps.getStore();
+  const site = store.sites.find((s) => s.domain.replace(/^www\./, "").toLowerCase() === domain);
+  if (!site) {
+    return { status: 202, body: { ok: true, action: "ignore", event, reason: "not a CiteFleet property", domain } };
+  }
+
+  const at = (deps.now ?? (() => new Date()))().toISOString();
+  const base = deps.catalogUrl.replace(/\/$/, "");
+  const term = event === "site.lapsed" ? readTerm(payload.term) : undefined;
+  const verification = verificationOf(payload);
+  const answer: ListingStatus =
+    event === "site.unpublished"
+      ? { listed: false }
+      : {
+          listed: true,
+          ...verification,
+          // A lapse is not a proof failure the origin can fix; say what renews it.
+          verificationNote:
+            event === "site.lapsed" && term
+              ? `${verification.verificationNote ?? ""} ${describeTerm(term, Date.parse(at))}`.trim()
+              : verification.verificationNote,
+          href: `${base}/site/${domain}`,
+          api: `${base}/v1/site/${domain}`,
+          updated: typeof payload.created === "string" ? payload.created : at,
+        };
+
+  let move: ListingTransition = "none";
+  await deps.mutateStore((s) => {
+    const current = s.sites.find((x) => x.id === site.id);
+    if (!current) return;
+    current.catalogHook = { lastEventAt: at, lastEvent: event };
+    current.botcentral = answer.listed
+      ? { ...(current.botcentral ?? { listed: false }), ...answer, error: undefined }
+      : { ...(current.botcentral ?? {}), listed: false, verified: undefined, verificationMethod: undefined, error: undefined };
+    if (term) current.term = { ...term, at, source: "webhook" };
+    if (event === "site.listed") current.payment = undefined;
+    move = deps.apply(s, current, answer, { now: at });
+    s.activity.unshift({
+      id: crypto.randomUUID(),
+      at,
+      actor: "botcentral",
+      kind: "system",
+      siteId: site.id,
+      message:
+        event === "site.lapsed"
+          ? `BotCentral ${event} for ${site.domain}: ${describeTerm(term, Date.parse(at)) || "listing year ended"}`
+          : `BotCentral ${event} for ${site.domain}: ${answer.listed ? (answer.verificationMethod ?? "verification unknown") : "card removed"}${answer.verificationNote ? ` — ${answer.verificationNote}` : ""}`,
+    });
+  });
+  return { status: 202, body: { ok: true, action: move, event, site: site.domain } };
 }

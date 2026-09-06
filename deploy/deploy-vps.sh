@@ -142,6 +142,19 @@ fi
     printf 'GITHUB_OAUTH_CLIENT_ID=%s\n' "${_h[0]//$'\r'/}"
     printf 'GITHUB_OAUTH_CLIENT_SECRET=%s\n' "${_h[1]//$'\r'/}"
   fi
+  # Listing-year billing (BotCentral brief, 2026-09-06). OFF until a key has
+  # been funded end to end — a publish with an unfunded key is a 402. Turn it
+  # on with `touch /root/citefleet-billing.on` and redeploy; remove the file
+  # and redeploy to stop sending the key prefix again.
+  if [[ -e /root/citefleet-billing.on ]]; then
+    echo "CITEFLEET_BOTCENTRAL_BILLING=on"
+  fi
+  # BotCentral signs its webhooks with BOTCENTRAL_WEBHOOK_SECRET when it has
+  # one, else with the shared service token above. Only set this when the SAME
+  # value is set in /opt/botcentral/.env, or every event answers 401.
+  if [[ -s /root/citefleet-botcentral-webhook.secret ]]; then
+    printf 'BOTCENTRAL_WEBHOOK_SECRET=%s\n' "$(tr -d '\n' < /root/citefleet-botcentral-webhook.secret)"
+  fi
   printf 'DATABASE_URL=%s\n' "$DB_URL"
 } > .env
 chmod 600 .env

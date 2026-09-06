@@ -32,6 +32,7 @@ import { Route as LearnSlugRouteImport } from './routes/learn/$slug'
 import { Route as LearnGlossaryRouteImport } from './routes/learn/glossary'
 import { Route as LearnQuizRouteImport } from './routes/learn/quiz'
 import { Route as SitesIdRouteImport } from './routes/sites/$id'
+import { Route as ApiHooksBotcentralRouteImport } from './routes/api/hooks/botcentral'
 import { Route as ApiHooksDeployedRouteImport } from './routes/api/hooks/deployed'
 import { Route as ApiHooksGithubRouteImport } from './routes/api/hooks/github'
 import { Route as ApiOauthGithubRouteImport } from './routes/api/oauth/github'
@@ -155,6 +156,11 @@ const SitesIdRoute = SitesIdRouteImport.update({
   path: '/sites/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHooksBotcentralRoute = ApiHooksBotcentralRouteImport.update({
+  id: '/api/hooks/botcentral',
+  path: '/api/hooks/botcentral',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHooksDeployedRoute = ApiHooksDeployedRouteImport.update({
   id: '/api/hooks/deployed',
   path: '/api/hooks/deployed',
@@ -215,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/learn/quiz': typeof LearnQuizRoute
   '/sites/$id': typeof SitesIdRoute
   '/learn/': typeof LearnIndexRoute
+  '/api/hooks/botcentral': typeof ApiHooksBotcentralRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
   '/api/hooks/github': typeof ApiHooksGithubRoute
   '/api/oauth/github': typeof ApiOauthGithubRoute
@@ -247,6 +254,7 @@ export interface FileRoutesByTo {
   '/learn/quiz': typeof LearnQuizRoute
   '/sites/$id': typeof SitesIdRoute
   '/learn': typeof LearnIndexRoute
+  '/api/hooks/botcentral': typeof ApiHooksBotcentralRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
   '/api/hooks/github': typeof ApiHooksGithubRoute
   '/api/oauth/github': typeof ApiOauthGithubRoute
@@ -280,6 +288,7 @@ export interface FileRoutesById {
   '/learn/quiz': typeof LearnQuizRoute
   '/sites/$id': typeof SitesIdRoute
   '/learn/': typeof LearnIndexRoute
+  '/api/hooks/botcentral': typeof ApiHooksBotcentralRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
   '/api/hooks/github': typeof ApiHooksGithubRoute
   '/api/oauth/github': typeof ApiOauthGithubRoute
@@ -314,6 +323,7 @@ export interface FileRouteTypes {
     | '/learn/quiz'
     | '/sites/$id'
     | '/learn/'
+    | '/api/hooks/botcentral'
     | '/api/hooks/deployed'
     | '/api/hooks/github'
     | '/api/oauth/github'
@@ -346,6 +356,7 @@ export interface FileRouteTypes {
     | '/learn/quiz'
     | '/sites/$id'
     | '/learn'
+    | '/api/hooks/botcentral'
     | '/api/hooks/deployed'
     | '/api/hooks/github'
     | '/api/oauth/github'
@@ -378,6 +389,7 @@ export interface FileRouteTypes {
     | '/learn/quiz'
     | '/sites/$id'
     | '/learn/'
+    | '/api/hooks/botcentral'
     | '/api/hooks/deployed'
     | '/api/hooks/github'
     | '/api/oauth/github'
@@ -411,6 +423,7 @@ export interface RootRouteChildren {
   LearnQuizRoute: typeof LearnQuizRoute
   SitesIdRoute: typeof SitesIdRoute
   LearnIndexRoute: typeof LearnIndexRoute
+  ApiHooksBotcentralRoute: typeof ApiHooksBotcentralRoute
   ApiHooksDeployedRoute: typeof ApiHooksDeployedRoute
   ApiHooksGithubRoute: typeof ApiHooksGithubRoute
   ApiOauthGithubRoute: typeof ApiOauthGithubRoute
@@ -583,6 +596,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hooks/botcentral': {
+      id: '/api/hooks/botcentral'
+      path: '/api/hooks/botcentral'
+      fullPath: '/api/hooks/botcentral'
+      preLoaderRoute: typeof ApiHooksBotcentralRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hooks/deployed': {
       id: '/api/hooks/deployed'
       path: '/api/hooks/deployed'
@@ -659,6 +679,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnQuizRoute: LearnQuizRoute,
   SitesIdRoute: SitesIdRoute,
   LearnIndexRoute: LearnIndexRoute,
+  ApiHooksBotcentralRoute: ApiHooksBotcentralRoute,
   ApiHooksDeployedRoute: ApiHooksDeployedRoute,
   ApiHooksGithubRoute: ApiHooksGithubRoute,
   ApiOauthGithubRoute: ApiOauthGithubRoute,

@@ -1,7 +1,8 @@
 import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook";
 import { FLEET_TEMPLATE } from "./bots";
 import { auditSite } from "./auditor";
-import { publishListing } from "./botcentral";
+import { billingEnabled, billingPrefixFor, publishListing } from "./botcentral";
+import { cleanPrefix } from "./topup.ts";
 import {
   getStore,
   logActivity,
@@ -409,6 +410,10 @@ export async function publishSiteToBotCentral(siteId: string) {
   const store = await getStore();
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
+  // A publish that carries a key prefix spends the customer's balance (a
+  // listing year is debited when the proven card is written), so it needs the
+  // spend door open as well as the catalog door.
+  if (billingPrefixFor(site)) assertCanAct(preview, "spend");
 
   // Persist the token the card carries so the campaign page can show the line
   // the origin must serve.
@@ -424,17 +429,28 @@ export async function publishSiteToBotCentral(siteId: string) {
     ? await publishListing({ ...site, verifyToken })
     : { listed: false, error: `Proof not live yet — ${proof.note}` };
 
+  // The term, the bill and a 402 are billing facts and live on the site, not on
+  // the catalog snapshot that hydrateListings rebuilds from the public card.
+  const { term, billed, payment, ...catalog } = listing;
+  const at = new Date().toISOString();
+  const paymentLine = payment
+    ? `${payment.message}. Top up the key at ${payment.topup}, then List on BotCentral.`
+    : undefined;
+
   await mutateStore((s) => {
     const current = s.sites.find((x) => x.id === siteId);
     if (current) {
       current.verifyToken = verifyToken;
-      // A rejected publish (422, catalog down) must not flip an already-listed
+      // A rejected publish (422, 402, catalog down) must not flip an already-listed
       // site to "not listed": the catalog row is untouched. Keep the listing and
       // surface the error beside it.
       current.botcentral =
-        listing.listed || !current.botcentral?.listed
-          ? listing
-          : { ...current.botcentral, error: listing.error };
+        catalog.listed || !current.botcentral?.listed
+          ? catalog
+          : { ...current.botcentral, error: catalog.error };
+      if (term) current.term = { ...term, at, source: "publish" };
+      if (payment) current.payment = { ...payment, at };
+      else if (catalog.listed) current.payment = undefined;
     }
     const task = s.tasks.find(
       (t) => t.siteId === siteId && t.playbookId === "botcentral_list",
@@ -442,16 +458,22 @@ export async function publishSiteToBotCentral(siteId: string) {
     if (task) {
       task.evidence.unshift({
         id: crypto.randomUUID(),
-        at: new Date().toISOString(),
+        at,
         kind: "http",
-        label: listing.listed ? "Published to BotCentral" : "BotCentral publish blocked",
-        detail: listing.href || listing.error,
-        url: listing.href,
-        ok: listing.listed,
+        label: catalog.listed
+          ? billed
+            ? "Published to BotCentral — listing year bought"
+            : "Published to BotCentral"
+          : payment
+            ? "BotCentral needs a funded key"
+            : "BotCentral publish blocked",
+        detail: catalog.href || paymentLine || catalog.error,
+        url: catalog.href || payment?.topup,
+        ok: catalog.listed,
       });
-      if (listing.listed) {
+      if (catalog.listed) {
         task.status = "done";
-        task.completedAt = new Date().toISOString();
+        task.completedAt = at;
         task.checklist = task.checklist.map((c) => ({ ...c, done: true }));
         task.blockedReason = undefined;
         if (task.botId) {
@@ -459,9 +481,9 @@ export async function publishSiteToBotCentral(siteId: string) {
         }
       } else {
         task.status = "blocked";
-        task.blockedReason = listing.error || "catalog rejected the card";
+        task.blockedReason = paymentLine || catalog.error || "catalog rejected the card";
       }
-      task.updatedAt = new Date().toISOString();
+      task.updatedAt = at;
     }
     recalcScores(s, siteId);
     logActivity(s, {
@@ -469,19 +491,58 @@ export async function publishSiteToBotCentral(siteId: string) {
       kind: "index",
       siteId,
       botId: "bot-orion",
-      message: listing.listed
-        ? `${site.domain} is live on BotCentral (${listing.href}).`
-        : `BotCentral did not list ${site.domain}: ${listing.error}`,
+      message: catalog.listed
+        ? billed && term?.paidUntil
+          ? `${site.domain} is live on BotCentral (${catalog.href}). Listing year bought for $${term.usd}; ends ${term.paidUntil.slice(0, 10)}.`
+          : `${site.domain} is live on BotCentral (${catalog.href}).`
+        : payment
+          ? `BotCentral did not list ${site.domain} — ${payment.reason}: ${paymentLine}`
+          : `BotCentral did not list ${site.domain}: ${catalog.error}`,
     });
   });
 
-  if (!listing.listed) {
-    throw new Error(listing.error || "BotCentral did not list the site");
+  if (!catalog.listed) {
+    throw new Error(paymentLine || catalog.error || "BotCentral did not list the site");
   }
   // The raw catalog card is Record<string, unknown> — not a serializable server-fn
   // return. Callers only need the status fields.
   const { card: _card, ...status } = listing;
   return status;
+}
+
+/**
+ * Record the customer's BotCentral key prefix on the property, or clear it.
+ * Storing it never sends it: the publish path consults the billing switch
+ * (`billingPrefixFor`), so a key can be entered today and start paying only
+ * when CITEFLEET_BOTCENTRAL_BILLING is turned on.
+ */
+export async function setBillingKey(siteId: string, raw: string) {
+  const value = raw.trim();
+  const keyPrefix = value ? cleanPrefix(value) : "";
+  if (value && !keyPrefix) {
+    throw new Error(
+      "A BotCentral key prefix looks like bc_live_52297216 — the customer's Keys page shows it, and so does the top-up link on a 402.",
+    );
+  }
+  const billing = billingEnabled();
+  await mutateStore((store) => {
+    const site = store.sites.find((s) => s.id === siteId);
+    if (!site) throw new Error("Site not found");
+    site.billing = keyPrefix ? { keyPrefix, setAt: new Date().toISOString() } : undefined;
+    logActivity(store, {
+      actor: "Operator",
+      kind: "control",
+      siteId,
+      message: keyPrefix
+        ? `Set BotCentral API key ${keyPrefix} for ${site.domain}. ${
+            billing
+              ? "Billing is on: the next publish of a proven card buys a listing year on that key."
+              : "Billing switch is off (CITEFLEET_BOTCENTRAL_BILLING): the key is stored and not sent yet."
+          }`
+        : `Cleared the BotCentral API key for ${site.domain}. Publishes are sent without a key and recorded unbilled.`,
+    });
+  });
+  return { keyPrefix, billing };
 }
 
 /** Store the last proof check on the site and return it (the "Verify proof" button). */

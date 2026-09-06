@@ -87,3 +87,20 @@ Nothing else is required. Use the DNS record (or the file), then ask the
 operator to click Verify proof (or List on BotCentral) on your campaign. With
 autopilot on in the open console, CiteFleet re-checks unlisted properties
 every few minutes as well.
+
+## 4. The listing year (what it costs)
+
+BotCentral bills the way a domain registry does: **$10.00 per host per year**,
+debited from your own BotCentral API key when your proven card is written.
+Editing your card inside the year is free, reads of the catalog are always
+free, and a failed proof costs nothing. A listing nobody renews lapses: it
+stays in the catalog but stops counting as proven until it is renewed.
+
+1. Create an API key at `https://botcentral.org/keys` and give the operator its
+   prefix (`bc_live_…`). It is not a secret — it is what the top-up links carry.
+2. Add credit at `https://citefleet.app/topup?prefix=<your prefix>&product=botcentral`.
+   A year needs $10.00 on the key.
+3. The operator lists your site. The first proven publish buys the year; the
+   campaign page then shows when it ends.
+4. About 30 days before the year ends you will hear from the operator; renewal
+   is another top-up and a republish, and the new year starts that day.

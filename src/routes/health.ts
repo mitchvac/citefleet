@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getStore } from "@/lib/citefleet/store";
-import { publisherReady } from "@/lib/citefleet/botcentral";
+import { billingEnabled, publisherReady } from "@/lib/citefleet/botcentral";
+import { BOTCENTRAL_HOOK_PATH, MIN_HOOK_SECRET, botcentralHookSecret } from "@/lib/citefleet/webhook";
 import { dbConfigured } from "@/lib/db";
 
 export const Route = createFileRoute("/health")({
@@ -18,6 +19,11 @@ export const Route = createFileRoute("/health")({
           listed,
           publisher,
           db: dbConfigured ? "postgres" : "unconfigured",
+          // Listing-year billing: whether publishes carry the customer's key,
+          // and whether BotCentral's signed events can be verified here.
+          billing: billingEnabled() ? "on" : "off",
+          catalogHook: BOTCENTRAL_HOOK_PATH,
+          catalogHookSecret: botcentralHookSecret().length >= MIN_HOOK_SECRET,
         });
       },
     },

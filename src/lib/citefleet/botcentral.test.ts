@@ -212,3 +212,112 @@ test("a verification block with a note but no method stays UNKNOWN", async () =>
   assert.equal(card.verificationNote, "check pending");
   assert.equal(listingTransition(card, "done"), "none");
 });
+
+// The listing year (BotCentral's brief, 2026-09-06). Request and response
+// shapes are read from BotCentral src/routes/internal/publish.ts and
+// src/lib/publish.ts, not invented. `keyPrefix` rides beside the card; 201
+// carries `term` and `billed`; 402 carries reason/usd/term_days/topup.
+import { billingPrefixFor, publishListing } from "./botcentral.ts";
+import type { Site } from "./types.ts";
+
+function billableSite(over: Partial<Site> = {}): Site {
+  return {
+    id: "site-h", workspaceId: "ws", name: "Herald", domain: "herald.example", url: "https://herald.example",
+    status: "campaign", sitemapUrl: "https://herald.example/sitemap.xml", routes: ["/"], createdAt: "2026-09-01T00:00:00.000Z",
+    scores: { technical: 0, submissions: 0, mentions: 0, overall: 0 }, summary: "A newsroom.",
+    billing: { keyPrefix: "bc_live_52297216", setAt: "2026-09-06T00:00:00.000Z" },
+    ...over,
+  };
+}
+
+/** Stub the two calls publishListing makes: the card read, then the publish. Captures the publish body. */
+function stubPublish(status: number, response: unknown) {
+  const calls: Array<{ url: string; body?: unknown }> = [];
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const u = String(url);
+    calls.push({ url: u, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    if (u.includes("/v1/site/")) return { ok: false, status: 404, json: async () => ({}) } as unknown as Response;
+    return { ok: status >= 200 && status < 300, status, json: async () => response } as unknown as Response;
+  }) as typeof fetch;
+  return calls;
+}
+const withEnv = async (env: Record<string, string | undefined>, fn: () => Promise<void>) => {
+  const saved: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(env)) { saved[k] = process.env[k]; if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  try { await fn(); } finally { for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } }
+};
+
+test("the key prefix is sent only when the switch is on AND the site has a valid key", () => {
+  const s = billableSite();
+  assert.equal(billingPrefixFor(s, {}), "", "switch unset → never sent (the brief: not until a key is funded)");
+  assert.equal(billingPrefixFor(s, { CITEFLEET_BOTCENTRAL_BILLING: "off" }), "");
+  assert.equal(billingPrefixFor(s, { CITEFLEET_BOTCENTRAL_BILLING: "on" }), "bc_live_52297216");
+  assert.equal(billingPrefixFor(s, { CITEFLEET_BOTCENTRAL_BILLING: " ON " }), "bc_live_52297216");
+  assert.equal(billingPrefixFor(billableSite({ billing: undefined }), { CITEFLEET_BOTCENTRAL_BILLING: "on" }), "");
+  // A malformed or placeholder prefix is never sent either.
+  assert.equal(billingPrefixFor(billableSite({ billing: { keyPrefix: "bc_live_pending", setAt: "" } }), { CITEFLEET_BOTCENTRAL_BILLING: "on" }), "");
+  assert.equal(billingPrefixFor(billableSite({ billing: { keyPrefix: "sk_live_abc", setAt: "" } }), { CITEFLEET_BOTCENTRAL_BILLING: "on" }), "");
+});
+
+test("publish: switch off → body carries no keyPrefix; the interim 201 (no term) still lists", async () => {
+  await withEnv({ CITEFLEET_BOTCENTRAL_BILLING: undefined, BOTCENTRAL_SERVICE_TOKEN: "s".repeat(32) }, async () => {
+    const calls = stubPublish(201, { ok: true, card: { domain: "herald.example", verification: { method: "well-known-file" } } });
+    const out = await publishListing(billableSite());
+    const publish = calls.find((c) => c.url.endsWith("/internal/publish"));
+    assert.ok(publish, "publish was called");
+    assert.equal("keyPrefix" in (publish!.body as object), false);
+    assert.equal(out.listed, true);
+    assert.equal(out.verified, true);
+    assert.equal(out.term, undefined, "production's interim code sends no term — that is not a lapse");
+    assert.equal(out.billed, false);
+  });
+});
+
+test("publish: switch on → keyPrefix rides beside the card; 201 carries term and billed", async () => {
+  await withEnv({ CITEFLEET_BOTCENTRAL_BILLING: "on", BOTCENTRAL_SERVICE_TOKEN: "s".repeat(32) }, async () => {
+    const calls = stubPublish(201, {
+      ok: true,
+      billed: true,
+      term: { status: "active", paid_until: "2027-09-06T17:55:07.474Z", usd: "10.00", term_days: 365 },
+      card: { domain: "herald.example", verification: { method: "well-known-file" } },
+    });
+    const out = await publishListing(billableSite());
+    const publish = calls.find((c) => c.url.endsWith("/internal/publish"))!;
+    const sent = publish.body as Record<string, unknown>;
+    assert.equal(sent.keyPrefix, "bc_live_52297216");
+    assert.equal(sent.domain, "herald.example", "the card itself is unchanged");
+    assert.equal(out.listed, true);
+    assert.equal(out.billed, true);
+    assert.deepEqual(out.term, { status: "active", paidUntil: "2027-09-06T17:55:07.474Z", usd: "10.00", termDays: 365 });
+  });
+});
+
+test("publish: 402 → not listed, the reason and top-up link are carried, nothing is invented", async () => {
+  await withEnv({ CITEFLEET_BOTCENTRAL_BILLING: "on", BOTCENTRAL_SERVICE_TOKEN: "s".repeat(32) }, async () => {
+    stubPublish(402, {
+      error: "API key bc_live_52297216 does not hold the $10.00 a listing costs for a year",
+      reason: "insufficient",
+      usd: "10.00",
+      term_days: 365,
+      topup: "https://citefleet.app/topup?prefix=bc_live_52297216&product=botcentral",
+    });
+    const out = await publishListing(billableSite());
+    assert.equal(out.listed, false);
+    assert.equal(out.payment?.reason, "insufficient");
+    assert.equal(out.payment?.topup, "https://citefleet.app/topup?prefix=bc_live_52297216&product=botcentral");
+    assert.match(out.error ?? "", /does not hold the \$10\.00/);
+    // A 402 carries `error`, so `listingTransition` (fail slowly: an answer
+    // with an error is not evidence of a de-listing) never revokes on it.
+    assert.equal(listingTransition(out, "done"), "none");
+  });
+});
+
+test("publish: a 422 (card refused) is still a plain error, not a payment", async () => {
+  await withEnv({ CITEFLEET_BOTCENTRAL_BILLING: "on", BOTCENTRAL_SERVICE_TOKEN: "s".repeat(32) }, async () => {
+    stubPublish(422, { error: "ownership not proven: no token" });
+    const out = await publishListing(billableSite());
+    assert.equal(out.listed, false);
+    assert.equal(out.payment, undefined);
+    assert.equal(out.error, "ownership not proven: no token");
+  });
+});

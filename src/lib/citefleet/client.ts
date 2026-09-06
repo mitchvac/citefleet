@@ -3,6 +3,8 @@ import type { AuditResult, StoreShape } from "./types";
 import {
   attachGithubFn,
   auditProperty,
+  billingSettingsFn,
+  setBillingKeyFn,
   dispatchProperty,
   loadState,
   onboardProperty,
@@ -31,11 +33,16 @@ function redirectIfSignedOut(err: unknown): boolean {
   return true;
 }
 
+export type BillingSettings = { billing: boolean; hookUrl: string; hookSecret: boolean };
+
 export function useFleet() {
   const [store, setStore] = useState<StoreShape | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // Env-level facts (the billing switch, the hook URL) change only on deploy:
+  // read once with the workspace, never on every refresh.
+  const [settings, setSettings] = useState<BillingSettings | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await loadState();
@@ -45,6 +52,8 @@ export function useFleet() {
 
   useEffect(() => {
     refresh()
+      .then(() => billingSettingsFn())
+      .then((s) => setSettings(s))
       .catch((err) => {
         if (redirectIfSignedOut(err)) return;
         setError(err instanceof Error ? err.message : "Failed to load workspace");
@@ -73,6 +82,7 @@ export function useFleet() {
 
   return {
     store,
+    settings,
     loading,
     error,
     busy,
@@ -181,6 +191,10 @@ export function useFleet() {
     setGithubToken: (token: string) =>
       run("ghtoken", async () => {
         await setGithubTokenFn({ data: { token } });
+      }),
+    setBillingKey: (siteId: string, keyPrefix: string) =>
+      run("billing", async () => {
+        await setBillingKeyFn({ data: { siteId, keyPrefix } });
       }),
   };
 }

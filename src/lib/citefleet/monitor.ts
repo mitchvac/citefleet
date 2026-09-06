@@ -9,6 +9,9 @@ import { lookupListing } from "./botcentral";
 import { buildChecks } from "./reconcile";
 import { ensureControl, isFrozen, pushJob } from "./control";
 import { getStore, logActivity, mutateStore } from "./store";
+import { renewalEmail, renewalNotices } from "./listing-term.ts";
+import { allowedEmails } from "@/lib/auth/operator-allowlist";
+import { mailConfigured, sendMail } from "@/lib/mail/smtp";
 
 const MARKETING = new Set([
   "/",
@@ -166,6 +169,64 @@ export async function probePlatform(): Promise<PlatformHealth> {
   };
 }
 
+/**
+ * The renewal reminder. BotCentral states a listing's end date once (on the
+ * publish response) and tells nobody before it lapses — "a registrar that does
+ * not send the renewal email loses the name" (their brief, 2026-09-06). Each
+ * control cycle mails every allow-listed operator once per term for every site
+ * inside the window, and writes the same line to the audit log whether or not
+ * a mailer is configured. A failed send is logged and retried next cycle; a
+ * missing mailer is logged once and stamped, so the log does not repeat.
+ */
+export async function sendRenewalNotices(nowMs = Date.now()): Promise<Array<{ siteId: string; sent: number; error?: string }>> {
+  const store = await getStore();
+  const due = renewalNotices(store.sites, nowMs);
+  const out: Array<{ siteId: string; sent: number; error?: string }> = [];
+  const origin = (process.env.CITEFLEET_PUBLIC_URL || "https://citefleet.app").replace(/\/$/, "");
+  for (const site of due) {
+    const mail = renewalEmail(site, `${origin}/sites/${site.id}`, nowMs);
+    const mailer = mailConfigured();
+    const recipients = mailer ? allowedEmails() : [];
+    let sent = 0;
+    const failed: string[] = [];
+    let error: string | undefined;
+    for (const to of recipients) {
+      try {
+        await sendMail({ to, subject: mail.subject, text: mail.text });
+        sent += 1;
+      } catch (err) {
+        failed.push(to);
+        error = `${to}: ${err instanceof Error ? err.message : "send failed"}`;
+      }
+    }
+    const line = mail.text.split("\n")[2];
+    await mutateStore((s) => {
+      const current = s.sites.find((x) => x.id === site.id);
+      if (!current) return;
+      // Stamp once anyone has been told (or there was nobody to tell), so the
+      // next cycle does not mail the addresses that already got it. Only a
+      // cycle where every send failed is retried.
+      if (!recipients.length || sent > 0) current.renewalNoticeFor = site.term?.paidUntil ?? undefined;
+      logActivity(s, {
+        actor: "Sentinel",
+        kind: "monitor",
+        siteId: site.id,
+        message: !mailer
+          ? `Renewal reminder for ${site.domain} (no mailer configured — this line is the reminder). ${line}`
+          : !recipients.length
+            ? `Renewal reminder for ${site.domain} (CITEFLEET_OPERATOR_EMAILS is empty — this line is the reminder). ${line}`
+            : failed.length && !sent
+              ? `Renewal reminder for ${site.domain} could not be sent (${error}); will retry next cycle. ${line}`
+              : failed.length
+                ? `Renewal reminder for ${site.domain} sent to ${sent} of ${recipients.length} operator addresses; failed: ${failed.join(", ")}. ${line}`
+                : `Renewal reminder for ${site.domain} sent to ${sent} operator address${sent === 1 ? "" : "es"}. ${line}`,
+      });
+    });
+    out.push({ siteId: site.id, sent, error });
+  }
+  return out;
+}
+
 export async function runMonitorCycle() {
   const before = await getStore();
   const platform = await probePlatform();
@@ -204,5 +265,6 @@ export async function runMonitorCycle() {
     });
   });
 
+  await sendRenewalNotices();
   return (await getStore()).control;
 }

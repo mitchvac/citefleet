@@ -7,6 +7,12 @@ export interface Term {
 
 export const GLOSSARY: Term[] = [
   {
+    id: "listing-year",
+    term: "Listing year",
+    meaning:
+      "How BotCentral bills: $10 per host per year, debited from the customer's own bc_live_ key when the proven card is written. Edits inside the year and all reads are free; a year nobody renews lapses (listed, unproven) until a publish with a funded key renews it. CiteFleet sends the key only while CITEFLEET_BOTCENTRAL_BILLING is on.",
+  },
+  {
     id: "origin",
     term: "Origin / property",
     meaning:

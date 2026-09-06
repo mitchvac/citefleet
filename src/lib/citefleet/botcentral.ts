@@ -3,6 +3,8 @@ import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook.ts
 import { getStore, logActivity, mutateStore, recalcScores } from "./store.ts";
 import { stripSecrets } from "./github.ts";
 import { siteVerifyToken } from "./verify-token.ts";
+import { readPayment, readTerm, type ListingTerm, type PaymentRequired } from "./listing-term.ts";
+import { cleanPrefix } from "./topup.ts";
 
 const DEFAULT_URL = "https://botcentral.org";
 const FETCH_UA = "CiteFleetPublisher/1.0 (+https://citefleet.app)";
@@ -22,6 +24,12 @@ export type ListingStatus = {
   summary?: string;
   error?: string;
   card?: Record<string, unknown>;
+  /** The host's paid term after a publish (absent from catalog reads and from the interim BotCentral code). */
+  term?: ListingTerm;
+  /** Whether this publish bought a year. False for an edit inside the term and for an unbilled write. */
+  billed?: boolean;
+  /** Set when BotCentral answered 402: the card was fine, the key could not pay. */
+  payment?: PaymentRequired;
 };
 
 function catalogUrl() {
@@ -34,6 +42,32 @@ function serviceToken() {
 
 export function publisherReady() {
   return serviceToken().length >= 16;
+}
+
+/**
+ * The one switch that starts billing. Off by default: BotCentral's brief
+ * (2026-09-06) is explicit that a key prefix must not be sent until a key has
+ * been funded end to end, because every publish with an unfunded key is a 402.
+ * Set CITEFLEET_BOTCENTRAL_BILLING=on (deploy-vps.sh reads
+ * /root/citefleet-billing.on) once ten dollars has travelled the top-up path.
+ */
+export const BILLING_ENV = "CITEFLEET_BOTCENTRAL_BILLING";
+
+export function billingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (env[BILLING_ENV] || "").trim().toLowerCase() === "on";
+}
+
+/** The prefix a publish of this site would carry, or "" — the only place the switch is consulted. */
+export function billingPrefixFor(
+  site: Pick<Site, "billing">,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  if (!billingEnabled(env)) return "";
+  return cleanPrefix(site.billing?.keyPrefix);
+}
+
+function publicOrigin() {
+  return (process.env.CITEFLEET_PUBLIC_URL || "https://citefleet.app").replace(/\/$/, "");
 }
 
 /**
@@ -211,6 +245,9 @@ export async function publishListing(site: Site): Promise<ListingStatus> {
     };
   }
   const current = await lookupListing(site.domain);
+  // The prefix rides beside the card, not in it: who pays is a billing fact,
+  // not part of what the card declares (BotCentral src/routes/internal/publish.ts).
+  const keyPrefix = billingPrefixFor(site);
   try {
     const res = await fetch(`${catalogUrl()}/internal/publish`, {
       method: "POST",
@@ -220,13 +257,22 @@ export async function publishListing(site: Site): Promise<ListingStatus> {
         "Content-Type": "application/json",
         Authorization: `Bearer ${serviceToken()}`,
       },
-      body: JSON.stringify(buildCard(site, current.card)),
+      body: JSON.stringify({ ...buildCard(site, current.card), ...(keyPrefix ? { keyPrefix } : {}) }),
       signal: AbortSignal.timeout(20000),
     });
     const payload = (await res.json().catch(() => ({}))) as {
       error?: string;
       card?: Record<string, unknown>;
+      term?: unknown;
+      billed?: unknown;
     };
+    if (res.status === 402) {
+      // The card is fine; the key cannot pay for it. The customer's next move
+      // is to fund the key, so the top-up link is the answer, not the card.
+      const fallback = `${publicOrigin()}/topup?${keyPrefix ? `prefix=${encodeURIComponent(keyPrefix)}&` : ""}product=botcentral`;
+      const payment = readPayment(payload, fallback);
+      return { listed: false, error: payment.message, payment };
+    }
     if (!res.ok) {
       return {
         listed: false,
@@ -234,13 +280,107 @@ export async function publishListing(site: Site): Promise<ListingStatus> {
       };
     }
     const host = site.domain.replace(/^www\./, "").toLowerCase();
-    return listingFromCard(host, payload.card ?? { domain: host });
+    return {
+      ...listingFromCard(host, payload.card ?? { domain: host }),
+      term: readTerm(payload.term),
+      billed: payload.billed === true,
+    };
   } catch (err) {
     return {
       listed: false,
       error: err instanceof Error ? err.message : "catalog unreachable",
     };
   }
+}
+
+/**
+ * Apply one catalog answer to a site: create the `botcentral_list` task if the
+ * site predates it, then grant or revoke it per `listingTransition`. Shared by
+ * `hydrateListings` (a public card read) and the signed BotCentral webhook
+ * (site.listed / site.reverified / site.lapsed / site.unpublished), so both
+ * paths move the task by exactly the same rule.
+ */
+export function applyCatalogState(
+  store: StoreShape,
+  site: Site,
+  listing: ListingStatus,
+  opts: { now?: string } = {},
+): ListingTransition {
+  let task = store.tasks.find(
+    (t) => t.siteId === site.id && t.playbookId === "botcentral_list",
+  );
+  if (!task) {
+    const step = PLAYBOOK.find((s) => s.id === "botcentral_list");
+    if (step) {
+      const draft = playbookToTaskDraft(site.id, step);
+      task = {
+        ...draft,
+        id: `task-${site.id}-botcentral_list`,
+        updatedAt: new Date().toISOString(),
+      };
+      store.tasks.push(task);
+    }
+  }
+  // This task's state is derived from the live card, in BOTH directions.
+  // Granting only (the old behaviour) let a listing rot on BotCentral's side
+  // — it revalidates origins every 6 hours and does not auto-unpublish, so a
+  // downgraded site stays listed and merely stops being proven — while
+  // CiteFleet went on scoring it as a completed submission forever.
+  //
+  // Revoking requires an ANSWER, not a silence: `error` means the catalog was
+  // unreachable, which is not evidence of anything. Fail slowly — a transient
+  // outage must never un-list a customer.
+  const now = opts.now ?? new Date().toISOString();
+  const move = task ? listingTransition(listing, task.status) : "none";
+  if (task && move === "grant") {
+    task.status = "done";
+    task.completedAt = listing.updated || now;
+    task.blockedReason = undefined;
+    task.updatedAt = now;
+    task.checklist = task.checklist.map((c) => ({ ...c, done: true }));
+    task.evidence.unshift({
+      id: crypto.randomUUID(),
+      at: now,
+      kind: "http",
+      label: "Live on BotCentral",
+      detail: listing.href,
+      url: listing.href,
+      ok: true,
+    });
+    recalcScores(store, site.id);
+  } else if (task && move === "revoke") {
+    // BotCentral's own note names the exact remediation ("Add DNS TXT
+    // botcentral-verify=<token> or a plain-text /.well-known/botcentral.txt")
+    // and is more specific than anything phrased from this side.
+    const reason = listing.listed
+      ? `Listed on BotCentral but no longer proven (${listing.verificationMethod ?? "unverified"}). ${listing.verificationNote ?? "Re-serve the proof token at the origin, then List on BotCentral."}`
+      : "The BotCentral card for this domain is gone from the catalog.";
+    task.status = "blocked";
+    task.blockedReason = reason;
+    task.completedAt = undefined;
+    task.updatedAt = now;
+    task.checklist = task.checklist.map((c) => ({ ...c, done: false }));
+    task.evidence.unshift({
+      id: crypto.randomUUID(),
+      at: now,
+      kind: "http",
+      label: listing.listed
+        ? "BotCentral listing unproven"
+        : "BotCentral listing gone",
+      detail: reason,
+      url: listing.href,
+      ok: false,
+    });
+    logActivity(store, {
+      actor: "botcentral",
+      kind: "monitor",
+      message: `${site.domain}: ${reason}`,
+      siteId: site.id,
+      taskId: task.id,
+    });
+    recalcScores(store, site.id);
+  }
+  return move;
 }
 
 export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> {
@@ -260,80 +400,7 @@ export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> 
       }
       if (!site) continue;
       site.botcentral = update.listing;
-      let task = store.tasks.find(
-        (t) => t.siteId === site.id && t.playbookId === "botcentral_list",
-      );
-      if (!task) {
-        const step = PLAYBOOK.find((s) => s.id === "botcentral_list");
-        if (step) {
-          const draft = playbookToTaskDraft(site.id, step);
-          task = {
-            ...draft,
-            id: `task-${site.id}-botcentral_list`,
-            updatedAt: new Date().toISOString(),
-          };
-          store.tasks.push(task);
-        }
-      }
-      // This task's state is derived from the live card, in BOTH directions.
-      // Granting only (the old behaviour) let a listing rot on BotCentral's side
-      // — it revalidates origins every 6 hours and does not auto-unpublish, so a
-      // downgraded site stays listed and merely stops being proven — while
-      // CiteFleet went on scoring it as a completed submission forever.
-      //
-      // Revoking requires an ANSWER, not a silence: `error` means the catalog was
-      // unreachable, which is not evidence of anything. Fail slowly — a transient
-      // outage must never un-list a customer.
-      const now = new Date().toISOString();
-      const move = task ? listingTransition(update.listing, task.status) : "none";
-      if (task && move === "grant") {
-        task.status = "done";
-        task.completedAt = update.listing.updated || now;
-        task.blockedReason = undefined;
-        task.updatedAt = now;
-        task.checklist = task.checklist.map((c) => ({ ...c, done: true }));
-        task.evidence.unshift({
-          id: crypto.randomUUID(),
-          at: now,
-          kind: "http",
-          label: "Live on BotCentral",
-          detail: update.listing.href,
-          url: update.listing.href,
-          ok: true,
-        });
-        recalcScores(store, site.id);
-      } else if (task && move === "revoke") {
-        // BotCentral's own note names the exact remediation ("Add DNS TXT
-        // botcentral-verify=<token> or a plain-text /.well-known/botcentral.txt")
-        // and is more specific than anything phrased from this side.
-        const reason = update.listing.listed
-          ? `Listed on BotCentral but no longer proven (${update.listing.verificationMethod ?? "unverified"}). ${update.listing.verificationNote ?? "Re-serve the proof token at the origin, then List on BotCentral."}`
-          : "The BotCentral card for this domain is gone from the catalog.";
-        task.status = "blocked";
-        task.blockedReason = reason;
-        task.completedAt = undefined;
-        task.updatedAt = now;
-        task.checklist = task.checklist.map((c) => ({ ...c, done: false }));
-        task.evidence.unshift({
-          id: crypto.randomUUID(),
-          at: now,
-          kind: "http",
-          label: update.listing.listed
-            ? "BotCentral listing unproven"
-            : "BotCentral listing gone",
-          detail: reason,
-          url: update.listing.href,
-          ok: false,
-        });
-        logActivity(store, {
-          actor: "botcentral",
-          kind: "monitor",
-          message: `${site.domain}: ${reason}`,
-          siteId: site.id,
-          taskId: task.id,
-        });
-        recalcScores(store, site.id);
-      }
+      applyCatalogState(store, site, update.listing, { now: new Date().toISOString() });
     }
     applyPlaybookHrefs(store.tasks, store.sites);
   });

@@ -6,6 +6,7 @@ import type {
   StoreShape,
 } from "./types";
 import { isFrozen } from "./control";
+import { describeTerm, renewalState } from "./listing-term.ts";
 
 const MARKETING = ["/", "/premium", "/privacy", "/terms", "/guidelines"];
 
@@ -75,6 +76,19 @@ export function buildChecks(
       ? `Listed — ${snap.catalogHref}`
       : snap.catalogError || "Not listed. Run List on BotCentral after crawl is clean.",
   });
+
+  // The registrar's job: a listing year ends on a date BotCentral only ever
+  // states once (the publish response), and nothing on its side warns anyone.
+  const term = renewalState(site.term);
+  if (term !== "none") {
+    checks.push({
+      id: "listing-term",
+      ok: term === "active" || term === "unbilled",
+      severity: term === "lapsed" ? "critical" : term === "due" ? "warn" : term === "unbilled" ? "info" : "ok",
+      title: "BotCentral listing year",
+      detail: describeTerm(site.term),
+    });
+  }
 
   checks.push({
     id: "sitemap-https",

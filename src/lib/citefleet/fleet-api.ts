@@ -198,6 +198,27 @@ export const setGithubTokenFn = createServerFn({ method: "POST" })
     return setGithubToken(data.token);
   });
 
+/** The customer's BotCentral key prefix for a property (empty string clears it). Stored, not sent, until billing is switched on. */
+export const setBillingKeyFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((d: { siteId: string; keyPrefix: string }) => d)
+  .handler(async ({ data }) => {
+    const { setBillingKey } = await import("./ops.server");
+    return setBillingKey(data.siteId, data.keyPrefix);
+  });
+
+/** What the billing side of this install is set to — the switch, the BotCentral hook URL, whether its secret is configured. */
+export const billingSettingsFn = createServerFn({ method: "GET" })
+  .middleware([operatorMiddleware]).handler(async () => {
+  const { billingEnabled, botcentralHookSecret, botcentralHookUrl } = await import("./ops.server");
+  const { MIN_HOOK_SECRET } = await import("./webhook.ts");
+  return {
+    billing: billingEnabled(),
+    hookUrl: botcentralHookUrl(),
+    hookSecret: botcentralHookSecret().length >= MIN_HOOK_SECRET,
+  };
+});
+
 /** Operator confirms a BotCentral top-up payment; BotCentral credits the prefix. Behind the spend kill door. */
 export const settleTopupFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])

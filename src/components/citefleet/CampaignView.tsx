@@ -5,6 +5,7 @@ import { Pill } from "./Shell";
 import { GrokHandoff } from "./GrokHandoff";
 import type { Site, Task } from "@/lib/citefleet/types";
 import { hostingHint } from "@/lib/citefleet/hosting-hint";
+import { describeTerm, renewalState, termDaysLeft } from "@/lib/citefleet/listing-term";
 
 function tone(status: string) {
   if (status === "done") return "good" as const;
@@ -60,7 +61,21 @@ export function CampaignView({ siteId }: { siteId: string }) {
               <span className="mono">{site.hosting.evidence.join(" · ") || "no signals"}</span>
             </p>
           )}
-          {site.botcentral?.listed && site.botcentral.verified === false ? (
+          {site.botcentral?.listed && renewalState(site.term) === "lapsed" ? (
+            // The year ended. The card stays in the catalog, unproven, and no
+            // recheck restores it: only a publish with a funded key renews it.
+            <p className="mt-2 text-sm text-[#e2c36d]" data-testid="botcentral-lapsed">
+              {describeTerm(site.term)}
+              {site.payment ? (
+                <>
+                  {" "}
+                  <a href={site.payment.topup} target="_blank" rel="noreferrer" className="underline">
+                    top up key
+                  </a>
+                </>
+              ) : null}
+            </p>
+          ) : site.botcentral?.listed && site.botcentral.verified === false ? (
             // The card is still on the catalog, but BotCentral's own recheck no
             // longer finds the proof token at the origin. Listed, not proven.
             <p className="mt-2 text-sm text-[#e2c36d]" data-testid="botcentral-unverified">
@@ -175,6 +190,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
 
       <GithubPanel site={site} fleet={fleet} />
       <AutoListingPanel site={site} fleet={fleet} />
+      <BillingPanel site={site} fleet={fleet} />
 
       <div className="glass rounded-3xl p-2 md:p-4">
         <div className="space-y-3">
@@ -295,6 +311,112 @@ function AutoListingPanel({
           {hook?.lastEventAt
             ? `${hook.lastEvent} · ${new Date(hook.lastEventAt).toLocaleString()}${hook.lastResult ? ` · ${hook.lastResult}` : ""}`
             : "none yet"}
+        </dd>
+      </dl>
+    </section>
+  );
+}
+
+// A listing is a year (BotCentral's brief, 2026-09-06): $10 per host per year,
+// debited from the customer's own bc_live_ key when the PROVEN card is written,
+// edits inside the year free, reads free. CiteFleet stores the key prefix here;
+// whether a publish actually carries it is the server-side switch, shown as-is.
+function BillingPanel({
+  site,
+  fleet,
+}: {
+  site: Site;
+  fleet: ReturnType<typeof useFleet>;
+}) {
+  const [prefix, setPrefix] = useState(site.billing?.keyPrefix || "");
+  const settings = fleet.settings;
+  const state = renewalState(site.term);
+  const left = termDaysLeft(site.term);
+  const pill =
+    state === "lapsed"
+      ? { tone: "bad" as const, text: "lapsed" }
+      : state === "due"
+        ? { tone: "warn" as const, text: `${left} day${left === 1 ? "" : "s"} left` }
+        : state === "active"
+          ? { tone: "good" as const, text: `ends ${site.term?.paidUntil?.slice(0, 10)}` }
+          : state === "unbilled"
+            ? { tone: "neutral" as const, text: "unbilled" }
+            : { tone: "neutral" as const, text: "no term yet" };
+  const dirty = prefix.trim() !== (site.billing?.keyPrefix || "");
+  return (
+    <section className="glass rounded-3xl p-5" data-testid="billing">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">Listing year</p>
+          <h2 className="mt-1 text-lg font-semibold">BotCentral API key and term</h2>
+          <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
+            A listing costs ${site.term?.usd || site.payment?.usd || "10.00"} per host per year, charged to the
+            customer’s BotCentral key when the proven card is written. Edits inside the year are free;
+            reads are always free. A year nobody renews lapses: the card stays listed, unproven, until a
+            publish with a funded key renews it.
+          </p>
+        </div>
+        <Pill tone={pill.tone}>{pill.text}</Pill>
+      </div>
+      <p className="mt-3 text-sm text-[#cfc8e8]" data-testid="term-line">
+        {describeTerm(site.term) ||
+          "No listing year recorded yet — the term arrives with the first publish sent with a key."}
+      </p>
+      {site.payment ? (
+        <div className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" data-testid="payment-required">
+          {site.payment.message} ({site.payment.reason}).{" "}
+          <a href={site.payment.topup} target="_blank" rel="noreferrer" className="underline">
+            Top up the key
+          </a>
+          , then List on BotCentral. Nothing was written; a failed payment never lists a card.
+        </div>
+      ) : null}
+      <form
+        className="mt-4 flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void fleet.setBillingKey(site.id, prefix.trim());
+        }}
+      >
+        <label className="min-w-0 flex-1 text-xs text-[#9b95b3]">
+          BotCentral API key prefix
+          <input
+            className="mono mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/30"
+            placeholder="bc_live_52297216"
+            value={prefix}
+            onChange={(e) => setPrefix(e.target.value)}
+            data-testid="billing-prefix"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
+          disabled={!!fleet.busy || !dirty || (!prefix.trim() && !site.billing)}
+        >
+          {fleet.busy === "billing" ? "Saving…" : prefix.trim() ? "Save key" : "Clear key"}
+        </button>
+      </form>
+      <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-[160px_minmax(0,1fr)]">
+        <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Key on file</dt>
+        <dd className="mono break-all text-[#cfc8e8]" data-testid="billing-key">
+          {site.billing ? `${site.billing.keyPrefix} · set ${new Date(site.billing.setAt).toLocaleString()}` : "none — publishes are sent without a key and recorded unbilled"}
+        </dd>
+        <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Billing switch</dt>
+        <dd className="text-[#cfc8e8]" data-testid="billing-switch">
+          {settings === null
+            ? "…"
+            : settings.billing
+              ? "on — a publish carries the key and buys or renews the year"
+              : "off — the key is stored, not sent (CITEFLEET_BOTCENTRAL_BILLING=on starts it; fund a key first)"}
+        </dd>
+        <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Catalog events</dt>
+        <dd className="text-[#cfc8e8]" data-testid="catalog-hook">
+          {settings === null
+            ? "…"
+            : `${settings.hookUrl} · signature ${settings.hookSecret ? "verifiable" : "NOT configured"}`}
+          {site.catalogHook
+            ? ` · last ${site.catalogHook.lastEvent} ${new Date(site.catalogHook.lastEventAt).toLocaleString()}`
+            : " · none received for this host yet"}
         </dd>
       </dl>
     </section>

@@ -10,12 +10,25 @@ export {
   verifySiteProof,
   rotateWebhookSecret,
   runWebhookListing,
+  setBillingKey,
 } from "./dispatcher";
-export { handleGithubWebhook, handleDeployedHook } from "./webhook.ts";
+export {
+  handleGithubWebhook,
+  handleDeployedHook,
+  handleBotcentralWebhook,
+  botcentralHookSecret,
+  botcentralHookUrl,
+} from "./webhook.ts";
 export { checkOriginProof } from "./proof.ts";
 export { runAutopilotTick, setAutopilot } from "./autopilot";
 export { grokConfigured } from "./grokApi";
-export { hydrateListings, lookupListing, publisherReady } from "./botcentral";
+export {
+  applyCatalogState,
+  billingEnabled,
+  hydrateListings,
+  lookupListing,
+  publisherReady,
+} from "./botcentral";
 export { settleTopup } from "./topup.server";
 export { runMonitorCycle } from "./monitor";
 export { applyKill, ensureControl } from "./control";
