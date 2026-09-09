@@ -111,8 +111,9 @@ CiteFleet sends the shared publisher token `citefleet-app` as the card's
 `verifyToken` and writes it into each origin's `/.well-known/botcentral.txt`
 (`verify: citefleet-app` plus `botcentral-verify=citefleet-app`). Every file
 CiteFleet wrote before already contains it, so origins that serve one pass
-without a redeploy. A new origin needs the file (Push origin files, then deploy)
-or an apex DNS TXT record `botcentral-verify=citefleet-app`. The catalog row of
+without a redeploy. A new origin needs an apex DNS TXT record
+`botcentral-verify=citefleet-app` (no deploy), or the file (Push origin files,
+then deploy). The catalog row of
 an already-listed site is untouched by a rejected refresh.
 
 Order:

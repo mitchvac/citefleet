@@ -5,7 +5,7 @@ import type {
   SiteMonitor,
   StoreShape,
 } from "./types";
-import { isFrozen } from "./control";
+import { isFrozen } from "./control.ts";
 import { describeTerm, renewalState } from "./listing-term.ts";
 
 const MARKETING = ["/", "/premium", "/privacy", "/terms", "/guidelines"];
@@ -32,14 +32,32 @@ export function buildChecks(
       !t.evidence.some((e) => e.ok && e.url),
   );
 
+  // These are two different questions and conflating them under one title told
+  // a DNS-proven origin it had no proof. "Origin proof" is ownership, by EITHER
+  // method. "Origin files" is whether our origin pack survived their deploy —
+  // worth knowing, but a site proven by DNS owes us no file.
   checks.push({
     id: "ownership",
-    ok: snap.wellKnown,
-    severity: snap.wellKnown ? "ok" : "warn",
+    ok: snap.proven,
+    severity: snap.proven ? "ok" : "critical",
     title: "Origin proof",
+    detail: snap.proven
+      ? snap.proofMethod === "dns-txt"
+        ? `Proven by an apex DNS TXT record on ${snap.domain}.`
+        : "Proven by /.well-known/botcentral.txt (plain text)."
+      : snap.proofNote || "No proof of control at this origin.",
+  });
+
+  checks.push({
+    id: "origin-files",
+    ok: snap.wellKnown,
+    severity: snap.wellKnown ? "ok" : snap.proven ? "info" : "warn",
+    title: "Origin files",
     detail: snap.wellKnown
       ? "/.well-known/botcentral.txt is plain text"
-      : "/.well-known/botcentral.txt is missing or HTML (SPA shell). Serve text/plain on the origin.",
+      : snap.proven
+        ? "/.well-known/botcentral.txt is missing or HTML. Proof is holding via DNS, so the card is safe; the origin pack did not survive the last deploy."
+        : "/.well-known/botcentral.txt is missing or HTML (SPA shell). Serve text/plain on the origin.",
   });
 
   const marketingOk = marketing.length

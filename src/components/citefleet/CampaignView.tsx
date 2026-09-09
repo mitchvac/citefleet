@@ -84,8 +84,9 @@ export function CampaignView({ siteId }: { siteId: string }) {
             <p className="mt-2 text-sm text-[#e2c36d]" data-testid="botcentral-unverified">
               On BotCentral but unverified — the proof token is no longer
               answering at this origin, so the card is listed without proof.
-              Re-serve <span className="mono">{verifyLine(siteVerifyToken(site))}</span>{" "}
-              (Push origin files, then deploy that repo), then List on BotCentral.
+              Re-add <span className="mono">{verifyLine(siteVerifyToken(site))}</span>{" "}
+              as an apex DNS TXT record (Name @, no deploy), or Push origin files
+              and deploy that repo, then List on BotCentral.
               {site.botcentral.href ? (
                 <>
                   {" "}
@@ -496,9 +497,10 @@ function GithubPanel({
             could never verify.
           */}
           <p className="mt-2 break-all text-xs text-[#9b95b3]">
-            BotCentral proof line the file must carry:{" "}
+            BotCentral proof line:{" "}
             <span className="mono text-[#cfc8e8]">{verifyLine(siteVerifyToken(site))}</span>
-            {" "}(or the same value in an apex DNS TXT record).
+            {" "}— quickest as an apex DNS TXT record (Name @, no deploy). The
+            pushed file carries the same line.
           </p>
           {site.github?.lastPushUrl && (
             <p className="mt-2 text-xs text-[#9b95b3]">

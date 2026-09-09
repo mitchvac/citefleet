@@ -6,13 +6,32 @@ an optional webhook keeps the card fresh with every deploy.
 
 ## 1. Prove control (required, pick one)
 
-**A. Serve a plain-text file** at
+**A. Add a DNS TXT record** on the apex of your domain — no deploy, and it keeps
+proving even if the site is rebuilt:
+
+```
+Type:  TXT
+Name:  @          (blank in some panels, or your bare domain)
+Value: botcentral-verify=citefleet-app
+```
+
+Add it as a **new** record. Most domains already have a TXT row at the apex (SPF,
+google-site-verification); editing that one instead of adding beside it will break
+whatever depended on it. Multiple TXT records on `@` are normal.
+
+It is live when this returns the line — the same lookup BotCentral makes:
+
+```
+curl -s "https://dns.google/resolve?name=<your-domain>&type=TXT" | grep botcentral-verify
+```
+
+**B. Or serve a plain-text file** at
 
 ```
 https://<your-domain>/.well-known/botcentral.txt
 ```
 
-containing this line:
+containing that same line:
 
 ```
 botcentral-verify=citefleet-app
@@ -23,13 +42,8 @@ every URL does not count), and the line present. If you attached your GitHub rep
 in CiteFleet, **Push origin files** commits this file for you; deploy the site
 and it is live.
 
-**B. Add a DNS TXT record** on the apex of your domain with the same value:
-
-```
-<your-domain>   TXT   botcentral-verify=citefleet-app
-```
-
-No deploy needed. Either route is enough.
+Either route alone is enough. Doing both is the sturdiest: the record survives a
+redeploy that drops the file, and the file survives a DNS change.
 
 Then on your CiteFleet campaign click **Verify proof**. If it fails, the message
 names exactly which of the two is missing.

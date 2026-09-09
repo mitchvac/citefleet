@@ -42,7 +42,7 @@ export function hostingHint(hosting: HostingResult | undefined, domain: string):
     case "vercel":
     case "netlify":
     case "github-pages":
-      return `${hosting.label} deploys on push: commit ${file} to the connected repo (Push origin files does it) and the proof is live in about a minute — no server work.`;
+      return `Quickest is an apex DNS TXT record — no deploy at all. Otherwise ${hosting.label} deploys on push: commit ${file} to the connected repo (Push origin files does it) and the proof is live in about a minute.`;
     case "self-hosted":
       return hosting.sameServerAsCiteFleet
         ? `Self-hosted on the same box as CiteFleet: rebuild that site's container after the file lands, or add a DNS TXT record to skip the deploy.`

@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { lookupListing } from "./botcentral";
 import { buildChecks } from "./reconcile";
+import { checkOriginProof } from "./proof.ts";
 import { ensureControl, isFrozen, pushJob } from "./control";
 import { getStore, logActivity, mutateStore } from "./store";
 import { renewalEmail, renewalNotices } from "./listing-term.ts";
@@ -132,6 +133,12 @@ async function probeSite(site: Site): Promise<Omit<SiteMonitor, "checks" | "bloc
     !wk.contentType.includes("html") &&
     /domain:\s*\S+/i.test(wk.text);
 
+  // Proof of control is NOT the file probe above. An origin proven by an apex
+  // DNS TXT record serves no file at all, and reporting that as "no proof"
+  // told a verified customer they were broken. Ask the same verifier the
+  // publish gate asks (proof.ts), which checks the file AND the apex record.
+  const proof = await checkOriginProof(site);
+
   return {
     siteId: site.id,
     name: site.name,
@@ -145,6 +152,9 @@ async function probeSite(site: Site): Promise<Omit<SiteMonitor, "checks" | "bloc
     sitemapHttps: sm.status === 200 && locHttp === 0 && sitemapUrlCount > 0,
     sitemapUrlCount,
     wellKnown: wellKnownText,
+    proven: proof.proven,
+    proofMethod: proof.method,
+    proofNote: proof.note,
     llms: llms.status === 200 && llms.text.trim().startsWith("#"),
   };
 }

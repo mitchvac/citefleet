@@ -55,14 +55,15 @@ The Training module (lesson 02) is the click-by-click version. In short:
    and repo. Every customer is just an origin URL; nothing about a customer
    lives in code.
 2. **Live audit** on the card.
-3. **Campaign**: attach the website repo (folder is the web root, e.g.
-   `public` or `frontend/public`), **Push origin files** if you have a GitHub
-   PAT saved, and have the customer deploy. Or the customer adds one DNS TXT
-   record instead (see customer-setup.md).
+3. **Campaign**: quickest proof is one apex DNS TXT record —
+   `botcentral-verify=citefleet-app` on `@`, no deploy (see customer-setup.md).
+   Otherwise attach the website repo (folder is the web root, e.g. `public` or
+   `frontend/public`), **Push origin files** if you have a GitHub PAT saved,
+   and have the customer deploy.
 4. **Verify proof** (Automatic listing panel). CiteFleet applies BotCentral's
-   own rules: `/.well-known/botcentral.txt` must be plain text with
-   `botcentral-verify=citefleet-app`, else an apex DNS TXT record with that
-   line. If it fails you get the exact line to add and nothing is sent.
+   own rules: an apex DNS TXT record carrying `botcentral-verify=citefleet-app`,
+   else `/.well-known/botcentral.txt` served as plain text with that same line.
+   If it fails you get the exact line to add and nothing is sent.
 5. **List on BotCentral**. The card is written only after BotCentral confirms
    the same proof. The Command card then shows **Listed on BotCentral** with
    the inspector link; the machine card is `https://botcentral.org/v1/site/<domain>`.

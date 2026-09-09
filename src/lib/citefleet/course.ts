@@ -73,7 +73,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "6. List on BotCentral",
-        body: "First prove control: the origin must serve /.well-known/botcentral.txt as plain text containing botcentral-verify=citefleet-app (Push origin files from the campaign and deploy, or put that same line in an apex DNS TXT record). Files CiteFleet wrote before already pass. Then on Command or the campaign header click List on BotCentral. Orion publishes a BotCentral 1.0 card. This is the bot-search catalog at botcentral.org. Assistants do not fill a submit form. You never paste a ChatGPT URL to get listed here.",
+        body: "First prove control: put botcentral-verify=citefleet-app in an apex DNS TXT record on the domain (Name @ — no deploy, live in about a minute), or serve that same line as plain text at /.well-known/botcentral.txt (Push origin files from the campaign, then deploy). Either one alone is enough. Files CiteFleet wrote before already pass. Then on Command or the campaign header click List on BotCentral. Orion publishes a BotCentral 1.0 card. This is the bot-search catalog at botcentral.org. Assistants do not fill a submit form. You never paste a ChatGPT URL to get listed here.",
       },
       {
         title: "7. Confirm the listing",
@@ -295,7 +295,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "How to list",
-        body: "Onboard the origin, run Live audit, get the botcentral-verify token live at /.well-known/botcentral.txt (Push origin files + deploy, or DNS TXT), then click List on BotCentral. BotCentral fetches that file and rejects the card if the token is missing or the path returns HTML. Orion POSTs with a service token. Bots cannot publish.",
+        body: "Onboard the origin, run Live audit, get the botcentral-verify token live — an apex DNS TXT record is quickest (no deploy), or serve it at /.well-known/botcentral.txt (Push origin files + deploy) — then click List on BotCentral. BotCentral checks the apex record and the file, and rejects the card if neither carries the token or the file returns HTML. Orion POSTs with a service token. Bots cannot publish.",
       },
       {
         title: "How to confirm",

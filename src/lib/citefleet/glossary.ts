@@ -184,7 +184,7 @@ export const GLOSSARY: Term[] = [
     term: "Origin proof",
     standsFor: "botcentral-verify=citefleet-app",
     meaning:
-      "How BotCentral knows the origin opted in: that line served as plain text at /.well-known/botcentral.txt, or the same line in an apex DNS TXT record. CiteFleet checks it with the registry's own rules before publishing (Verify proof) so a missing proof is reported with the exact line to add.",
+      "How BotCentral knows the origin opted in: that line in an apex DNS TXT record on the domain, or the same line served as plain text at /.well-known/botcentral.txt. CiteFleet checks both with the registry's own rules before publishing (Verify proof) so a missing proof is reported with the exact line to add.",
   },
   {
     id: "webhook",

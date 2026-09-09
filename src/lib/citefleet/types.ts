@@ -283,7 +283,12 @@ export interface SiteMonitor {
   catalogError?: string;
   sitemapHttps: boolean;
   sitemapUrlCount: number;
+  /** The origin pack survived the customer's last deploy (a FILE probe). */
   wellKnown: boolean;
+  /** Proof of control by EITHER method (proof.ts rules). Not the same question. */
+  proven: boolean;
+  proofMethod: "well-known-file" | "dns-txt" | "none";
+  proofNote: string;
   llms: boolean;
   drift: boolean;
   checks: ReconcileCheck[];
