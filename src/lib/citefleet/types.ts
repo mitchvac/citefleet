@@ -358,5 +358,13 @@ export interface AuditResult {
     status: number | null;
     urlCount: number;
   };
+  /**
+   * The routes read off the origin's own sitemap, and where that sitemap was
+   * found. `runAuditAndApply` persists these onto the Site — the only thing
+   * that ever replaces the `["/", "/privacy", "/terms", "/about"]` placeholder
+   * `onboardSite` falls back to, which three of four live properties carried
+   * as fact until this ran.
+   */
+  discovered?: import("./route-discovery").DiscoveredRoutes;
   hosting?: import("./hosting-hint").HostingResult;
 }

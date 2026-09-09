@@ -1,4 +1,5 @@
 import type { AuditResult, Site } from "./types";
+import { discoverRoutes, sitemapUrlFromRobots } from "./route-discovery.ts";
 import { detectHosting } from "./hosting.ts";
 
 const AI_AGENTS = [
@@ -69,7 +70,18 @@ export async function auditSite(site: Site): Promise<AuditResult> {
   const findings: AuditResult["findings"] = [];
   const routeChecks: AuditResult["routeChecks"] = [];
 
-  const routes = site.routes.length ? site.routes : ["/"];
+  // Read the origin's real routes off its own sitemap BEFORE probing anything.
+  // `site.routes` is a placeholder until an audit replaces it, so auditing it
+  // means probing pages nobody claimed exist: on 2026-09-09 three of the four
+  // properties carried `/privacy, /terms, /about` and all nine of those paths
+  // 404'd. Discovery fails soft to ["/"] — never back to the placeholder.
+  const discovered = await discoverRoutes(origin, {
+    fetchText: async (url) => {
+      const res = await timedGet(url);
+      return { status: res.status, text: res.text };
+    },
+  });
+  const routes = discovered.routes;
   let homepage: { responseHeaders: Record<string, string> | null; status: number | null } | undefined;
   for (const route of routes.slice(0, 12)) {
     const target = `${origin}${route === "/" ? "/" : route}`;
@@ -155,7 +167,10 @@ export async function auditSite(site: Site): Promise<AuditResult> {
         robotsText,
       ),
     ).length >= 2 || /allow:\s*\/\s*$/im.test(robotsText);
-  const sitemapDeclared = /sitemap:\s*https?:\/\//i.test(robotsText);
+  // A Sitemap: directive may be relative. Requiring https?:// reported
+  // botcentral.org — `Sitemap: /sitemaps/sitemap.xml`, 27 real URLs — as
+  // having no sitemap at all, and sent the check to /sitemap.xml, which 404s.
+  const sitemapDeclared = sitemapUrlFromRobots(robotsText, origin) !== null;
   const robots = {
     ok: robotsRes.status === 200 && robotsText.length > 0,
     status: robotsRes.status,
@@ -193,7 +208,7 @@ export async function auditSite(site: Site): Promise<AuditResult> {
     });
   }
 
-  const sitemapUrl = site.sitemapUrl || `${origin}/sitemap.xml`;
+  const sitemapUrl = discovered.sitemapUrl || site.sitemapUrl || `${origin}/sitemap.xml`;
   const sm = await timedGet(sitemapUrl);
   const urlCount = (sm.text.match(/<loc>/g) || []).length;
   const sitemap = {
@@ -265,6 +280,7 @@ export async function auditSite(site: Site): Promise<AuditResult> {
     routeChecks,
     robots,
     sitemap,
+    discovered,
     hosting,
   };
 }

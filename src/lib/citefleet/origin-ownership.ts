@@ -113,7 +113,7 @@ export function isWritable(state: OriginWriteState): boolean {
 // wherever the framework source exists.
 // ---------------------------------------------------------------------------
 
-/** Extensions a Next.js metadata route may be written in. */
+/** Extensions a metadata route may be written in. */
 const ROUTE_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mjs"] as const;
 
 /**
@@ -121,11 +121,21 @@ const ROUTE_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mjs"] as const;
  *
  * `app/robots.ts` serves /robots.txt, so a static `public/robots.txt` in the
  * same app never reaches a crawler. Same for sitemap.
+ *
+ * TanStack Start escapes dots in file routes, so the same two routes are
+ * `robots[.]txt.ts` and `sitemap[.]xml.ts`. Missing those was not hypothetical:
+ * CiteFleet's own repo has `src/routes/sitemap[.]xml.ts` listing nine real
+ * paths, and a pushed `public/sitemap.xml` shadows it — so citefleet.app serves
+ * the generated five (three of which 404) and never its own nine. This guard
+ * shipped without catching the case in the repo it shipped from.
  */
 export function shadowedOriginFile(fileName: string): string | null {
   for (const ext of ROUTE_EXTENSIONS) {
     if (fileName === `robots.${ext}`) return "robots.txt";
     if (fileName === `sitemap.${ext}`) return "sitemap.xml";
+    // TanStack Start file routes.
+    if (fileName === `robots[.]txt.${ext}`) return "robots.txt";
+    if (fileName === `sitemap[.]xml.${ext}`) return "sitemap.xml";
   }
   return null;
 }
@@ -134,9 +144,13 @@ export function shadowedOriginFile(fileName: string): string | null {
  * Directories to search for framework route sources, given the origin root.
  *
  * The app that owns `<x>/public` lives at `<x>`, so the candidates are that
- * directory's `app/` and `pages/`, with and without a `src/` layer. For a root
- * of `frontend/public` that is frontend/app, frontend/src/app, frontend/pages,
- * frontend/src/pages; for a root of `public`, the same four at the repo root.
+ * directory's `app/`, `pages/` and `routes/`, with and without a `src/` layer.
+ * For a root of `frontend/public` that is frontend/app, frontend/src/app, …;
+ * for a root of `public`, the same set at the repo root.
+ *
+ * `src/routes` is TanStack Start's file-route directory and is not optional
+ * here: CiteFleet itself is a TanStack app whose `src/routes/sitemap[.]xml.ts`
+ * is shadowed by its own pushed `public/sitemap.xml`.
  */
 export function frameworkSourceDirs(root: string): string[] {
   const parent = root.split("/").slice(0, -1).join("/");
@@ -146,6 +160,8 @@ export function frameworkSourceDirs(root: string): string[] {
     `${prefix}src/app`,
     `${prefix}pages`,
     `${prefix}src/pages`,
+    `${prefix}routes`,
+    `${prefix}src/routes`,
   ];
 }
 

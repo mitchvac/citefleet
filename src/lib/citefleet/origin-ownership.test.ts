@@ -220,24 +220,62 @@ test("shadowedOriginFile maps a route source to the file it takes over", () => {
   assert.equal(shadowedOriginFile("layout.tsx"), null);
 });
 
+test("TanStack Start's escaped file routes shadow the same two paths", () => {
+  // The case this guard shipped without covering, in the repo it shipped from:
+  // CiteFleet's src/routes/sitemap[.]xml.ts lists nine real paths and is
+  // shadowed by its own pushed public/sitemap.xml, so citefleet.app serves five
+  // generated URLs — three of them 404 — and never its own nine.
+  assert.equal(shadowedOriginFile("sitemap[.]xml.ts"), "sitemap.xml");
+  assert.equal(shadowedOriginFile("robots[.]txt.ts"), "robots.txt");
+  assert.equal(shadowedOriginFile("llms[.]txt.ts"), null);
+});
+
+test("frameworkSourceDirs covers TanStack's routes directory", () => {
+  const dirs = frameworkSourceDirs("public");
+  assert.ok(dirs.includes("src/routes"), `src/routes missing from ${dirs.join(", ")}`);
+  assert.ok(dirs.includes("routes"), `routes missing from ${dirs.join(", ")}`);
+});
+
+test("CiteFleet's own repo shape: the pushed sitemap is refused as shadowed", () => {
+  // public/sitemap.xml exists AND is CiteFleet-owned, so ownership alone would
+  // say `update`. The framework check must override, because updating it keeps
+  // the app's nine-path sitemap suppressed.
+  const files = [{ path: "public/sitemap.xml", content: "<urlset/>" }];
+  const remotes = new Map<string, string | null>([["public/sitemap.xml", "<urlset/>old"]]);
+  const plan = planOriginPack(
+    files,
+    remotes,
+    new Map([["sitemap.xml", "src/routes/sitemap[.]xml.ts"]]),
+  );
+  assert.equal(plan.verdicts[0].state, "shadowed");
+  assert.equal(plan.verdicts[0].shadowedBy, "src/routes/sitemap[.]xml.ts");
+  assert.equal(plan.writable.length, 0);
+});
+
 test("frameworkSourceDirs looks beside the origin folder, not inside it", () => {
   assert.deepEqual(frameworkSourceDirs("frontend/public"), [
     "frontend/app",
     "frontend/src/app",
     "frontend/pages",
     "frontend/src/pages",
+    "frontend/routes",
+    "frontend/src/routes",
   ]);
   assert.deepEqual(frameworkSourceDirs("public"), [
     "app",
     "src/app",
     "pages",
     "src/pages",
+    "routes",
+    "src/routes",
   ]);
   assert.deepEqual(frameworkSourceDirs("apps/web/public"), [
     "apps/web/app",
     "apps/web/src/app",
     "apps/web/pages",
     "apps/web/src/pages",
+    "apps/web/routes",
+    "apps/web/src/routes",
   ]);
 });
 

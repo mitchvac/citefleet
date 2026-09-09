@@ -78,7 +78,7 @@ ${done.length ? done.join("\n") : "(none)"}
 
 RULES
 1. Use the computer to open the door URL if you have a session. If a login wall appears, stop and tell the operator to sign in — do not collect or store passwords.
-2. Prefer verify-then-act. If the sitemap already shows Success / 8 URLs, report that and stop.
+2. Prefer verify-then-act. Read the door's current state first and report it; act only where it is not already correct. Treat every count and status in this brief as a claim to check, not a fact.
 3. Always include the exact domain ${site.domain} in any public post or listing.
 4. When finished, reply with: actions taken, URLs touched, evidence (status text), next human step if blocked.
 5. You are this one task only. Do not start Product Hunt while doing a Bing verify.

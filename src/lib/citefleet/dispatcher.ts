@@ -174,6 +174,22 @@ export async function runAuditAndApply(siteId: string): Promise<AuditResult> {
     current.status = "campaign";
     if (audit.hosting) current.hosting = audit.hosting;
 
+    // The one place a property's routes stop being a guess. `onboardSite` has no
+    // routes to work from and falls back to `["/", "/privacy", "/terms",
+    // "/about"]`, which nothing else ever replaced — so that placeholder was the
+    // sitemap `buildOriginPack` publishes, the page list in the generated
+    // llms.txt, and the "Public routes" line in every Grok brief.
+    //
+    // Only adopt a real read. Discovery returns ["/"] when it could not reach a
+    // sitemap, and overwriting a known-good route list with that would be a
+    // regression, so a one-element result is ignored.
+    if (audit.discovered && audit.discovered.routes.length > 1) {
+      current.routes = audit.discovered.routes;
+    }
+    if (audit.discovered?.sitemapUrl) {
+      current.sitemapUrl = audit.discovered.sitemapUrl;
+    }
+
     const apply = (playbookId: PlaybookId, findingOk: boolean, label: string) => {
       const task = s.tasks.find(
         (t) => t.siteId === siteId && t.playbookId === playbookId,
