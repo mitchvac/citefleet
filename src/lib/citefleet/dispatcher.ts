@@ -13,6 +13,7 @@ import {
 import { assertCanAct, doorForPlaybook, freezeReason, isFrozen } from "./control";
 import type { AuditResult, PlaybookId, Site, Task } from "./types";
 import { siteVerifyToken } from "./verify-token.ts";
+import { checklistTransition, toggleEvidenceLabel } from "./task-state.ts";
 import { checkOriginProof, waitForProof } from "./proof.ts";
 import {
   normalizeOwner,
@@ -699,15 +700,32 @@ export async function patchTask(
     }
     if (patch.status) task.status = patch.status;
     if (patch.blockedReason !== undefined) task.blockedReason = patch.blockedReason;
+    const at = new Date().toISOString();
+    const statusBefore = task.status;
+    let changed = false;
     if (patch.checklistId && typeof patch.done === "boolean") {
       const item = task.checklist.find((c) => c.id === patch.checklistId);
-      if (item) item.done = patch.done;
+      if (item && item.done !== patch.done) {
+        item.done = patch.done;
+        changed = true;
+        // A tick is a CLAIM that work happened at a third party — a Trustpilot
+        // business claimed, a Product Hunt launch queued — and it used to leave
+        // no trace at all. See task-state.ts for the card this was found on.
+        task.evidence.unshift({
+          id: crypto.randomUUID(),
+          at,
+          kind: "note",
+          label: toggleEvidenceLabel(patch.done),
+          detail: item.label,
+          ok: patch.done,
+        });
+      }
     }
-    if (task.checklist.every((c) => c.done) && task.status !== "done") {
-      task.status = "done";
-      task.completedAt = new Date().toISOString();
-    }
-    task.updatedAt = new Date().toISOString();
+    const next = checklistTransition(task.checklist, statusBefore, changed);
+    if (next.status) task.status = next.status;
+    if (next.completed === true) task.completedAt = at;
+    if (next.completed === false) task.completedAt = undefined;
+    task.updatedAt = at;
     recalcScores(store, task.siteId);
   });
 }
