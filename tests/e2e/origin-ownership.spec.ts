@@ -114,18 +114,32 @@ test("a repo the rule already refuses cannot be checked or pushed", async ({ pag
   await expect(page.getByRole("button", { name: /^Push/ })).toBeDisabled();
 });
 
-test("without a token the check says so plainly instead of reporting a verdict", async ({
-  page,
-}) => {
-  test.skip(Boolean(GH_TOKEN), "a workspace token is configured for this run");
+test("a repo that cannot be read is refused, never written blind", async ({ page }) => {
+  // The condition that matters is what the WORKSPACE holds, not what this test
+  // run was configured with. An earlier version skipped on E2E_GITHUB_TOKEN and
+  // so asserted "No GitHub token" against a production workspace that HAS a
+  // token — an expired one. Both outcomes are the same guard, so assert the
+  // guard rather than one of its two messages.
   await openCampaign(page);
   await page.getByTestId("check-repo").click();
   await waitIdle(page);
-  // The failure surfaces as an error, and NO plan table appears. A guard that
-  // renders an empty verdict on a failed read is worse than one that renders
-  // nothing: an empty table reads as "all clear".
-  await expect(page.locator("div.glass.text-rose-300")).toContainText("No GitHub token");
-  await expect(page.getByTestId("origin-plan")).toHaveCount(0);
+
+  const error = page.locator("div.glass.text-rose-300");
+  const plan = page.getByTestId("origin-plan");
+  // No token at all: the check refuses before reading, and renders NO table. A
+  // guard that shows an empty verdict on a failed read is worse than one that
+  // shows nothing, because an empty table reads as "all clear".
+  if (await error.filter({ hasText: "No GitHub token" }).count()) {
+    await expect(plan).toHaveCount(0);
+    return;
+  }
+  // A token that GitHub rejects, or a repo that does not exist: the read fails,
+  // every path lands in `unreadable`, and push offers nothing.
+  await expect(plan).toBeVisible();
+  await expect(page.getByTestId("origin-plan-unreadable")).toContainText(
+    "could not be read",
+  );
+  await expect(page.getByRole("button", { name: "Push 0 files" })).toBeDisabled();
 });
 
 test("the verdict table reports one state per file, read from the repo", async ({
@@ -159,15 +173,45 @@ test("the verdict table reports one state per file, read from the repo", async (
 });
 
 test("teardown: remove only the property this file created", async ({ page }) => {
-  await go(page, "/");
-  const target = card(page, SITE.name);
-  if ((await target.count()) > 0) {
-    await target.getByRole("link", { name: /campaign/i }).first().click();
-    await waitIdle(page);
-    page.once("dialog", (d) => void d.accept());
-    await page.getByRole("button", { name: "Remove property" }).click();
-    await waitIdle(page);
+  // The dialog handler is registered ONCE, for the whole page, before any
+  // navigation. An earlier version armed `page.once` immediately before the
+  // click and the removal silently did not happen — the confirm was never
+  // accepted, the property survived, and the run left it behind in the
+  // workspace. A persistent handler is the version observed to work.
+  page.on("dialog", (d) => void d.accept());
+
+  // `waitIdle`'s 700ms settle is enough locally but NOT against citefleet.app:
+  // the fetch counter hits zero before React attaches its handlers, so the
+  // click lands on an unhydrated button, nothing happens, no dialog is raised
+  // and the property survives the "teardown". Removal is the one step that must
+  // not be flaky — a missed one leaves a test property in the live workspace —
+  // so it waits generously and then verifies, retrying once.
+  // POSITIVE CONTROL, and it is not optional. An earlier version checked for
+  // this file's card straight after navigating, found zero because the board
+  // had not rendered yet, and reported a PASSING teardown while the property
+  // was still live in the workspace. A count of zero proves nothing until the
+  // board is known to be showing cards at all, so every check waits for a card
+  // that must always exist first.
+  async function boardLoaded() {
+    await go(page, "/");
+    await expect(page.locator("article").first()).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(1500);
   }
-  await go(page, "/");
+
+  await boardLoaded();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const target = card(page, SITE.name);
+    if ((await target.count()) === 0) break;
+    await target.getByRole("link", { name: /campaign/i }).first().click();
+    // Long enough for React to attach handlers on a production round trip; a
+    // click on an unhydrated button is silently a no-op and leaves the property.
+    await page.waitForTimeout(3000);
+    const remove = page.getByRole("button", { name: "Remove property" });
+    await expect(remove).toBeVisible();
+    await remove.click();
+    await page.waitForTimeout(5000);
+    await boardLoaded();
+  }
+  await boardLoaded();
   await expect(card(page, SITE.name)).toHaveCount(0);
 });
