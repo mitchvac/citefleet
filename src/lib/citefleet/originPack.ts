@@ -1,5 +1,6 @@
 import type { Site } from "./types";
 import { siteVerifyToken, verifyLine } from "./verify-token.ts";
+import { OWNER_MARKER } from "./origin-ownership.ts";
 
 const AI_AGENTS = [
   "GPTBot",
@@ -31,7 +32,7 @@ export function buildOriginPack(site: Site): OriginFile[] {
 
   const robots = [
     `# ${site.name} — ${origin}`,
-    `# Written by CiteFleet. Marketing URLs stay Allow. Do not 402 these paths.`,
+    `# ${OWNER_MARKER}. Marketing URLs stay Allow. Do not 402 these paths.`,
     "",
     "User-agent: *",
     "Allow: /",
@@ -48,6 +49,10 @@ export function buildOriginPack(site: Site): OriginFile[] {
 
   const sitemap = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
+    // Ownership marker. `origin-ownership.ts` reads it to decide whether a push
+    // may overwrite this path; without it every regenerated sitemap looks like
+    // somebody's hand-written one and is refused.
+    `<!-- ${OWNER_MARKER}. Regenerated on every push — edits here are replaced. -->`,
     `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
     ...routes.map((path) => {
       const loc = path === "/" ? `${origin}/` : `${origin}${path}`;
@@ -59,6 +64,9 @@ export function buildOriginPack(site: Site): OriginFile[] {
   ].join("\n");
 
   const llms = [
+    // Same ownership marker as robots.txt and sitemap.xml. An HTML comment is
+    // the one form every llms.txt reader already ignores.
+    `<!-- ${OWNER_MARKER}. Regenerated on every push — edits here are replaced. -->`,
     `# ${site.name}`,
     "",
     `> ${site.summary || `${site.name} at ${origin}`}`,
