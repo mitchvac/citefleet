@@ -190,6 +190,18 @@ export const pushOriginPackFn = createServerFn({ method: "POST" })
     return pushOriginPack(data.siteId);
   });
 
+/**
+ * Read-only: what a push WOULD do to the repo, per file. Writes nothing, so
+ * the campaign panel can show the verdict before the operator commits to it.
+ */
+export const inspectOriginPackFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((d: { siteId: string }) => d)
+  .handler(async ({ data }) => {
+    const { inspectOriginPack } = await import("./ops.server");
+    return inspectOriginPack(data.siteId);
+  });
+
 export const setGithubTokenFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { token: string }) => d)

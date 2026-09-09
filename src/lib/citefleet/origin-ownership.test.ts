@@ -5,9 +5,11 @@ import type { Site } from "./types.ts";
 import {
   OWNER_MARKER,
   classifyOriginFile,
+  frameworkSourceDirs,
   isCiteFleetOwned,
   isWritable,
   planOriginPack,
+  shadowedOriginFile,
 } from "./origin-ownership.ts";
 
 // The files that were actually live in mitchvac/Resonanse public/ on
@@ -178,9 +180,9 @@ test("the real Resonanse pack: only botcentral.txt is writable", () => {
   ]);
   const plan = planOriginPack(files, remotes);
 
-  assert.equal(plan.refused.length, 3);
+  assert.equal(plan.blocked.length, 3);
   assert.deepEqual(
-    plan.refused.map((v) => v.path).sort(),
+    plan.blocked.map((v) => v.path).sort(),
     ["public/llms.txt", "public/robots.txt", "public/sitemap.xml"],
   );
   assert.deepEqual(
@@ -198,6 +200,111 @@ test("a repo CiteFleet already owns end to end stays fully writable", () => {
     files.map((f) => [f.path, `${f.content}\n<!-- edited -->`]),
   );
   const plan = planOriginPack(files, remotes);
-  assert.equal(plan.refused.length, 0);
+  assert.equal(plan.blocked.length, 0);
+  assert.equal(plan.writable.length, files.length);
+});
+
+// --- framework-generated routes -------------------------------------------
+// mitchvac/wflowprocess: Next.js 14.2.35, frontend/app/robots.ts and
+// frontend/app/sitemap.ts, and NOTHING at frontend/public/robots.txt or
+// frontend/public/sitemap.xml. Ownership alone calls both `create`, which is
+// how the dangerous push looks safe.
+
+test("shadowedOriginFile maps a route source to the file it takes over", () => {
+  assert.equal(shadowedOriginFile("robots.ts"), "robots.txt");
+  assert.equal(shadowedOriginFile("sitemap.tsx"), "sitemap.xml");
+  assert.equal(shadowedOriginFile("sitemap.mjs"), "sitemap.xml");
+  // Not a metadata route, and must never be mistaken for one.
+  assert.equal(shadowedOriginFile("robots.txt"), null);
+  assert.equal(shadowedOriginFile("sitemap.xml"), null);
+  assert.equal(shadowedOriginFile("layout.tsx"), null);
+});
+
+test("frameworkSourceDirs looks beside the origin folder, not inside it", () => {
+  assert.deepEqual(frameworkSourceDirs("frontend/public"), [
+    "frontend/app",
+    "frontend/src/app",
+    "frontend/pages",
+    "frontend/src/pages",
+  ]);
+  assert.deepEqual(frameworkSourceDirs("public"), [
+    "app",
+    "src/app",
+    "pages",
+    "src/pages",
+  ]);
+  assert.deepEqual(frameworkSourceDirs("apps/web/public"), [
+    "apps/web/app",
+    "apps/web/src/app",
+    "apps/web/pages",
+    "apps/web/src/pages",
+  ]);
+});
+
+test("an empty path is still refused when the app owns the route", () => {
+  // The wflowprocess case exactly: nothing at the static path, so ownership
+  // says create. The framework check has to override that.
+  const files = buildOriginPack(
+    site({
+      id: "site-wflow",
+      name: "wflowprocess",
+      domain: "wflowprocess.app",
+      url: "https://wflowprocess.app",
+      github: {
+        owner: "mitchvac",
+        repo: "wflowprocess",
+        branch: "main",
+        root: "frontend/public",
+      },
+    }),
+  );
+  const remotes = new Map<string, string | null>(files.map((f) => [f.path, null]));
+  const frameworkRoutes = new Map([
+    ["robots.txt", "frontend/app/robots.ts"],
+    ["sitemap.xml", "frontend/app/sitemap.ts"],
+  ]);
+  const plan = planOriginPack(files, remotes, frameworkRoutes);
+
+  const byPath = new Map(plan.verdicts.map((v) => [v.path, v]));
+  assert.equal(byPath.get("frontend/public/robots.txt")!.state, "shadowed");
+  assert.equal(
+    byPath.get("frontend/public/robots.txt")!.shadowedBy,
+    "frontend/app/robots.ts",
+  );
+  assert.equal(byPath.get("frontend/public/sitemap.xml")!.state, "shadowed");
+  // The other two are untouched by the framework check and still create.
+  assert.equal(byPath.get("frontend/public/llms.txt")!.state, "create");
+  assert.equal(
+    byPath.get("frontend/public/.well-known/botcentral.txt")!.state,
+    "create",
+  );
+  assert.equal(plan.blocked.length, 2);
+  assert.equal(plan.writable.length, 2);
+  assert.equal(isWritable("shadowed"), false);
+});
+
+test("shadowing outranks ownership — it refuses even a CiteFleet-owned file", () => {
+  // If CiteFleet pushed the static twin BEFORE the app grew a robots.ts, the
+  // file is CiteFleet's and would classify as `update`. It must still be
+  // refused: updating it keeps the app's route suppressed.
+  const files = [{ path: "frontend/public/robots.txt", content: `# ${OWNER_MARKER}\nnew\n` }];
+  const remotes = new Map<string, string | null>([
+    ["frontend/public/robots.txt", `# ${OWNER_MARKER}\nold\n`],
+  ]);
+  assert.equal(planOriginPack(files, remotes).verdicts[0].state, "update");
+  const plan = planOriginPack(
+    files,
+    remotes,
+    new Map([["robots.txt", "frontend/app/robots.ts"]]),
+  );
+  assert.equal(plan.verdicts[0].state, "shadowed");
+  assert.equal(plan.writable.length, 0);
+});
+
+test("no framework sources means no shadowing — the control for the two above", () => {
+  const files = buildOriginPack(site());
+  const remotes = new Map<string, string | null>(files.map((f) => [f.path, null]));
+  const plan = planOriginPack(files, remotes, new Map());
+  assert.equal(plan.blocked.length, 0);
   assert.equal(plan.writable.length, files.length);
 });

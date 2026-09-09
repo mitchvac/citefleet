@@ -170,3 +170,5 @@ customer origin (env `E2E_SITE_NAME`, `E2E_SITE_URL`, `E2E_GH_OWNER`,
 `E2E_GH_REPO`, `E2E_GH_ROOT`; defaults are the current customer under test).
 Its last test removes the property it created. `E2E_HEADLESS=1` for
 unattended runs; `E2E_URL=http://localhost:8080` for a local dev server.
+`tests/e2e/share-app.spec.ts` covers the header's Share app button signed out
+(share-sheet payload, clipboard fallback, 320px header) and needs no property.

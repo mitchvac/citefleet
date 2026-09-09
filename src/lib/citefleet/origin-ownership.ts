@@ -63,7 +63,14 @@ export type OriginWriteState =
   /** Already byte-identical to what CiteFleet would write. Writing is a no-op. */
   | "identical"
   /** Someone else's file. CiteFleet must not write it. */
-  | "refused";
+  | "refused"
+  /**
+   * The app already generates this route in code, so a static file here would
+   * never be served. Distinct from `refused` because nothing is being
+   * protected from overwrite — the path is empty — yet writing it is still
+   * wrong, and for a reason the operator has to fix in the repo, not here.
+   */
+  | "shadowed";
 
 export type OriginFileVerdict = {
   path: string;
@@ -74,11 +81,72 @@ export type OriginFileVerdict = {
   remoteBytes?: number;
   /** Byte length of what CiteFleet would write. */
   generatedBytes: number;
+  /** For `shadowed`: the repo path of the framework source that owns this route. */
+  shadowedBy?: string;
 };
 
 /** True when `state` means the file is safe for `pushOriginPack` to PUT. */
 export function isWritable(state: OriginWriteState): boolean {
   return state === "create" || state === "update";
+}
+
+// ---------------------------------------------------------------------------
+// Framework-generated routes
+//
+// Ownership answers "is this file somebody's work". It cannot answer "does this
+// route already have an owner somewhere else in the repo", and that is a real
+// case: mitchvac/wflowprocess is a Next.js app with frontend/app/robots.ts and
+// frontend/app/sitemap.ts, and NO static twin in frontend/public. Every
+// ownership check therefore says `create`, correctly — the path is empty.
+//
+// Writing it is still wrong. Verified on Next 14.2.35 (the version that repo
+// pins), App Router, output: "standalone", with both files present:
+//
+//   next build  -> ✓ Compiled successfully, ✓ Generating static pages (6/6),
+//                  routes /robots.txt and /sitemap.xml both listed. No warning.
+//   next start  -> GET /robots.txt returns the public/ file, not the route
+//   standalone  -> same
+//
+// The static file wins silently and the app's own robots policy never ships.
+// A build failure would have been the safe outcome; instead it is a green
+// deploy with a quietly replaced policy. So the static twin is refused
+// wherever the framework source exists.
+// ---------------------------------------------------------------------------
+
+/** Extensions a Next.js metadata route may be written in. */
+const ROUTE_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mjs"] as const;
+
+/**
+ * The origin file a framework source file would shadow, or null.
+ *
+ * `app/robots.ts` serves /robots.txt, so a static `public/robots.txt` in the
+ * same app never reaches a crawler. Same for sitemap.
+ */
+export function shadowedOriginFile(fileName: string): string | null {
+  for (const ext of ROUTE_EXTENSIONS) {
+    if (fileName === `robots.${ext}`) return "robots.txt";
+    if (fileName === `sitemap.${ext}`) return "sitemap.xml";
+  }
+  return null;
+}
+
+/**
+ * Directories to search for framework route sources, given the origin root.
+ *
+ * The app that owns `<x>/public` lives at `<x>`, so the candidates are that
+ * directory's `app/` and `pages/`, with and without a `src/` layer. For a root
+ * of `frontend/public` that is frontend/app, frontend/src/app, frontend/pages,
+ * frontend/src/pages; for a root of `public`, the same four at the repo root.
+ */
+export function frameworkSourceDirs(root: string): string[] {
+  const parent = root.split("/").slice(0, -1).join("/");
+  const prefix = parent ? `${parent}/` : "";
+  return [
+    `${prefix}app`,
+    `${prefix}src/app`,
+    `${prefix}pages`,
+    `${prefix}src/pages`,
+  ];
 }
 
 /**
@@ -157,8 +225,8 @@ export type OriginPackPlan = {
   verdicts: OriginFileVerdict[];
   /** The files push would actually PUT. */
   writable: OriginFileVerdict[];
-  /** The files push must leave alone because they belong to the site. */
-  refused: OriginFileVerdict[];
+  /** The files push must leave alone: someone's own file, or a shadowed route. */
+  blocked: OriginFileVerdict[];
   /** True when nothing at all would change in the repo. */
   noop: boolean;
 };
@@ -169,16 +237,38 @@ export type OriginPackPlan = {
  * `remotes` maps path → content, with null for "read succeeded, nothing there".
  * A path missing from the map is treated as unread and refused, so a caller
  * that forgets to read one cannot silently overwrite it.
+ *
+ * `frameworkRoutes` maps an origin file NAME (`robots.txt`, `sitemap.xml`) to
+ * the repo path of the framework source that already serves that route. Those
+ * are refused as `shadowed` before ownership is consulted at all: it does not
+ * matter whether the static path is free, because a file written there is
+ * never served.
  */
 export function planOriginPack(
   files: ReadonlyArray<{ path: string; content: string }>,
   remotes: ReadonlyMap<string, string | null>,
+  frameworkRoutes: ReadonlyMap<string, string> = new Map(),
 ): OriginPackPlan {
-  const verdicts = files.map((file) => {
+  const verdicts = files.map((file): OriginFileVerdict => {
+    const name = file.path.split("/").pop() ?? file.path;
+    const owner = frameworkRoutes.get(name);
+    if (owner) {
+      return {
+        path: file.path,
+        state: "shadowed",
+        shadowedBy: owner,
+        reason:
+          `The app generates this route in ${owner}. A static file here is ` +
+          `never served — it silently takes the route over at build time, and ` +
+          `the app's own version stops shipping. Refused. Add CiteFleet's lines ` +
+          `to ${owner} instead.`,
+        generatedBytes: file.content.length,
+      };
+    }
     if (!remotes.has(file.path)) {
       return {
         path: file.path,
-        state: "refused" as const,
+        state: "refused",
         reason: "The repo was not read for this path — refusing to write blind.",
         generatedBytes: file.content.length,
       };
@@ -191,6 +281,8 @@ export function planOriginPack(
   });
 
   const writable = verdicts.filter((v) => isWritable(v.state));
-  const refused = verdicts.filter((v) => v.state === "refused");
-  return { verdicts, writable, refused, noop: writable.length === 0 };
+  const blocked = verdicts.filter(
+    (v) => v.state === "refused" || v.state === "shadowed",
+  );
+  return { verdicts, writable, blocked, noop: writable.length === 0 };
 }

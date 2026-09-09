@@ -260,7 +260,7 @@ export function CommandBoard() {
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[#9b7dff]"
                 value={ghRepo}
                 onChange={(e) => setGhRepo(e.target.value)}
-                placeholder="citefleet"
+                placeholder="website-repo"
               />
             </Field>
             <button

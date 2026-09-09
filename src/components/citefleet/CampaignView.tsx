@@ -1,11 +1,13 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useFleet } from "@/lib/citefleet/client";
+import type { OriginPackInspection } from "@/lib/citefleet/client";
 import { Pill } from "./Shell";
 import { GrokHandoff } from "./GrokHandoff";
 import type { Site, Task } from "@/lib/citefleet/types";
 import { hostingHint } from "@/lib/citefleet/hosting-hint";
 import { describeTerm, renewalState, termDaysLeft } from "@/lib/citefleet/listing-term";
+import { originRepoConflict } from "@/lib/citefleet/origin-repo";
 
 function tone(status: string) {
   if (status === "done") return "good" as const;
@@ -188,7 +190,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
 
       <ReconcilePanel site={site} />
 
-      <GithubPanel site={site} fleet={fleet} />
+      <GithubPanel site={site} fleet={fleet} sites={fleet.store.sites} />
       <AutoListingPanel site={site} fleet={fleet} />
       <BillingPanel site={site} fleet={fleet} />
 
@@ -426,17 +428,36 @@ function BillingPanel({
 function GithubPanel({
   site,
   fleet,
+  sites,
 }: {
   site: Site;
   fleet: ReturnType<typeof useFleet>;
+  sites: Site[];
 }) {
   const [owner, setOwner] = useState(site.github?.owner || "");
   const [repo, setRepo] = useState(site.github?.repo || "");
   const [branch, setBranch] = useState(site.github?.branch || "main");
   const [root, setRoot] = useState(site.github?.root || "public");
-  const connected = Boolean(site.github?.owner && site.github.repo);
+  // What a push would actually do, read from the repo. Null until the operator
+  // asks; cleared whenever the target changes, because a verdict for one
+  // owner/repo/folder says nothing about another.
+  const [plan, setPlan] = useState<OriginPackInspection | null>(null);
   const tokenReady = Boolean(fleet.store?.workspace.githubToken);
-  const canPush = Boolean(owner.trim() && repo.trim());
+  // What is on file, and what is currently typed, judged by the same rule the
+  // server applies — so the panel never promises a push the server refuses.
+  const storedConflict = site.github
+    ? originRepoConflict(site, site.github, sites)
+    : null;
+  const draftConflict = originRepoConflict(site, { owner, repo, root }, sites);
+  const attached = Boolean(site.github?.owner && site.github.repo);
+  const connected = attached && !storedConflict;
+  const planIsForTarget =
+    plan !== null &&
+    plan.repo.toLowerCase() === `${owner.trim()}/${repo.trim()}`.toLowerCase() &&
+    plan.branch === branch.trim() &&
+    plan.root === root.trim().replace(/^\/+|\/+$/g, "");
+  const shown = planIsForTarget ? plan : null;
+  const canPush = Boolean(owner.trim() && repo.trim()) && !draftConflict;
   return (
     <section className="glass rounded-3xl p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -445,16 +466,25 @@ function GithubPanel({
             Origin files → GitHub
           </p>
           <h2 className="mt-1 text-lg font-semibold">
-            {connected
+            {attached
               ? `${site.github!.owner}/${site.github!.repo}`
               : "Attach this site’s repo"}
           </h2>
-          <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
-            Writes robots.txt, sitemap.xml, llms.txt, and .well-known/botcentral.txt
-            into <span className="mono">{root || "public"}/</span> on{" "}
-            <span className="mono">{owner || "owner"}/{repo || "repo"}</span>.
-            Push saves the repo first, then commits.
-          </p>
+          {storedConflict ? (
+            <p
+              className="mt-2 max-w-xl text-sm text-rose-200"
+              data-testid="github-repo-conflict"
+            >
+              {storedConflict.message}
+            </p>
+          ) : (
+            <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
+              Writes robots.txt, sitemap.xml, llms.txt, and .well-known/botcentral.txt
+              into <span className="mono">{root || "public"}/</span> on{" "}
+              <span className="mono">{owner || "owner"}/{repo || "repo"}</span>.
+              Push saves the repo first, then commits.
+            </p>
+          )}
           {site.verifyToken && (
             <p className="mt-2 break-all text-xs text-[#9b95b3]">
               BotCentral proof line the file must carry:{" "}
@@ -474,7 +504,9 @@ function GithubPanel({
             </p>
           )}
         </div>
-        <Pill tone={connected ? "good" : "warn"}>{connected ? "repo attached" : "no repo"}</Pill>
+        <Pill tone={storedConflict ? "bad" : connected ? "good" : "warn"}>
+          {storedConflict ? "wrong repo" : connected ? "repo attached" : "no repo"}
+        </Pill>
       </div>
       {!tokenReady && (
         <p className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
@@ -536,26 +568,99 @@ function GithubPanel({
           </button>
           <button
             type="button"
-            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07060f] disabled:opacity-40"
+            className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
             disabled={!!fleet.busy || !canPush}
+            data-testid="check-repo"
             onClick={() =>
-              fleet.pushOriginPack({
-                siteId: site.id,
-                owner,
-                repo,
-                branch,
-                root,
-              })
+              fleet
+                .inspectOriginPack({ siteId: site.id, owner, repo, branch, root })
+                .then(setPlan)
             }
           >
-            {fleet.busy === "origin" ? "Pushing…" : "Push origin files"}
+            {fleet.busy === "inspect" ? "Reading repo…" : "Check repo"}
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07060f] disabled:opacity-40"
+            disabled={!!fleet.busy || !canPush || shown?.noop}
+            onClick={() =>
+              fleet
+                .pushOriginPack({ siteId: site.id, owner, repo, branch, root })
+                // The repo changed, so the verdict on screen is now stale.
+                .then(() => setPlan(null))
+            }
+          >
+            {fleet.busy === "origin"
+              ? "Pushing…"
+              : shown
+                ? `Push ${shown.writable.length} file${shown.writable.length === 1 ? "" : "s"}`
+                : "Push origin files"}
           </button>
           {fleet.busy === "origin" && (
             <span className="text-xs text-[#9b95b3]">Saving repo, then committing to GitHub…</span>
           )}
+          {draftConflict && (
+            <span className="text-xs text-rose-200" data-testid="github-draft-conflict">
+              {draftConflict.message}
+            </span>
+          )}
         </div>
       </form>
+      <OriginPlanTable plan={shown} />
     </section>
+  );
+}
+
+/**
+ * What a push would do to each of the four files, read from the repo.
+ *
+ * This exists because the generator writes from campaign state and used to PUT
+ * every file unconditionally: on a property whose files were written by
+ * somebody who knows it, that replaced a real robots policy with a generic one.
+ * The server refuses those now — this panel is where the operator sees WHICH,
+ * and why, before clicking anything.
+ */
+function OriginPlanTable({ plan }: { plan: OriginPackInspection | null }) {
+  if (!plan) return null;
+  const TONE: Record<string, { label: string; className: string }> = {
+    create: { label: "create", className: "text-emerald-200" },
+    update: { label: "update", className: "text-emerald-200" },
+    identical: { label: "already correct", className: "text-[#9b95b3]" },
+    refused: { label: "refused", className: "text-rose-200" },
+    shadowed: { label: "shadowed", className: "text-amber-200" },
+  };
+  return (
+    <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4" data-testid="origin-plan">
+      <p className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
+        What a push would do — read from {plan.repo} ({plan.branch})
+      </p>
+      {plan.unreadable.length > 0 && (
+        <p className="mt-2 text-sm text-rose-200" data-testid="origin-plan-unreadable">
+          {plan.unreadable.length} path(s) could not be read: {plan.unreadable.join("; ")}.
+          Push is refused while that is true — a path CiteFleet cannot read is one it
+          must not write.
+        </p>
+      )}
+      <ul className="mt-3 space-y-2">
+        {plan.verdicts.map((v) => {
+          const tone = TONE[v.state] ?? TONE.refused;
+          return (
+            <li key={v.path} className="text-sm" data-testid={`origin-plan-${v.state}`}>
+              <span className={`mono text-xs ${tone.className}`}>[{tone.label}]</span>{" "}
+              <span className="mono break-all text-[#cfc8e8]">{v.path}</span>
+              {v.state !== "create" && v.state !== "identical" && (
+                <p className="mt-0.5 text-xs text-[#b7b0cc]">{v.reason}</p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-3 text-xs text-[#9b95b3]">
+        {plan.noop
+          ? "Nothing to push — every file is either already correct or spoken for."
+          : `Push writes ${plan.writable.length}, leaves ${plan.blocked.length} alone.`}
+      </p>
+    </div>
   );
 }
 

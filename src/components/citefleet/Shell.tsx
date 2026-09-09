@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "./BrandLogo";
+import { ShareApp } from "./ShareApp";
 
 type Me = { email: string; name: string; imageUrl?: string | null } | null;
 
@@ -120,6 +121,9 @@ export function Shell({
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             {me && <Avatar me={me} />}
+            {/* On every page, public ones included: a person deciding whether to
+                sign up is exactly who passes the app on. */}
+            <ShareApp />
             <form method="post" action="/api/logout">
               <button className="rounded-full border border-white/10 px-3 py-1 text-xs text-[#cfc8e8] hover:bg-white/5">
                 Sign out

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AuditResult, StoreShape } from "./types";
+import type { OriginFileVerdict } from "./origin-ownership";
 import {
   attachGithubFn,
   auditProperty,
   billingSettingsFn,
   setBillingKeyFn,
   dispatchProperty,
+  inspectOriginPackFn,
   loadState,
   onboardProperty,
   patchTaskFn,
@@ -34,6 +36,18 @@ function redirectIfSignedOut(err: unknown): boolean {
 }
 
 export type BillingSettings = { billing: boolean; hookUrl: string; hookSecret: boolean };
+
+/** What `inspectOriginPack` reports back: one verdict per file in the pack. */
+export type OriginPackInspection = {
+  repo: string;
+  branch: string;
+  root: string;
+  verdicts: OriginFileVerdict[];
+  writable: OriginFileVerdict[];
+  blocked: OriginFileVerdict[];
+  noop: boolean;
+  unreadable: string[];
+};
 
 export function useFleet() {
   const [store, setStore] = useState<StoreShape | null>(null);
@@ -188,6 +202,26 @@ export function useFleet() {
         await attachGithubFn({ data: body });
         await pushOriginPackFn({ data: { siteId: body.siteId } });
       }),
+    /**
+     * Read-only preview of what a push would do. Saves the repo first for the
+     * same reason push does — the server inspects what is ON FILE, so a typed
+     * change the operator has not saved would otherwise be inspected against
+     * the old repo and report a verdict for the wrong place.
+     */
+    inspectOriginPack: async (body: {
+      siteId: string;
+      owner: string;
+      repo: string;
+      branch?: string;
+      root?: string;
+    }): Promise<OriginPackInspection | null> => {
+      let plan: OriginPackInspection | null = null;
+      await run("inspect", async () => {
+        await attachGithubFn({ data: body });
+        plan = await inspectOriginPackFn({ data: { siteId: body.siteId } });
+      });
+      return plan;
+    },
     setGithubToken: (token: string) =>
       run("ghtoken", async () => {
         await setGithubTokenFn({ data: { token } });

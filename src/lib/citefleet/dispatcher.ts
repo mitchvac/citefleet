@@ -14,6 +14,12 @@ import { assertCanAct, doorForPlaybook, freezeReason, isFrozen } from "./control
 import type { AuditResult, PlaybookId, Site, Task } from "./types";
 import { siteVerifyToken } from "./verify-token.ts";
 import { checkOriginProof, waitForProof } from "./proof.ts";
+import {
+  normalizeOwner,
+  normalizeRepo,
+  normalizeRoot,
+  originRepoConflict,
+} from "./origin-repo.ts";
 import { deployedUrl, endCheck, newWebhookSecret, payloadUrl } from "./webhook.ts";
 
 function botForPlaybook(playbookId: PlaybookId) {
@@ -49,15 +55,22 @@ export async function onboardSite(input: {
     github:
       input.github?.owner && input.github.repo
         ? {
-            owner: input.github.owner.replace(/^@/, ""),
-            repo: input.github.repo.replace(/\.git$/, ""),
+            owner: normalizeOwner(input.github.owner),
+            repo: normalizeRepo(input.github.repo),
             branch: input.github.branch || "main",
-            root: input.github.root ?? "public",
+            root: normalizeRoot(input.github.root),
           }
         : undefined,
   };
 
   await mutateStore((store) => {
+    // Onboarding writes site.github straight from the form, so it needs the
+    // same slot check the attach form gets — otherwise a new property can be
+    // created already pointing at another property's origin folder.
+    if (site.github) {
+      const conflict = originRepoConflict(site, site.github, store.sites);
+      if (conflict) throw new Error(conflict.message);
+    }
     store.sites.unshift(site);
     for (const step of PLAYBOOK) {
       const draft = playbookToTaskDraft(site.id, step);
