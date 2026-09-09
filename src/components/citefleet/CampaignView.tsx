@@ -8,6 +8,7 @@ import type { Site, Task } from "@/lib/citefleet/types";
 import { hostingHint } from "@/lib/citefleet/hosting-hint";
 import { describeTerm, renewalState, termDaysLeft } from "@/lib/citefleet/listing-term";
 import { originRepoConflict } from "@/lib/citefleet/origin-repo";
+import { siteVerifyToken, verifyLine } from "@/lib/citefleet/verify-token";
 
 function tone(status: string) {
   if (status === "done") return "good" as const;
@@ -83,7 +84,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
             <p className="mt-2 text-sm text-[#e2c36d]" data-testid="botcentral-unverified">
               On BotCentral but unverified — the proof token is no longer
               answering at this origin, so the card is listed without proof.
-              Re-serve <span className="mono">botcentral-verify={site.verifyToken}</span>{" "}
+              Re-serve <span className="mono">{verifyLine(siteVerifyToken(site))}</span>{" "}
               (Push origin files, then deploy that repo), then List on BotCentral.
               {site.botcentral.href ? (
                 <>
@@ -485,13 +486,20 @@ function GithubPanel({
               Push saves the repo first, then commits.
             </p>
           )}
-          {site.verifyToken && (
-            <p className="mt-2 break-all text-xs text-[#9b95b3]">
-              BotCentral proof line the file must carry:{" "}
-              <span className="mono text-[#cfc8e8]">botcentral-verify={site.verifyToken}</span>
-              {" "}(or the same value in an apex DNS TXT record).
-            </p>
-          )}
+          {/*
+            The line the OPERATOR is told to serve must be the line the CHECKER
+            looks for, and there is exactly one function that decides it.
+            Printing the stored `site.verifyToken` instead told wflowprocess.app
+            to serve `botcentral-verify=6ffa50ab224c2a593f43b89e7cf2d506` — a
+            per-site token from before the shared-token decision (f842b9d) that
+            no code path has checked since. A file built from that instruction
+            could never verify.
+          */}
+          <p className="mt-2 break-all text-xs text-[#9b95b3]">
+            BotCentral proof line the file must carry:{" "}
+            <span className="mono text-[#cfc8e8]">{verifyLine(siteVerifyToken(site))}</span>
+            {" "}(or the same value in an apex DNS TXT record).
+          </p>
           {site.github?.lastPushUrl && (
             <p className="mt-2 text-xs text-[#9b95b3]">
               Last push{" "}
