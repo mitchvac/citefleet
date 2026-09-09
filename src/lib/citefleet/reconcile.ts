@@ -36,13 +36,20 @@ export function buildChecks(
   // a DNS-proven origin it had no proof. "Origin proof" is ownership, by EITHER
   // method. "Origin files" is whether our origin pack survived their deploy —
   // worth knowing, but a site proven by DNS owes us no file.
+  // A snapshot stored before proof state existed carries no `proven` key. Fall
+  // back to what the file probe found rather than reporting every property as
+  // unproven for the window between deploy and the next monitor cycle.
+  const proven = snap.proven ?? snap.wellKnown;
+  const proofMethod =
+    snap.proofMethod ?? (snap.wellKnown ? "well-known-file" : "none");
+
   checks.push({
     id: "ownership",
-    ok: snap.proven,
-    severity: snap.proven ? "ok" : "critical",
+    ok: proven,
+    severity: proven ? "ok" : "critical",
     title: "Origin proof",
-    detail: snap.proven
-      ? snap.proofMethod === "dns-txt"
+    detail: proven
+      ? proofMethod === "dns-txt"
         ? `Proven by an apex DNS TXT record on ${snap.domain}.`
         : "Proven by /.well-known/botcentral.txt (plain text)."
       : snap.proofNote || "No proof of control at this origin.",
@@ -51,11 +58,11 @@ export function buildChecks(
   checks.push({
     id: "origin-files",
     ok: snap.wellKnown,
-    severity: snap.wellKnown ? "ok" : snap.proven ? "info" : "warn",
+    severity: snap.wellKnown ? "ok" : proven ? "info" : "warn",
     title: "Origin files",
     detail: snap.wellKnown
       ? "/.well-known/botcentral.txt is plain text"
-      : snap.proven
+      : proven
         ? "/.well-known/botcentral.txt is missing or HTML. Proof is holding via DNS, so the card is safe; the origin pack did not survive the last deploy."
         : "/.well-known/botcentral.txt is missing or HTML (SPA shell). Serve text/plain on the origin.",
   });

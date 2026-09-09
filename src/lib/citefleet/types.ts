@@ -285,10 +285,14 @@ export interface SiteMonitor {
   sitemapUrlCount: number;
   /** The origin pack survived the customer's last deploy (a FILE probe). */
   wellKnown: boolean;
-  /** Proof of control by EITHER method (proof.ts rules). Not the same question. */
-  proven: boolean;
-  proofMethod: "well-known-file" | "dns-txt" | "none";
-  proofNote: string;
+  /**
+   * Proof of control by EITHER method (proof.ts rules). Not the same question
+   * as `wellKnown`. Optional because the persisted JSONB snapshot predates
+   * these keys: a payload written before this shipped carries none of them.
+   */
+  proven?: boolean;
+  proofMethod?: "well-known-file" | "dns-txt" | "none";
+  proofNote?: string;
   llms: boolean;
   drift: boolean;
   checks: ReconcileCheck[];

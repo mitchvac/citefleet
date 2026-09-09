@@ -353,7 +353,7 @@ export function applyCatalogState(
     // botcentral-verify=<token> or a plain-text /.well-known/botcentral.txt")
     // and is more specific than anything phrased from this side.
     const reason = listing.listed
-      ? `Listed on BotCentral but no longer proven (${listing.verificationMethod ?? "unverified"}). ${listing.verificationNote ?? "Re-serve the proof token at the origin, then List on BotCentral."}`
+      ? `Listed on BotCentral but no longer proven (${listing.verificationMethod ?? "unverified"}). ${listing.verificationNote ?? "Re-add the proof token — an apex DNS TXT record is quickest (no deploy), or serve it at /.well-known/botcentral.txt — then List on BotCentral."}`
       : "The BotCentral card for this domain is gone from the catalog.";
     task.status = "blocked";
     task.blockedReason = reason;

@@ -57,6 +57,27 @@ test("file-proven origin reports proven by file, and the file check is clean", (
   assert.equal(find(snap, "origin-files").ok, true);
 });
 
+test("a snapshot stored BEFORE proof state existed does not read as unproven", () => {
+  // The persisted payload is one JSONB blob; rows written before this shipped
+  // carry no proven/proofMethod keys. Reading them as false would have flipped
+  // every property to critical between deploy and the next monitor cycle.
+  const legacy = snapshot({ wellKnown: true });
+  delete (legacy as Record<string, unknown>).proven;
+  delete (legacy as Record<string, unknown>).proofMethod;
+  delete (legacy as Record<string, unknown>).proofNote;
+
+  const proof = find(legacy, "ownership");
+  assert.equal(proof.ok, true, "an old snapshot with a good file must stay proven");
+  assert.equal(proof.severity, "ok");
+  assert.match(proof.detail, /well-known\/botcentral\.txt/);
+
+  const stale = snapshot({ wellKnown: false });
+  delete (stale as Record<string, unknown>).proven;
+  delete (stale as Record<string, unknown>).proofMethod;
+  delete (stale as Record<string, unknown>).proofNote;
+  assert.equal(find(stale, "ownership").ok, false, "old snapshot, no file: still unproven");
+});
+
 test("neither method proving is critical, and carries the verifier's own note", () => {
   const snap = snapshot({
     wellKnown: false,
