@@ -99,7 +99,19 @@ for _ in $(seq 1 40); do
   fi
   sleep 1
 done
+# A bare `bash deploy/deploy-vps.sh` must NOT silently move production onto the
+# local container. citefleet.app runs on Supabase (cut over 2026-09-04); that
+# URL lives only in .env, and the block below used to overwrite it with the
+# local Postgres on every argument-less run — reverting the migration without
+# saying so, and pointing the app at a stale database that still answers
+# `db: postgres` on /health, so nothing looks wrong. Reuse what is already
+# there; fall back to the local container only when there is nothing to keep.
+if [[ -z "${DB_URL}" && -f "$APP_DIR/.env" ]]; then
+  DB_URL="$(sed -n 's/^DATABASE_URL=//p' "$APP_DIR/.env" | head -n1)"
+  [[ -n "$DB_URL" ]] && echo "deploy: preserving DATABASE_URL already in .env"
+fi
 if [[ -z "${DB_URL}" ]]; then
+  echo "deploy: no DATABASE_URL passed and none in .env — using local $PG_NAME"
   DB_URL="postgres://citefleet:${PG_PASS}@${PG_NAME}:5432/citefleet"
 fi
 
