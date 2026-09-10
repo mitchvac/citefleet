@@ -45,13 +45,13 @@ export function hostingHint(hosting: HostingResult | undefined, domain: string):
       return `Quickest is an apex DNS TXT record — no deploy at all. Otherwise ${hosting.label} deploys on push: commit ${file} to the connected repo (Push origin files does it) and the proof is live in about a minute.`;
     case "self-hosted":
       return hosting.sameServerAsCiteFleet
-        ? `Self-hosted on the same box as CiteFleet: rebuild that site's container after the file lands, or add a DNS TXT record to skip the deploy.`
-        : `Self-hosted: after the file lands in the repo, redeploy ${domain}, or add a DNS TXT record to skip the deploy.`;
+        ? `Quickest is an apex DNS TXT record — no deploy at all. Otherwise, self-hosted on the same box as CiteFleet: rebuild that site's container after ${file} lands.`
+        : `Quickest is an apex DNS TXT record — no deploy at all. Otherwise, self-hosted: after ${file} lands in the repo, redeploy ${domain}.`;
     case "cloudflare":
-      return `Behind Cloudflare: the proof file must still be served by the origin as plain text; a DNS TXT record on the apex is the quickest route.`;
+      return `Behind Cloudflare: an apex DNS TXT record is the quickest route. The proof file works too, but it must still be served by the origin as plain text — Cloudflare will not serve it for you.`;
     case "unreachable":
-      return `${domain} does not answer over HTTPS right now. Deploy the site first, or add a DNS TXT record so the card can be listed once it is up.`;
+      return `${domain} does not answer over HTTPS right now. An apex DNS TXT record needs no origin at all, so the card can be listed before the site is up; otherwise deploy the site first.`;
     default:
-      return `Serve the proof file as plain text at https://${domain}/.well-known/botcentral.txt, or add a DNS TXT record on the apex.`;
+      return `Quickest is an apex DNS TXT record — no deploy at all. Otherwise serve the proof file as plain text at https://${domain}/.well-known/botcentral.txt.`;
   }
 }

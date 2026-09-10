@@ -343,7 +343,7 @@ export const LESSONS: Lesson[] = [
     steps: [
       {
         title: "Verify proof first",
-        body: "Click Verify proof on the campaign. CiteFleet applies BotCentral’s own rules: /.well-known/botcentral.txt must be plain text containing botcentral-verify=citefleet-app, or an apex DNS TXT record must carry that line. If it fails you get the exact line to add, and nothing is sent to BotCentral.",
+        body: "Click Verify proof on the campaign. CiteFleet applies BotCentral’s own rules: an apex DNS TXT record must carry botcentral-verify=citefleet-app, or that same line must be served as plain text at /.well-known/botcentral.txt. If it fails you get the exact line to add, and nothing is sent to BotCentral.",
       },
       {
         title: "Generate the secret",

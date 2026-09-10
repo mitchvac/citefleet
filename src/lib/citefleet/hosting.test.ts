@@ -62,7 +62,7 @@ test("DNS at Vercel but nothing answers is Unreachable, never 'deploys on push'"
   assert.equal(r.provider, "unreachable");
   assert.equal(r.deploysOnPush, false);
   assert.ok(r.evidence.some((e) => e.includes("DNS points at Vercel")));
-  assert.match(hostingHint(r, "v.app"), /Deploy the site first/);
+  assert.match(hostingHint(r, "v.app"), /otherwise deploy the site first/);
 });
 
 test("hint branches: deploys-on-push providers, Cloudflare, self-hosted elsewhere; unknown own address is noted", async () => {
@@ -91,4 +91,40 @@ test("Vercel DEPLOYMENT_NOT_FOUND (404 with Vercel headers) is 'not deployed', n
   // Netlify CNAME with no answer carries the same kind of note
   const n = await detectHosting({ domain: "n.app", headers: null, status: null }, { resolve4: none, resolveCname: async () => ["x.netlify.app."], citefleetIps: ours, now });
   assert.ok(n.evidence.some((e) => e.includes("DNS points at Netlify")));
+});
+
+/**
+ * DNS leads on EVERY branch, not just the push-deploy ones. An apex TXT record
+ * needs no deploy and survives a redeploy that drops the origin pack, so naming
+ * the file (or a deploy) first sends the operator the long way round. The
+ * `default` branch matters most: it is what renders before hosting is probed.
+ */
+test("every hosting hint names the apex DNS TXT record before the file or any deploy", () => {
+  const base = { label: "L", confidence: "low" as const, evidence: [], deploysOnPush: false, checkedAt: now().toISOString() };
+  const branches: Array<[string, string]> = [
+    ["unprobed", hostingHint(undefined, "d.app")],
+    ["unknown", hostingHint({ ...base, provider: "unknown", sameServerAsCiteFleet: false }, "d.app")],
+    ["vercel", hostingHint({ ...base, provider: "vercel", label: "Vercel", deploysOnPush: true, sameServerAsCiteFleet: false }, "d.app")],
+    ["netlify", hostingHint({ ...base, provider: "netlify", label: "Netlify", deploysOnPush: true, sameServerAsCiteFleet: false }, "d.app")],
+    ["github-pages", hostingHint({ ...base, provider: "github-pages", label: "GitHub Pages", deploysOnPush: true, sameServerAsCiteFleet: false }, "d.app")],
+    ["cloudflare", hostingHint({ ...base, provider: "cloudflare", sameServerAsCiteFleet: false }, "d.app")],
+    ["self-hosted elsewhere", hostingHint({ ...base, provider: "self-hosted", sameServerAsCiteFleet: false }, "d.app")],
+    ["self-hosted same box", hostingHint({ ...base, provider: "self-hosted", sameServerAsCiteFleet: true }, "d.app")],
+    ["unreachable", hostingHint({ ...base, provider: "unreachable", sameServerAsCiteFleet: false }, "d.app")],
+  ];
+
+  for (const [name, hint] of branches) {
+    const dns = hint.search(/DNS TXT record/);
+    assert.ok(dns >= 0, `${name}: never mentions a DNS TXT record — ${hint}`);
+
+    const file = hint.search(/well-known\/botcentral\.txt|proof file/);
+    if (file >= 0) {
+      assert.ok(dns < file, `${name}: names the proof file before DNS — ${hint}`);
+    }
+
+    const deploy = hint.search(/\b(deploys? |redeploy|rebuild|commit)/i);
+    if (deploy >= 0) {
+      assert.ok(dns < deploy, `${name}: asks for a deploy before offering DNS — ${hint}`);
+    }
+  }
 });
