@@ -73,8 +73,35 @@ reverting the Supabase cutover. Nothing looked wrong afterwards: the local
 container is started either way and `/health` still answers `"db":"postgres"`.
 It just served a different, frozen database. Fixed 2026-09-10.
 
-The `citefleet-postgres` container is a pre-migration leftover — no writes since
-2026-09-06. It is kept only as the first-boot fallback.
+### Retiring the local `citefleet-postgres`
+
+The local Postgres is **only provisioned when it is actually the database** —
+i.e. when (1), (2) and (3) all come up empty. On citefleet.app it is a
+pre-migration leftover with no writes since 2026-09-06.
+
+Until 2026-09-10 the deploy created and `docker start`ed it on every run,
+regardless of which database the app used, so retiring it by hand lasted only
+until the next deploy. It is now inside the first-boot branch. A deploy that
+uses an external database never starts it, never touches the `citefleet-pg`
+volume, and prints a NOTE if it finds it still running.
+
+Decommission (backup first — the volume is retained, so this is reversible):
+
+```bash
+# 1. dump while it is still running, and verify the dump before stopping
+docker exec citefleet-postgres pg_dump -U citefleet -d citefleet \
+  | gzip > /root/citefleet-pg-$(date +%F).sql.gz
+gzip -t /root/citefleet-pg-*.sql.gz && zcat /root/citefleet-pg-*.sql.gz | tail -1
+
+# 2. stop it; `--restart unless-stopped` honours a manual stop across reboots
+docker stop citefleet-postgres
+
+# 3. confirm the app is unaffected
+curl -s https://citefleet.app/health
+```
+
+The `citefleet-pg` volume is deliberately kept. Do not `docker rm -v` or
+`docker volume rm citefleet-pg` until the dump has been stored off-box.
 
 Optional: `XAI_API_KEY` for live Grok briefs. Never commit it.
 

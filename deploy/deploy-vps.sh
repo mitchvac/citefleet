@@ -69,36 +69,11 @@ if [[ ! -s "$OP_FILE" ]]; then
 fi
 OPERATOR_TOKEN="$(tr -d '\n' < "$OP_FILE")"
 
-PASS_FILE="/root/citefleet-postgres.pass"
-if [[ ! -s "$PASS_FILE" ]]; then
-  openssl rand -hex 24 > "$PASS_FILE"
-  chmod 600 "$PASS_FILE"
-fi
-PG_PASS="$(tr -d '\n' < "$PASS_FILE")"
 NET="citefleet-net"
 PG_NAME="citefleet-postgres"
-docker network inspect "$NET" >/dev/null 2>&1 || docker network create "$NET"
-docker volume inspect citefleet-pg >/dev/null 2>&1 || docker volume create citefleet-pg
-if docker ps -a --format '{{.Names}}' | grep -qx "$PG_NAME"; then
-  docker start "$PG_NAME" >/dev/null
-  docker network connect "$NET" "$PG_NAME" 2>/dev/null || true
-else
-  docker run -d \
-    --name "$PG_NAME" \
-    --restart unless-stopped \
-    --network "$NET" \
-    -e POSTGRES_USER=citefleet \
-    -e POSTGRES_PASSWORD="$PG_PASS" \
-    -e POSTGRES_DB=citefleet \
-    -v citefleet-pg:/var/lib/postgresql/data \
-    postgres:16-alpine
-fi
-for _ in $(seq 1 40); do
-  if docker exec "$PG_NAME" pg_isready -U citefleet >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
-done
+PASS_FILE="/root/citefleet-postgres.pass"
+DB_FILE="/root/citefleet-database.url"
+
 # Where DATABASE_URL comes from, highest precedence first:
 #   1. the CLI argument               — an explicit one-off override
 #   2. /root/citefleet-database.url   — the operator's durable copy, same idiom
@@ -114,8 +89,10 @@ done
 #
 # Operators create $DB_FILE by hand; this script only ever reads it. Once it
 # exists it outranks .env, so a redeploy cannot drift onto another database.
-DB_FILE="/root/citefleet-database.url"
-LOCAL_DB_URL="postgres://citefleet:${PG_PASS}@${PG_NAME}:5432/citefleet"
+#
+# This resolution happens BEFORE any Postgres provisioning, so that a box using
+# an external database never creates, starts, or waits on a local one.
+DB_IS_LOCAL=0
 DB_SOURCE=""
 if [[ -n "$DB_URL" ]]; then
   DB_SOURCE="the command line"
@@ -126,13 +103,53 @@ elif [[ -f "$APP_DIR/.env" ]]; then
   DB_URL="$(sed -n 's/^DATABASE_URL=//p' "$APP_DIR/.env" | head -n1)"
   [[ -n "$DB_URL" ]] && DB_SOURCE="$APP_DIR/.env"
 fi
-if [[ -z "$DB_URL" ]]; then
-  DB_URL="$LOCAL_DB_URL"
+[[ -z "$DB_URL" ]] && DB_IS_LOCAL=1
+
+# The app container joins this network whichever database it talks to.
+docker network inspect "$NET" >/dev/null 2>&1 || docker network create "$NET"
+
+if [[ "$DB_IS_LOCAL" == 1 ]]; then
+  # Only now is a local Postgres actually needed. Provisioning it unconditionally
+  # is what kept the decommissioned container alive: every deploy ran
+  # `docker start`, so retiring it by hand lasted until the next deploy.
+  if [[ ! -s "$PASS_FILE" ]]; then
+    openssl rand -hex 24 > "$PASS_FILE"
+    chmod 600 "$PASS_FILE"
+  fi
+  PG_PASS="$(tr -d '\n' < "$PASS_FILE")"
+  docker volume inspect citefleet-pg >/dev/null 2>&1 || docker volume create citefleet-pg
+  if docker ps -a --format '{{.Names}}' | grep -qx "$PG_NAME"; then
+    docker start "$PG_NAME" >/dev/null
+    docker network connect "$NET" "$PG_NAME" 2>/dev/null || true
+  else
+    docker run -d \
+      --name "$PG_NAME" \
+      --restart unless-stopped \
+      --network "$NET" \
+      -e POSTGRES_USER=citefleet \
+      -e POSTGRES_PASSWORD="$PG_PASS" \
+      -e POSTGRES_DB=citefleet \
+      -v citefleet-pg:/var/lib/postgresql/data \
+      postgres:16-alpine
+  fi
+  for _ in $(seq 1 40); do
+    if docker exec "$PG_NAME" pg_isready -U citefleet >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+  DB_URL="postgres://citefleet:${PG_PASS}@${PG_NAME}:5432/citefleet"
   DB_SOURCE="the local $PG_NAME container (no argument, no $DB_FILE, none in .env)"
+elif docker ps --format '{{.Names}}' | grep -qx "$PG_NAME"; then
+  # Retired, but someone left it running. Say so; do not stop it as a side
+  # effect of a deploy — decommissioning is a deliberate act, not a surprise.
+  echo "deploy: NOTE $PG_NAME is running but UNUSED (this deploy uses $DB_SOURCE)."
+  echo "deploy:      retire it with: docker stop $PG_NAME   (volume citefleet-pg is kept)"
 fi
+
 # Never print DB_URL itself — it carries the password.
 echo "deploy: DATABASE_URL taken from $DB_SOURCE"
-if [[ ! -s "$DB_FILE" && "$DB_URL" != "$LOCAL_DB_URL" ]]; then
+if [[ ! -s "$DB_FILE" && "$DB_IS_LOCAL" != 1 ]]; then
   echo "deploy: NOTE $DB_FILE does not exist — DATABASE_URL survives only in .env."
   echo "deploy:      create it (chmod 600) so the string has a durable home."
 fi
