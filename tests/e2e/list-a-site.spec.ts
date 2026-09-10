@@ -126,7 +126,12 @@ test(`lesson 02 steps 1–3: onboard ${DOMAIN} on Command`, async ({ page }) => 
   await typeSlow(form.getByPlaceholder("https://example.com"), ORIGIN_URL);
   // IndexNow key left blank: wflowprocess.app does not serve a /{key}.txt yet.
   await typeSlow(form.getByPlaceholder("mitchvac"), GH_OWNER);
-  await typeSlow(form.getByPlaceholder("citefleet"), GH_REPO);
+  // "website-repo", not "citefleet": d80426f renamed this placeholder and
+  // updated the campaign form below (~line 178) but missed this one. It went
+  // unseen because this test skips when the property already exists, so with
+  // the default wflowprocess.app the line never ran. Onboarding a genuinely
+  // new domain is what surfaced it.
+  await typeSlow(form.getByPlaceholder("website-repo"), GH_REPO);
 
   const assign = form.getByRole("button", { name: /Assign Grok fleet/i });
   await expect(assign).toBeEnabled();
@@ -149,7 +154,12 @@ test("lesson 02 step 4: Live audit on the property card", async ({ page }) => {
     timeout: 120000,
   });
   await expect(card).toContainText("last audit", { timeout: 15000 });
-  await expect(card).toContainText("playbook tasks complete");
+  // Not "playbook tasks complete": 42d8eb1 (2026-09-05) deliberately dropped
+  // that wording when the denominator became SCORED tasks rather than all of
+  // them — blocked work stopped counting, so "complete" would have overstated
+  // it. The card now reads "3/11 playbook tasks · monitor: … · last audit …".
+  // Assert the shape, not a fixed count, which changes as tasks are worked.
+  await expect(card).toContainText(/\d+\/\d+ playbook tasks/);
   // The audit names the hosting provider (Vercel / Netlify / GitHub Pages / Self-hosted / Unreachable …).
   await expect(card.getByTestId("hosting")).toBeVisible();
   await expect(card.getByTestId("hosting")).toHaveText(/^(Vercel|Netlify|GitHub Pages|Behind Cloudflare|Self-hosted|Unreachable|Unknown host)$/);
@@ -263,22 +273,30 @@ test("lesson 13: Automatic listing — verify proof, generate the webhook secret
   const unsigned = await page.request.post(hooks, { data: bad, headers: { "content-type": "application/json", "x-github-event": "push" } });
   expect(unsigned.status()).toBe(401);
 
+  // Delivery ids must be unique PER RUN. The hook dedupes by
+  // x-github-delivery (isDuplicateDelivery — real replay protection), so the
+  // fixed literals used here previously made this test pass exactly once per
+  // property: a second run replayed "e2e-feature" and got "duplicate" where it
+  // expected "ignore". The replay assertion below still reuses ONE id on
+  // purpose — that is the behaviour under test — it just has to be this run's.
+  const RUN = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
   // GitHub's ping is answered 200.
   const ping = JSON.stringify({ zen: "Keep it logically awesome.", repository: repo });
-  const pinged = await page.request.post(hooks, { data: ping, headers: { "content-type": "application/json", "x-github-event": "ping", "x-github-delivery": "e2e-ping", "x-hub-signature-256": sign(ping) } });
+  const pinged = await page.request.post(hooks, { data: ping, headers: { "content-type": "application/json", "x-github-event": "ping", "x-github-delivery": `e2e-ping-${RUN}`, "x-hub-signature-256": sign(ping) } });
   expect(pinged.status()).toBe(200);
 
   // A push to another branch is acknowledged and ignored; a push to main queues the check.
   const feature = JSON.stringify({ ref: "refs/heads/feature", repository: repo });
-  const ignored = await page.request.post(hooks, { data: feature, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": "e2e-feature", "x-hub-signature-256": sign(feature) } });
+  const ignored = await page.request.post(hooks, { data: feature, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": `e2e-feature-${RUN}`, "x-hub-signature-256": sign(feature) } });
   expect(ignored.status()).toBe(202);
   expect((await ignored.json()).action).toBe("ignore");
   const main = JSON.stringify({ ref: "refs/heads/main", repository: repo });
-  const accepted = await page.request.post(hooks, { data: main, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": "e2e-main", "x-hub-signature-256": sign(main) } });
+  const accepted = await page.request.post(hooks, { data: main, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": `e2e-main-${RUN}`, "x-hub-signature-256": sign(main) } });
   expect(accepted.status()).toBe(202);
   expect((await accepted.json()).action).toBe("check");
   // GitHub redelivery of the same id is acknowledged, not re-run.
-  const replay = await page.request.post(hooks, { data: main, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": "e2e-main", "x-hub-signature-256": sign(main) } });
+  const replay = await page.request.post(hooks, { data: main, headers: { "content-type": "application/json", "x-github-event": "push", "x-github-delivery": `e2e-main-${RUN}`, "x-hub-signature-256": sign(main) } });
   expect(replay.status()).toBe(202);
   expect((await replay.json()).action).toBe("duplicate");
   // Unknown repository answers exactly like a bad signature.
@@ -288,7 +306,7 @@ test("lesson 13: Automatic listing — verify proof, generate the webhook secret
 
   // Any other CI: the generic deployed hook with the same secret.
   const deployedBody = JSON.stringify({ domain: DOMAIN });
-  const deployed = await page.request.post(`${baseURL}/api/hooks/deployed`, { data: deployedBody, headers: { "content-type": "application/json", "x-citefleet-delivery": "e2e-ci", "x-citefleet-signature": sign(deployedBody) } });
+  const deployed = await page.request.post(`${baseURL}/api/hooks/deployed`, { data: deployedBody, headers: { "content-type": "application/json", "x-citefleet-delivery": `e2e-ci-${RUN}`, "x-citefleet-signature": sign(deployedBody) } });
   expect(deployed.status()).toBe(202);
   // The push a moment ago may still be checking: one check per site at a time.
   expect(["check", "in-progress"]).toContain((await deployed.json()).action);
