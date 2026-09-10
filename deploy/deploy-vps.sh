@@ -99,20 +99,42 @@ for _ in $(seq 1 40); do
   fi
   sleep 1
 done
-# A bare `bash deploy/deploy-vps.sh` must NOT silently move production onto the
-# local container. citefleet.app runs on Supabase (cut over 2026-09-04); that
-# URL lives only in .env, and the block below used to overwrite it with the
-# local Postgres on every argument-less run — reverting the migration without
-# saying so, and pointing the app at a stale database that still answers
-# `db: postgres` on /health, so nothing looks wrong. Reuse what is already
-# there; fall back to the local container only when there is nothing to keep.
-if [[ -z "${DB_URL}" && -f "$APP_DIR/.env" ]]; then
+# Where DATABASE_URL comes from, highest precedence first:
+#   1. the CLI argument               — an explicit one-off override
+#   2. /root/citefleet-database.url   — the operator's durable copy, same idiom
+#      as citefleet-operator.token and citefleet-postgres.pass
+#   3. the DATABASE_URL already in .env — survives a bare redeploy
+#   4. the local citefleet-postgres container — first boot only
+#
+# Before any of this existed a bare run jumped straight to (4) and wrote it to
+# .env, silently reverting the 2026-09-04 Supabase cutover and pointing the app
+# at a stale local database that still answers `db: postgres` on /health, so
+# nothing looked wrong. citefleet.app runs on the Supabase pooler
+# (aws-0-us-east-2.pooler.supabase.com); the local container is a leftover.
+#
+# Operators create $DB_FILE by hand; this script only ever reads it. Once it
+# exists it outranks .env, so a redeploy cannot drift onto another database.
+DB_FILE="/root/citefleet-database.url"
+LOCAL_DB_URL="postgres://citefleet:${PG_PASS}@${PG_NAME}:5432/citefleet"
+DB_SOURCE=""
+if [[ -n "$DB_URL" ]]; then
+  DB_SOURCE="the command line"
+elif [[ -s "$DB_FILE" ]]; then
+  DB_URL="$(tr -d '\n' < "$DB_FILE")"
+  DB_SOURCE="$DB_FILE"
+elif [[ -f "$APP_DIR/.env" ]]; then
   DB_URL="$(sed -n 's/^DATABASE_URL=//p' "$APP_DIR/.env" | head -n1)"
-  [[ -n "$DB_URL" ]] && echo "deploy: preserving DATABASE_URL already in .env"
+  [[ -n "$DB_URL" ]] && DB_SOURCE="$APP_DIR/.env"
 fi
-if [[ -z "${DB_URL}" ]]; then
-  echo "deploy: no DATABASE_URL passed and none in .env — using local $PG_NAME"
-  DB_URL="postgres://citefleet:${PG_PASS}@${PG_NAME}:5432/citefleet"
+if [[ -z "$DB_URL" ]]; then
+  DB_URL="$LOCAL_DB_URL"
+  DB_SOURCE="the local $PG_NAME container (no argument, no $DB_FILE, none in .env)"
+fi
+# Never print DB_URL itself — it carries the password.
+echo "deploy: DATABASE_URL taken from $DB_SOURCE"
+if [[ ! -s "$DB_FILE" && "$DB_URL" != "$LOCAL_DB_URL" ]]; then
+  echo "deploy: NOTE $DB_FILE does not exist — DATABASE_URL survives only in .env."
+  echo "deploy:      create it (chmod 600) so the string has a durable home."
 fi
 
 {

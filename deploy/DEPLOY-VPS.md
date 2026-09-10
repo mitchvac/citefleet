@@ -41,10 +41,40 @@ cp deploy/.env.production.example .env
 
 Minimum to boot: `HOST`, `PORT`, `VITE_AUTH_ENABLED=false`.
 
-`DATABASE_URL` is optional. Empty → in-memory campaign store (lost on restart).
-Set it to Neon/Postgres for durable workspaces.
-
 `.env` is injected at `docker run --env-file`. The Dockerfile never copies it.
+`deploy-vps.sh` REWRITES `.env` on every run, so nothing hand-edited there
+survives a deploy.
+
+### Which database the deploy picks
+
+citefleet.app runs on Supabase (`aws-0-us-east-2.pooler.supabase.com`, cut over
+2026-09-04). `deploy-vps.sh` resolves `DATABASE_URL` in this order:
+
+| # | Source | Notes |
+|---|---|---|
+| 1 | `bash deploy/deploy-vps.sh postgres://...` | explicit one-off override |
+| 2 | `/root/citefleet-database.url` | **the durable copy — create this** |
+| 3 | `DATABASE_URL` already in `.env` | survives a bare redeploy |
+| 4 | local `citefleet-postgres` container | first boot only |
+
+Create (2) once, and a redeploy can never drift onto another database:
+
+```bash
+grep '^DATABASE_URL=' /opt/citefleet/.env | cut -d= -f2- > /root/citefleet-database.url
+chmod 600 /root/citefleet-database.url
+```
+
+Until it exists the deploy prints a NOTE saying the string survives only in
+`.env`. Every run prints which source it used — never the URL itself, which
+carries the password.
+
+A bare run used to jump straight to (4) and write that into `.env`, silently
+reverting the Supabase cutover. Nothing looked wrong afterwards: the local
+container is started either way and `/health` still answers `"db":"postgres"`.
+It just served a different, frozen database. Fixed 2026-09-10.
+
+The `citefleet-postgres` container is a pre-migration leftover — no writes since
+2026-09-06. It is kept only as the first-boot fallback.
 
 Optional: `XAI_API_KEY` for live Grok briefs. Never commit it.
 
