@@ -8,7 +8,7 @@ import {
   appNameFromHost,
   createHeadInjector,
   grokXCreatorHeadTags,
-  injectGrokPwaHead,
+  injectGrokPwaHead as injectGrokPwaHeadRaw,
   isDocumentPath,
   isInstallQuery,
   publicAppHost,
@@ -17,6 +17,22 @@ import {
   snapshotOgIdentity,
   stripInstallParams,
 } from "./grok-pwa-shared.mjs";
+
+/**
+ * These assertions test the PLUGIN, not this repository's own public/ folder.
+ *
+ * `injectGrokPwaHead` defaults `cwd` to process.cwd(), and `ogCardPublicPath`
+ * stats `public/og.jpg|png` there — so the moment CiteFleet shipped its own
+ * public/og.png, every call here resolved to a custom card and three tests
+ * that assert the og.grok.me placeholder (or a /og.jpg bake) began to fail.
+ * The tests were reading the repo's filesystem through a default argument.
+ *
+ * Default to a directory with no card. A test that wants to exercise disk
+ * detection still passes its own `cwd`, which wins over this default.
+ */
+const NO_CARD_CWD = mkdtempSync(join(tmpdir(), "grok-pwa-no-card-"));
+const injectGrokPwaHead = (html, ctx = {}) =>
+  injectGrokPwaHeadRaw(html, { cwd: NO_CARD_CWD, ...ctx });
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");

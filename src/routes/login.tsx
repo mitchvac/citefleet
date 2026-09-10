@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/citefleet/BrandLogo";
+import { ShareApp } from "@/components/citefleet/ShareApp";
 import { loginMessage } from "@/lib/auth/login-messages";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
@@ -28,15 +29,22 @@ function LoginPage() {
   return (
     <div className="grid min-h-screen place-items-center px-6 py-12">
       <div className="glass w-full max-w-md rounded-3xl p-8">
-        <Link to="/" className="flex items-center gap-3">
-          <BrandLogo size={48} className="h-12 w-12" />
-          <span>
-            <span className="block text-sm font-semibold tracking-wide">CiteFleet</span>
-            <span className="block text-[11px] uppercase tracking-[0.18em] text-[#9b95b3]">
-              Your indexing workspace
+        {/* /login renders standalone — it does not use Shell, so it never
+            inherited the header's Share app button. It is the FIRST page a
+            signed-out visitor sees, because / bounces here, so it was the one
+            public page from which the product could not be shared. */}
+        <div className="flex items-start justify-between gap-3">
+          <Link to="/" className="flex items-center gap-3">
+            <BrandLogo size={48} className="h-12 w-12" />
+            <span>
+              <span className="block text-sm font-semibold tracking-wide">CiteFleet</span>
+              <span className="block text-[11px] uppercase tracking-[0.18em] text-[#9b95b3]">
+                Your indexing workspace
+              </span>
             </span>
-          </span>
-        </Link>
+          </Link>
+          <ShareApp />
+        </div>
         <h1 className="mt-6 text-2xl font-semibold">
           {mode === "signin" ? "Sign in" : "Create your account"}
         </h1>
