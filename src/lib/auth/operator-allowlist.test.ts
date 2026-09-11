@@ -1,18 +1,52 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { test } from "node:test";
-import { allowedEmails, isAllowedEmail } from "./operator-allowlist.ts";
+import { allowedEmails } from "./operator-allowlist.ts";
 
-test("allow-list parses commas/whitespace, lower-cases, ignores junk", () => {
-  assert.deepEqual(allowedEmails({ CITEFLEET_OPERATOR_EMAILS: " Op@Example.com, two@x.io\nnot-an-email " }), ["op@example.com", "two@x.io"]);
+const here = import.meta.dirname;
+
+test("renewal-recipient list parses commas/whitespace, lower-cases, ignores junk", () => {
+  assert.deepEqual(
+    allowedEmails({ CITEFLEET_OPERATOR_EMAILS: " Op@Example.com, two@x.io\nnot-an-email " }),
+    ["op@example.com", "two@x.io"],
+  );
   assert.deepEqual(allowedEmails({}), []);
 });
 
-test("fail closed: empty list refuses everyone; listed emails pass case-insensitively; others refused", () => {
-  assert.equal(isAllowedEmail("op@example.com", {}), false);
-  assert.equal(isAllowedEmail("op@example.com", { CITEFLEET_OPERATOR_EMAILS: "" }), false);
-  const env = { CITEFLEET_OPERATOR_EMAILS: "op@example.com" };
-  assert.equal(isAllowedEmail("OP@EXAMPLE.COM ", env), true, "positive control");
-  assert.equal(isAllowedEmail("stranger@example.com", env), false);
-  assert.equal(isAllowedEmail(null, env), false);
-  assert.equal(isAllowedEmail("", env), false);
+test("account entry points do not consult the renewal-recipient list", () => {
+  const files = ["operator.server.ts", "oauth.server.ts", "password-reset.server.ts"];
+  const sources = files.map((file) => ({
+    file,
+    source: readFileSync(path.join(here, file), "utf8"),
+  }));
+
+  assert.match(
+    sources[0].source,
+    /export async function handleSignup/,
+    "positive control: signup handler found",
+  );
+  assert.match(
+    sources[0].source,
+    /export async function handleLogin/,
+    "positive control: login handler found",
+  );
+  assert.match(
+    sources[1].source,
+    /export async function finishOAuth/,
+    "positive control: OAuth callback found",
+  );
+  assert.match(
+    sources[2].source,
+    /export async function requestReset/,
+    "positive control: reset request found",
+  );
+
+  for (const { file, source } of sources) {
+    assert.doesNotMatch(
+      source,
+      /operator-allowlist|isAllowedEmail|CITEFLEET_OPERATOR_EMAILS|not-allowed/,
+      file,
+    );
+  }
 });

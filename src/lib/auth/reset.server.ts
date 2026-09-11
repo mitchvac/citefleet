@@ -54,11 +54,9 @@ async function readForm(request: Request): Promise<Record<string, string>> {
 /**
  * POST /api/forgot — always answers "check your inbox".
  *
- * Every branch below returns the SAME redirect. An unknown address, an address
- * that is not on the invite list, and a real account all look identical from
- * outside. This console is invite-only, so whether an address is a member is
- * exactly the fact worth protecting, and `handleLogin` already refuses to leak
- * it — a reset form that answered honestly would hand it straight back.
+ * Every branch below returns the SAME redirect. An unknown address and a real
+ * account look identical from outside. `handleLogin` already refuses to reveal
+ * whether an address exists, and a reset form must preserve that property.
  *
  * The rate limiter is shared with sign-in on purpose: it is the same per-IP
  * budget, so hammering this endpoint also locks the login path rather than

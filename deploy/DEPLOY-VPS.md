@@ -4,14 +4,14 @@ Target: `https://citefleet.app` on `144.91.66.158`
 
 Same layout as BotCentral:
 
-| | BotCentral | CiteFleet |
-|---|---|---|
-| Image / container | `botcentral` | `citefleet` |
-| App dir | `/opt/botcentral` | `/opt/citefleet` |
-| Container port | 3000 | 3000 |
-| Host bind | `127.0.0.1:3020:3000` | `127.0.0.1:3021:3000` |
-| nginx vhost | `sites-available/botcentral` | `sites-available/citefleet` |
-| Hosts | botcentral.org | citefleet.app, www.citefleet.app |
+|                   | BotCentral                   | CiteFleet                        |
+| ----------------- | ---------------------------- | -------------------------------- |
+| Image / container | `botcentral`                 | `citefleet`                      |
+| App dir           | `/opt/botcentral`            | `/opt/citefleet`                 |
+| Container port    | 3000                         | 3000                             |
+| Host bind         | `127.0.0.1:3020:3000`        | `127.0.0.1:3021:3000`            |
+| nginx vhost       | `sites-available/botcentral` | `sites-available/citefleet`      |
+| Hosts             | botcentral.org               | citefleet.app, www.citefleet.app |
 
 nginx on this box also serves customer sites on their own loopback ports.
 Deploy scripts here never `rm` `sites-enabled/*`, never add `default_server`,
@@ -50,12 +50,12 @@ survives a deploy.
 citefleet.app runs on Supabase (`aws-0-us-east-2.pooler.supabase.com`, cut over
 2026-09-04). `deploy-vps.sh` resolves `DATABASE_URL` in this order:
 
-| # | Source | Notes |
-|---|---|---|
-| 1 | `bash deploy/deploy-vps.sh postgres://...` | explicit one-off override |
-| 2 | `/root/citefleet-database.url` | **the durable copy — create this** |
-| 3 | `DATABASE_URL` already in `.env` | survives a bare redeploy |
-| 4 | local `citefleet-postgres` container | first boot only |
+| #   | Source                                     | Notes                              |
+| --- | ------------------------------------------ | ---------------------------------- |
+| 1   | `bash deploy/deploy-vps.sh postgres://...` | explicit one-off override          |
+| 2   | `/root/citefleet-database.url`             | **the durable copy — create this** |
+| 3   | `DATABASE_URL` already in `.env`           | survives a bare redeploy           |
+| 4   | local `citefleet-postgres` container       | first boot only                    |
 
 Create (2) once, and a redeploy can never drift onto another database:
 
@@ -105,15 +105,15 @@ The `citefleet-pg` volume is deliberately kept. Do not `docker rm -v` or
 
 Optional: `XAI_API_KEY` for live Grok briefs. Never commit it.
 
-## 2b. Sign-in (invite-only accounts + operator token)
+## 2b. Sign-in (accounts + operator token)
 
-Accounts are invite-only: put the allowed emails, comma-separated on ONE line,
-in `/root/citefleet-operator.emails`; `deploy-vps.sh` injects
+Anyone may create an account with email/password or a verified Google/GitHub
+email. `/root/citefleet-operator.emails` is an optional comma-separated list of
+renewal-reminder recipients; `deploy-vps.sh` injects it as
 `CITEFLEET_OPERATOR_EMAILS`. Google/GitHub OAuth apps go in
 `/root/citefleet-google.oauth` / `/root/citefleet-github.oauth` (line 1 id,
 line 2 secret; redirect URIs `/api/oauth/google-callback`,
-`/api/oauth/github-callback`). Sign-up, sign-in and OAuth refuse any other
-email; an empty list refuses everyone.
+`/api/oauth/github-callback`).
 
 `deploy/deploy-vps.sh` generates `/root/citefleet-operator.token` once and
 injects it as `CITEFLEET_OPERATOR_TOKEN`. Open `https://citefleet.app/login`

@@ -21,10 +21,7 @@ const iso = (offsetMs: number) => new Date(NOW + offsetMs).toISOString();
 test("a spent link reads as spent even after it has also expired", () => {
   // Order matters: reporting "expired" for a link the user already used sends
   // them hunting for a clock problem instead of telling them what happened.
-  assert.equal(
-    resetRejection({ expiresAt: iso(-60_000), usedAt: iso(-120_000) }, NOW),
-    "used",
-  );
+  assert.equal(resetRejection({ expiresAt: iso(-60_000), usedAt: iso(-120_000) }, NOW), "used");
   assert.equal(resetRejection({ expiresAt: iso(-1), usedAt: null }, NOW), "expired");
   assert.equal(resetRejection(null, NOW), "not-found");
   assert.equal(resetRejection({ expiresAt: iso(60_000), usedAt: null }, NOW), null);
@@ -47,11 +44,11 @@ test("password length is enforced at the same bar as sign-up", () => {
 });
 
 test("the link is built from the configured origin, never a request header", () => {
+  assert.equal(resetLink("https://citefleet.app", "abc"), "https://citefleet.app/reset?token=abc");
   assert.equal(
-    resetLink("https://citefleet.app", "abc"),
+    resetLink("https://citefleet.app///", "abc"),
     "https://citefleet.app/reset?token=abc",
   );
-  assert.equal(resetLink("https://citefleet.app///", "abc"), "https://citefleet.app/reset?token=abc");
   // base64url tokens contain - and _, and a token must survive the round trip.
   assert.equal(
     resetLink("https://citefleet.app", "a-b_c=="),
@@ -85,9 +82,8 @@ test("the subject survives the SMTP header rules", () => {
 
 /**
  * The no-oracle property. `handleForgot` must answer identically for an unknown
- * address, a non-invited address, and a real account — this console is
- * invite-only, so membership is the fact worth hiding, and `handleLogin`
- * already refuses to leak it.
+ * address and a real account. `handleLogin` already refuses to reveal whether
+ * an address exists, so the reset path preserves that property.
  *
  * Not unit-testable without a database, so this asserts it against the source
  * the way login-messages.test.ts and client-bundle-guard.test.ts do.
@@ -103,13 +99,17 @@ test("the forgot endpoint never varies its answer on whether an account exists",
 
   // Only three destinations are permissible, and none of them describes the
   // address: the shared rate limit, our own mail failure, and "sent".
-  const allowed = new Set(["/login?error=locked", "/login?error=mail-unavailable", "/login?sent=1"]);
+  const allowed = new Set([
+    "/login?error=locked",
+    "/login?error=mail-unavailable",
+    "/login?sent=1",
+  ]);
   for (const t of targets) {
     assert.ok(allowed.has(t), `handleForgot may not redirect to ${t}`);
   }
 
   // The account-shaped outcomes must not reach a distinct redirect.
-  for (const reason of ["no-account", "not-allowed"]) {
+  for (const reason of ["no-account"]) {
     assert.ok(
       !new RegExp(`"${reason}"[^\\n]*redirect`).test(body),
       `${reason} must not select its own response`,

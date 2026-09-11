@@ -165,7 +165,7 @@ fi
   echo "BOTCENTRAL_URL=https://botcentral.org"
   printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
   printf 'CITEFLEET_OPERATOR_TOKEN=%s\n' "$OPERATOR_TOKEN"
-  # Invite-only console: comma-separated emails allowed to sign in / sign up (email, Google, GitHub).
+  # Optional comma-separated recipients for listing-renewal reminders.
   if [[ -s /root/citefleet-operator.emails ]]; then
     printf 'CITEFLEET_OPERATOR_EMAILS=%s\n' "$(tr -d '\n' < /root/citefleet-operator.emails)"
   fi

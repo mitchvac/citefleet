@@ -1,11 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { isAllowedEmail } from "./operator-allowlist.ts";
 import type { SessionUser } from "./operator-core.ts";
-import {
-  createSession,
-  readCookie,
-  sessionCookie,
-} from "./operator-core.ts";
+import { createSession, readCookie, sessionCookie } from "./operator-core.ts";
 
 const STATE_COOKIE = "citefleet_oauth";
 const STATE_TTL = 10 * 60;
@@ -41,7 +36,8 @@ function publicOrigin(request: Request): string {
   const fromEnv = env("CITEFLEET_PUBLIC_URL").replace(/\/$/, "");
   if (fromEnv) return fromEnv;
   const proto = request.headers.get("x-forwarded-proto") || "https";
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "citefleet.app";
+  const host =
+    request.headers.get("x-forwarded-host") || request.headers.get("host") || "citefleet.app";
   return `${proto}://${host}`;
 }
 
@@ -69,21 +65,14 @@ function loginError(reason: string): Response {
   return redirect(`/login?error=${reason}`);
 }
 
-function signedIn(
-  request: Request,
-  user?: SessionUser,
-  extraCookies: string[] = [],
-): Response {
+function signedIn(request: Request, user?: SessionUser, extraCookies: string[] = []): Response {
   const session = sessionCookie(createSession(Date.now(), user ?? undefined), {
     secure: isSecure(request),
   });
   const cookies = [session, stateCookie("", request, 0), ...extraCookies];
   return new Response(null, {
     status: 303,
-    headers: [
-      ["Location", "/"],
-      ...cookies.map((c) => ["Set-Cookie", c] as [string, string]),
-    ],
+    headers: [["Location", "/"], ...cookies.map((c) => ["Set-Cookie", c] as [string, string])],
   });
 }
 
@@ -129,7 +118,6 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
     if (provider === "google") {
       const profile = await googleProfile(code, publicOrigin(request));
       if (!profile.verified) return loginError("email-unverified");
-      if (!isAllowedEmail(profile.email)) return loginError("not-allowed");
       const { upsertOAuthUser } = await import("./users.server");
       const user = await upsertOAuthUser({
         provider: "google",
@@ -150,7 +138,6 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
     }
     const profile = await githubProfile(code, publicOrigin(request));
     if (!profile.verified) return loginError("email-unverified");
-    if (!isAllowedEmail(profile.email)) return loginError("not-allowed");
     const { upsertOAuthUser } = await import("./users.server");
     const user = await upsertOAuthUser({
       provider: "github",
@@ -183,7 +170,10 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
   }
 }
 
-async function googleProfile(code: string, origin: string): Promise<{ id: string; email: string; name: string; verified: boolean; image?: string }> {
+async function googleProfile(
+  code: string,
+  origin: string,
+): Promise<{ id: string; email: string; name: string; verified: boolean; image?: string }> {
   const body = new URLSearchParams({
     code,
     client_id: env("GOOGLE_CLIENT_ID"),
@@ -203,7 +193,13 @@ async function googleProfile(code: string, origin: string): Promise<{ id: string
     headers: { Authorization: `Bearer ${tokenJson.access_token}` },
   });
   if (!me.ok) throw new Error("google userinfo");
-  const profile = (await me.json()) as { id?: string; email?: string; name?: string; verified_email?: boolean; picture?: string };
+  const profile = (await me.json()) as {
+    id?: string;
+    email?: string;
+    name?: string;
+    verified_email?: boolean;
+    picture?: string;
+  };
   if (!profile.id || !profile.email) throw new Error("google profile");
   return {
     id: profile.id,
@@ -217,7 +213,14 @@ async function googleProfile(code: string, origin: string): Promise<{ id: string
 async function githubProfile(
   code: string,
   origin: string,
-): Promise<{ id: string; email: string; name: string; token: string; verified: boolean; image?: string }> {
+): Promise<{
+  id: string;
+  email: string;
+  name: string;
+  token: string;
+  verified: boolean;
+  image?: string;
+}> {
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
@@ -233,19 +236,40 @@ async function githubProfile(
   if (!tokenJson.access_token) throw new Error("github token");
   const token = tokenJson.access_token;
   const me = await fetch("https://api.github.com/user", {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "citefleet" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "citefleet",
+    },
   });
   if (!me.ok) throw new Error("github user");
-  const user = (await me.json()) as { id?: number; login?: string; name?: string; email?: string | null; avatar_url?: string };
-  // Only a VERIFIED address may match the allow-list: the public profile email
+  const user = (await me.json()) as {
+    id?: number;
+    login?: string;
+    name?: string;
+    email?: string | null;
+    avatar_url?: string;
+  };
+  // Only a VERIFIED address may identify the account: the public profile email
   // and the noreply fallback are not proof of anything.
   let email = "";
   const emailsRes = await fetch("https://api.github.com/user/emails", {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "citefleet" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "citefleet",
+    },
   });
   if (emailsRes.ok) {
-    const emails = (await emailsRes.json()) as Array<{ email: string; primary?: boolean; verified?: boolean }>;
-    email = emails.find((e) => e.primary && e.verified)?.email || emails.find((e) => e.verified)?.email || "";
+    const emails = (await emailsRes.json()) as Array<{
+      email: string;
+      primary?: boolean;
+      verified?: boolean;
+    }>;
+    email =
+      emails.find((e) => e.primary && e.verified)?.email ||
+      emails.find((e) => e.verified)?.email ||
+      "";
   }
   if (!user.id) throw new Error("github profile");
   const verified = Boolean(email);
@@ -259,5 +283,3 @@ async function githubProfile(
     image: httpsImage(user.avatar_url),
   };
 }
-
-

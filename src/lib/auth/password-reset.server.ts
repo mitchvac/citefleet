@@ -1,6 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
-import { isAllowedEmail } from "./operator-allowlist.ts";
 import {
   RESET_SUBJECT,
   RESET_TTL_MS,
@@ -18,10 +17,9 @@ import { sendMail, mailConfigured } from "@/lib/mail/smtp";
  * Two rules run through everything here:
  *
  * 1. NO ORACLE. `requestReset` returns the same thing whether the address is
- *    registered, allow-listed, or entirely unknown. `handleLogin` already
- *    refuses to confirm whether an address exists; a reset form that answers
- *    "no such account" would hand back exactly what that protects, and this
- *    console is invite-only, so the member list is the thing worth hiding.
+ *    registered or entirely unknown. `handleLogin` already refuses to confirm
+ *    whether an address exists; a reset form that answers "no such account"
+ *    would hand back exactly what that protects.
  *
  * 2. THE PLAINTEXT TOKEN EXISTS IN ONE PLACE — the email. We store its SHA-256.
  *    A leaked row, backup, or log line yields nothing usable.
@@ -43,26 +41,20 @@ function publicUrl(): string {
 }
 
 export type RequestOutcome =
-  | { sent: true }
-  | { sent: false; reason: "no-account" | "not-allowed" | "mail-unconfigured" | "send-failed" };
+  { sent: true } | { sent: false; reason: "no-account" | "mail-unconfigured" | "send-failed" };
 
 /**
  * Create a reset and email it. The CALLER MUST NOT vary its response on this
  * result — it is returned for the audit log and for tests, never for the wire.
  */
-export async function requestReset(
-  emailRaw: string,
-  ip: string | null,
-): Promise<RequestOutcome> {
+export async function requestReset(emailRaw: string, ip: string | null): Promise<RequestOutcome> {
   const email = emailRaw.trim().toLowerCase();
   if (!mailConfigured()) return { sent: false, reason: "mail-unconfigured" };
-  if (!isAllowedEmail(email)) return { sent: false, reason: "not-allowed" };
 
   const sql = await getSql();
-  const rows = await sql.query<{ id: string }>(
-    "SELECT id FROM citefleet_users WHERE email = $1",
-    [email],
-  );
+  const rows = await sql.query<{ id: string }>("SELECT id FROM citefleet_users WHERE email = $1", [
+    email,
+  ]);
   const user = rows[0];
   if (!user) return { sent: false, reason: "no-account" };
 
@@ -95,29 +87,23 @@ export async function requestReset(
     });
   } catch (err) {
     // Burn the token: a link we could not deliver must not stay live.
-    await sql.query(
-      "UPDATE citefleet_password_resets SET used_at = now() WHERE token_hash = $1",
-      [hashToken(token)],
-    );
+    await sql.query("UPDATE citefleet_password_resets SET used_at = now() WHERE token_hash = $1", [
+      hashToken(token),
+    ]);
     console.error("[citefleet] reset email failed", err instanceof Error ? err.message : err);
     return { sent: false, reason: "send-failed" };
   }
   return { sent: true };
 }
 
-export type ConsumeResult =
-  | { ok: true; email: string }
-  | { ok: false; reason: ResetRejection };
+export type ConsumeResult = { ok: true; email: string } | { ok: false; reason: ResetRejection };
 
 /**
  * Spend a token and set the new password. The UPDATE that marks it spent is
  * guarded by `used_at IS NULL`, so of two requests racing the same link exactly
  * one wins — checking first and writing after would let both through.
  */
-export async function consumeReset(
-  token: string,
-  password: string,
-): Promise<ConsumeResult> {
+export async function consumeReset(token: string, password: string): Promise<ConsumeResult> {
   if (!passwordAcceptable(password)) return { ok: false, reason: "weak-password" };
   if (!token) return { ok: false, reason: "not-found" };
 
@@ -133,9 +119,7 @@ export async function consumeReset(
     [hashToken(token)],
   );
   const row = rows[0];
-  const rejection = resetRejection(
-    row ? { expiresAt: row.expires_at, usedAt: row.used_at } : null,
-  );
+  const rejection = resetRejection(row ? { expiresAt: row.expires_at, usedAt: row.used_at } : null);
   if (rejection) return { ok: false, reason: rejection };
 
   const claimed = await sql.query<{ id: string }>(

@@ -1,6 +1,5 @@
 import { getRequest } from "@tanstack/react-start/server";
 import { assertSameSiteRequest } from "./isolation.server";
-import { isAllowedEmail } from "./operator-allowlist.ts";
 import { sessionUser, type SessionUser } from "./operator-core.ts";
 import {
   OPERATOR_COOKIE,
@@ -30,7 +29,10 @@ function clientKey(request: Request): string {
   if (real) return real.trim();
   const xff = request.headers.get("x-forwarded-for");
   if (xff) {
-    const hops = xff.split(",").map((h) => h.trim()).filter(Boolean);
+    const hops = xff
+      .split(",")
+      .map((h) => h.trim())
+      .filter(Boolean);
     if (hops.length) return hops[hops.length - 1];
   }
   return "unknown";
@@ -43,7 +45,10 @@ function isSecure(request: Request): boolean {
 function signedInResponse(request: Request, sessionId: string): Response {
   return new Response(null, {
     status: 303,
-    headers: { Location: "/", "Set-Cookie": sessionCookie(sessionId, { secure: isSecure(request) }) },
+    headers: {
+      Location: "/",
+      "Set-Cookie": sessionCookie(sessionId, { secure: isSecure(request) }),
+    },
   });
 }
 
@@ -72,9 +77,7 @@ export function currentSessionUser(request: Request): SessionUser | null {
  * every action it takes is unattributable and the code that spends money or
  * publishes on a customer's behalf should be able to see that.
  */
-export type Principal =
-  | { kind: "user"; userId: string; email: string }
-  | { kind: "break-glass" };
+export type Principal = { kind: "user"; userId: string; email: string } | { kind: "break-glass" };
 
 /**
  * Gate the request AND say who made it.
@@ -90,9 +93,7 @@ export function requireOperator(): Principal {
   if (!hasSession(id)) throw new OperatorUnauthorizedError("sign-in required");
   assertSameSiteRequest();
   const user = sessionUser(id);
-  return user
-    ? { kind: "user", userId: user.id, email: user.email }
-    : { kind: "break-glass" };
+  return user ? { kind: "user", userId: user.id, email: user.email } : { kind: "break-glass" };
 }
 
 async function readFields(request: Request): Promise<{
@@ -128,12 +129,11 @@ export async function handleLogin(request: Request): Promise<Response> {
     const wait = isLocked(key);
     if (wait > 0) return loginError("locked", wait);
     const { verifyUser } = await import("./users.server");
-    // Invite-only console: every email takes the same path (DB lookup + scrypt,
-    // burned when no hash exists) and the allow-list is applied to the result,
-    // so neither the answer nor its timing says whether an address is listed
-    // or registered.
+    // Every email takes the same path (DB lookup + scrypt, burned when no hash
+    // exists), so neither the answer nor its timing says whether an address is
+    // registered.
     const user = await verifyUser(fields.email, fields.password);
-    if (!user || !isAllowedEmail(fields.email)) {
+    if (!user) {
       noteFailure(key);
       return loginError("bad-credentials");
     }
@@ -156,8 +156,6 @@ export async function handleLogin(request: Request): Promise<Response> {
 /** POST /api/signup — create a user account and sign in. */
 export async function handleSignup(request: Request): Promise<Response> {
   const fields = await readFields(request);
-  // Invite-only: only allow-listed emails may create an account.
-  if (!isAllowedEmail(fields.email)) return loginError("not-allowed");
   const { createUser } = await import("./users.server");
   const created = await createUser({
     email: fields.email,

@@ -8,11 +8,10 @@ Everything the single operator does day to day. Customer-facing steps are in
 ## Sign in
 
 The console (every page that shows workspace data, and every action) is behind
-a session. Accounts are **invite-only**: only emails listed in
-`CITEFLEET_OPERATOR_EMAILS` (on the VPS: `/root/citefleet-operator.emails`,
-comma-separated on a single line) can sign up or sign in, by email/password,
-Google, or GitHub; the provider email must be verified.
-Any other email is refused, and an empty list refuses everyone.
+a session. Anyone may create an account by email/password, Google, or GitHub;
+OAuth providers must supply a verified email. Each new account receives its own
+workspace. `CITEFLEET_OPERATOR_EMAILS` is only the comma-separated recipient
+list for renewal reminders; it does not control account access.
 
 - `https://citefleet.app/login`: email/password (create the account once),
   **Continue with Google**, or **Continue with GitHub**.
@@ -32,7 +31,7 @@ Any other email is refused, and an empty list refuses everyone.
 Local development:
 
 ```bash
-CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) CITEFLEET_OPERATOR_EMAILS=you@example.com npm run dev
+CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) npm run dev
 ```
 
 ## Deploy a change
@@ -137,18 +136,18 @@ signature can be verified.
 
 ## What the errors mean
 
-| Message | Cause | Do |
-| --- | --- | --- |
-| `Proof not live yet — …` | The origin does not serve the proof line (or serves an HTML shell) and there is no DNS record. | Add the file or the TXT record, then Verify proof. |
-| `ownership not proven` (from BotCentral) | Pre-flight passed but the registry's own fetch failed (propagation, redirect, host-specific). | Wait a minute and retry; check the file from another network. |
-| `Unauthorized: sign-in required` | Session expired or container restarted. | Sign in again. |
-| `Unauthorized: operator token not configured` | `CITEFLEET_OPERATOR_TOKEN` missing in `.env`. | Rerun the deploy script; it mints and injects it. |
-| Hook answers `401` | Wrong secret, unknown repository/domain, or tampered body — all look the same on purpose. | Rotate the secret and update the repository webhook. |
-| Hook answers `202 duplicate` / `in-progress` | GitHub redelivered an id, or a check from a moment ago is still running. | Nothing; the running check picks up the deploy. |
-| `BotCentral publish blocked` on the task | The catalog refused or the kill switch is on. | Read the evidence line; thaw on Monitor if frozen. |
+| Message                                                                | Cause                                                                                                                                                                                     | Do                                                                       |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `Proof not live yet — …`                                               | The origin does not serve the proof line (or serves an HTML shell) and there is no DNS record.                                                                                            | Add the file or the TXT record, then Verify proof.                       |
+| `ownership not proven` (from BotCentral)                               | Pre-flight passed but the registry's own fetch failed (propagation, redirect, host-specific).                                                                                             | Wait a minute and retry; check the file from another network.            |
+| `Unauthorized: sign-in required`                                       | Session expired or container restarted.                                                                                                                                                   | Sign in again.                                                           |
+| `Unauthorized: operator token not configured`                          | `CITEFLEET_OPERATOR_TOKEN` missing in `.env`.                                                                                                                                             | Rerun the deploy script; it mints and injects it.                        |
+| Hook answers `401`                                                     | Wrong secret, unknown repository/domain, or tampered body — all look the same on purpose.                                                                                                 | Rotate the secret and update the repository webhook.                     |
+| Hook answers `202 duplicate` / `in-progress`                           | GitHub redelivered an id, or a check from a moment ago is still running.                                                                                                                  | Nothing; the running check picks up the deploy.                          |
+| `BotCentral publish blocked` on the task                               | The catalog refused or the kill switch is on.                                                                                                                                             | Read the evidence line; thaw on Monitor if frozen.                       |
 | `BotCentral needs a funded key` / `… does not hold the $10.00 …` (402) | Billing is on and the key cannot pay for a year: `insufficient`, `unknown` (no key matches the prefix), `revoked`, or `lapsed` (the year ended and no key was sent). Nothing was written. | Fund the key at the top-up link in the message, then List on BotCentral. |
-| `spend door is frozen` on List on BotCentral | Billing is on, the property has a key, and the spend door is closed. | Thaw spend on Monitor, or clear the key to publish unbilled. |
-| `Listing year ended …` on the campaign header | `site.lapsed` arrived or the stored end date passed. The card is listed but unproven; rechecks do not restore it. | Top up the key, then List on BotCentral. |
+| `spend door is frozen` on List on BotCentral                           | Billing is on, the property has a key, and the spend door is closed.                                                                                                                      | Thaw spend on Monitor, or clear the key to publish unbilled.             |
+| `Listing year ended …` on the campaign header                          | `site.lapsed` arrived or the stored end date passed. The card is listed but unproven; rechecks do not restore it.                                                                         | Top up the key, then List on BotCentral.                                 |
 
 ## Cleanup
 

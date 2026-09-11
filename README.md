@@ -61,9 +61,10 @@ on merge to `main`. The app itself performs no DDL. After adding a migration
 (`npm run db:new <name>`), regenerate types with `npm run db:types` in the same
 change.
 
-The console is behind a session gate (`/login`): invite-only accounts
-(email/password, Google, GitHub) for the emails in `CITEFLEET_OPERATOR_EMAILS`,
-plus the server token as an ops fallback. Without either, every action refuses.
+The console is behind a session gate (`/login`): anyone may create an account
+with email/password, Google, or GitHub, and each account receives its own
+workspace. The server token remains an ops fallback. Without a valid account
+session or that token, every action refuses.
 Customer webhooks and `/health` stay public.
 
 ## Production (shared VPS)
