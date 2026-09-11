@@ -199,6 +199,9 @@ export async function runAuditAndApply(ws: WorkspaceHandle, siteId: string): Pro
     if (audit.discovered?.sitemapUrl) {
       current.sitemapUrl = audit.discovered.sitemapUrl;
     }
+    // The audit now checks proof of control, so the panel's pill and the
+    // pre-publish gate see one answer rather than two.
+    if (audit.proof) current.proof = audit.proof;
 
     const apply = (playbookId: PlaybookId, findingOk: boolean, label: string) => {
       const task = s.tasks.find(

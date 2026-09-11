@@ -100,9 +100,14 @@ export async function createWorkspace(
   id: WorkspaceId = newWorkspaceId(),
 ): Promise<WorkspaceHandle> {
   await withTransaction(async (tx) => {
+    // `plan` and `region` are written explicitly rather than left to the column
+    // defaults, because `seedStore` puts its own values in the JSONB document.
+    // Letting the column default to 'starter' while the document says
+    // 'enterprise' gives one workspace two answers about what it is.
+    const seeded = seedStore(id, name);
     await tx.query(
-      `INSERT INTO citefleet_workspaces (id, slug, name) VALUES ($1, $2, $3)`,
-      [id, id.replace(/^ws-/, ""), name],
+      `INSERT INTO citefleet_workspaces (id, slug, name, plan, region) VALUES ($1, $2, $3, $4, $5)`,
+      [id, id.replace(/^ws-/, ""), name, seeded.workspace.plan, seeded.workspace.region],
     );
     await tx.query(
       `INSERT INTO citefleet_workspace_members (workspace_id, user_id, role, is_default)
@@ -111,7 +116,7 @@ export async function createWorkspace(
        ))`,
       [id, userId],
     );
-    await saveSnapshot(id, seedStore(id, name), tx);
+    await saveSnapshot(id, seeded, tx);
   });
   return handleFor(id);
 }
@@ -139,7 +144,7 @@ export async function workspaceForDomain(domain: string): Promise<WorkspaceHandl
        FROM citefleet_snapshot s
       WHERE EXISTS (
         SELECT 1 FROM jsonb_array_elements(s.payload->'sites') AS site
-         WHERE lower(regexp_replace(site->>'domain', '^www\\.', '')) = $1
+         WHERE regexp_replace(lower(site->>'domain'), '^www\\.', '') = $1
       )
       LIMIT 2`,
     [bare],
@@ -153,17 +158,25 @@ export async function workspaceForDomain(domain: string): Promise<WorkspaceHandl
 /** The same, for a GitHub webhook, keyed by `owner/repo`. */
 export async function workspaceForRepo(fullName: string): Promise<WorkspaceHandle | null> {
   const slug = fullName.trim().toLowerCase();
-  if (!slug.includes("/")) return null;
+  // Both halves must be present. `"/"` and `"owner/"` used to reach the query,
+  // where `concat()` coalesces a missing owner/repo to "" and built the very
+  // same `"/"` — so an unauthenticated hook naming `"/"` resolved to any tenant
+  // holding a site with no GitHub attachment.
+  const [owner, repo, ...rest] = slug.split("/");
+  if (!owner || !repo || rest.length) return null;
   const sql = await getSql();
   const rows = await sql.query<{ id: string }>(
     `SELECT s.id
        FROM citefleet_snapshot s
       WHERE EXISTS (
         SELECT 1 FROM jsonb_array_elements(s.payload->'sites') AS site
-         WHERE lower(concat(site->'github'->>'owner', '/', site->'github'->>'repo')) = $1
+         WHERE site->'github'->>'owner' IS NOT NULL
+           AND site->'github'->>'repo' IS NOT NULL
+           AND lower(site->'github'->>'owner') = $1
+           AND lower(site->'github'->>'repo') = $2
       )
       LIMIT 2`,
-    [slug],
+    [owner, repo],
   );
   if (rows.length !== 1) return null;
   return handleFor(asWorkspaceId(rows[0].id));

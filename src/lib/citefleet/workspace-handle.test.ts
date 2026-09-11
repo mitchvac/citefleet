@@ -160,3 +160,219 @@ test("a load failure yields an EMPTY workspace, never another tenant's", async (
   assert.deepEqual(a.sites, []);
   assert.equal(a.workspace.id, A);
 });
+
+// --- Concurrency regressions -------------------------------------------------
+// Both of these were REPRODUCED against the first implementation: a mutate that
+// returned success had its write erased, and a save that threw was persisted
+// anyway. Each test below fails against that version.
+
+/** A store whose save can be held open, so the race can be driven deterministically. */
+function pausableStore() {
+  const rows = new Map<WorkspaceId, unknown>();
+  let held: (() => void) | null = null;
+  let holdNext = false;
+  const io: SnapshotStore = {
+    async load(id) {
+      return rows.get(id) ?? null;
+    },
+    async save(id, store) {
+      if (holdNext) {
+        holdNext = false;
+        await new Promise<void>((resolve) => {
+          held = resolve;
+        });
+      }
+      rows.set(id, JSON.parse(JSON.stringify(store)));
+    },
+  };
+  return {
+    io,
+    rows,
+    holdNextSave() {
+      holdNext = true;
+    },
+    release() {
+      held?.();
+      held = null;
+    },
+  };
+}
+
+test("a write that reported success is not erased by cache eviction", async () => {
+  // The reproduction, in order: mutate A is suspended mid-save; eviction
+  // pressure drops A from the cache; a concurrent READ of A re-boots it from
+  // the row Postgres has not updated yet and caches that stale object; the save
+  // then completes and reports success; the next mutate saves the stale object
+  // over the top, erasing a write whose promise already resolved.
+  const f = pausableStore();
+  const ws = createWorkspaces(f.io, 2);
+
+  f.holdNextSave();
+  const first = ws.handleFor(A).mutate((s) => s.sites.push(siteNamed("kept")));
+
+  // Evict A while its write is in flight.
+  await ws.handleFor(asWorkspaceId("ws-filler1")).get();
+  await ws.handleFor(asWorkspaceId("ws-filler2")).get();
+  // And re-read it, which is what caches the stale copy.
+  const duringFlight = await ws.handleFor(A).get();
+
+  f.release();
+  await first;
+
+  // The read taken mid-flight must already see the pending write — that is what
+  // proves the entry was never dropped.
+  assert.deepEqual(
+    duringFlight.sites.map((s) => s.name),
+    ["kept"],
+    "a read during the write must not fall back to the stale row",
+  );
+
+  await ws.handleFor(A).mutate((s) => s.sites.push(siteNamed("later")));
+  const finalRow = f.rows.get(A) as StoreShape;
+  assert.deepEqual(
+    finalRow.sites.map((s) => s.name),
+    ["kept", "later"],
+    "the first write must survive the second",
+  );
+});
+
+test("a save that FAILED is not persisted by the next mutate", async () => {
+  // The reproduction: both mutates held the same object by reference, so the
+  // failed mutation's change was still on the object the second one saved.
+  let failNext = true;
+  const rows = new Map<WorkspaceId, unknown>();
+  const io: SnapshotStore = {
+    async load(id) {
+      return rows.get(id) ?? null;
+    },
+    async save(id, store) {
+      if (failNext) {
+        failNext = false;
+        throw new Error("snapshot write failed");
+      }
+      rows.set(id, JSON.parse(JSON.stringify(store)));
+    },
+  };
+  const ws = createWorkspaces(io);
+  const handle = ws.handleFor(A);
+
+  const doomed = handle.mutate((s) => s.sites.push(siteNamed("FAILED-WRITE")));
+  const good = handle.mutate((s) => s.sites.push(siteNamed("ok-write")));
+  await assert.rejects(() => doomed, /snapshot write failed/);
+  await good;
+
+  const row = rows.get(A) as StoreShape;
+  assert.deepEqual(
+    row.sites.map((s) => s.name),
+    ["ok-write"],
+    "the change whose save threw must not appear in the database",
+  );
+});
+
+test("mutations on one workspace do not interleave", async () => {
+  // Serialisation is what makes the failure path above safe to clean up.
+  const order: string[] = [];
+  const io: SnapshotStore = {
+    async load() {
+      return null;
+    },
+    async save() {
+      await new Promise((r) => setTimeout(r, 1));
+    },
+  };
+  const ws = createWorkspaces(io);
+  const h = ws.handleFor(A);
+  await Promise.all([
+    h.mutate(() => order.push("a-start")).then(() => order.push("a-end")),
+    h.mutate(() => order.push("b-start")).then(() => order.push("b-end")),
+  ]);
+  assert.deepEqual(order, ["a-start", "a-end", "b-start", "b-end"]);
+});
+
+test("two DIFFERENT workspaces still mutate concurrently", async () => {
+  // Serialisation must be per tenant, not global — one slow customer must not
+  // block every other customer's writes.
+  const started: string[] = [];
+  const io: SnapshotStore = {
+    async load() {
+      return null;
+    },
+    async save(id) {
+      started.push(String(id));
+      await new Promise((r) => setTimeout(r, 5));
+    },
+  };
+  const ws = createWorkspaces(io);
+  await Promise.all([
+    ws.handleFor(A).mutate(() => {}),
+    ws.handleFor(B).mutate(() => {}),
+  ]);
+  assert.equal(started.length, 2);
+});
+
+test("a pinned cache under full pressure does not evict the entry being written", async () => {
+  // A cold validator reproduced this against the first pinning attempt: `mutate`
+  // pinned AFTER `ensureLoaded`, and `ensureLoaded` calls `remember`, which
+  // evicts. With every older entry pinned, the only unpinned candidate was the
+  // entry just inserted — so `remember` deleted its own argument and the stale
+  // read came straight back.
+  const rows = new Map<WorkspaceId, unknown>();
+  const releases: Array<() => void> = [];
+  let blocking = true;
+  const io: SnapshotStore = {
+    async load(id) {
+      return rows.get(id) ?? null;
+    },
+    async save(id, store) {
+      // Only the writes that set up the race are held; once released, saves run
+      // straight through, or the assertion after them would never be reached.
+      if (blocking) await new Promise<void>((r) => releases.push(r));
+      rows.set(id, JSON.parse(JSON.stringify(store)));
+    },
+  };
+  const max = 3;
+  const ws = createWorkspaces(io, max);
+
+  // Fill the cache with mutations that are all stuck mid-save, so every entry
+  // is pinned, then start one more on a fresh tenant.
+  const held = ["ws-pin1", "ws-pin2", "ws-pin3"].map((n) =>
+    ws.handleFor(asWorkspaceId(n)).mutate((s) => s.sites.push(siteNamed(n))),
+  );
+  await new Promise((r) => setTimeout(r, 0));
+  const last = ws.handleFor(A).mutate((s) => s.sites.push(siteNamed("kept")));
+  await new Promise((r) => setTimeout(r, 0));
+
+  // The read that used to see the stale row.
+  const duringFlight = await ws.handleFor(A).get();
+  assert.deepEqual(
+    duringFlight.sites.map((s) => s.name),
+    ["kept"],
+    "the entry being written must still be cached under full pinning pressure",
+  );
+
+  blocking = false;
+  for (const release of releases) release();
+  await Promise.all([...held, last]);
+  await ws.handleFor(A).mutate((s) => s.sites.push(siteNamed("later")));
+  assert.deepEqual(
+    (rows.get(A) as StoreShape).sites.map((s) => s.name),
+    ["kept", "later"],
+  );
+});
+
+test("the per-tenant mutation queue does not retain an entry per tenant", async () => {
+  // The queue map lives in the module whose entire point is a bounded cache. It
+  // had no delete at all, so it grew one promise per workspace forever.
+  const io: SnapshotStore = {
+    async load() {
+      return null;
+    },
+    async save() {},
+  };
+  const ws = createWorkspaces(io, 4);
+  for (let i = 0; i < 50; i += 1) {
+    await ws.handleFor(asWorkspaceId(`ws-tenant${i}`)).mutate(() => {});
+  }
+  assert.ok(ws.size() <= 4, `cache bound held at ${ws.size()}`);
+  assert.equal(ws.queueDepth(), 0, "every drained queue entry must be released");
+});

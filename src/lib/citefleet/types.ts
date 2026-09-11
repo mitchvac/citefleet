@@ -354,6 +354,17 @@ export interface AuditResult {
   at: string;
   siteId: string;
   ok: boolean;
+  /**
+   * Proof of control as the audit found it — the file OR an apex DNS TXT record.
+   * The audit never asked this before, so "Live audit passed" was printed for
+   * origins that proved nothing.
+   */
+  proof?: {
+    proven: boolean;
+    method: "well-known-file" | "dns-txt" | "none";
+    note: string;
+    checkedAt: string;
+  };
   findings: AuditFinding[];
   routeChecks: Array<{
     path: string;

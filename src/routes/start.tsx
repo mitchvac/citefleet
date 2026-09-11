@@ -44,11 +44,12 @@ function StartPage() {
   // it is the one step someone can complete before signing up for anything.
   const record = proofRecord({ domain: "your-domain.com" });
   return (
-    <Shell eyebrow="Getting started" title="Three steps to get your site indexed by bots">
+    <Shell eyebrow="Getting started" title="Get your site indexed by bots">
       <p className="mb-6 max-w-2xl text-[#b7b0cc]">
         Search engines and AI assistants only cite what they can find and verify.
-        These three steps take a site from invisible to listed, proven, and
-        citable. Do them in order — each one needs the one before it.
+        Prove the domain first — it is one DNS record and nothing else depends on
+        it — then these three steps take the site from invisible to listed and
+        citable. Do them in order; each one needs the one before it.
       </p>
 
       {/*

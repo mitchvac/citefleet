@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { packFiles } from "@/lib/citefleet/originPack";
+import { cleanIndexNowKey } from "@/lib/citefleet/indexnow";
 import { providerGuidance } from "@/lib/citefleet/provider-choice";
 import { PROVIDER_FLOWS } from "@/lib/citefleet/provider-flows";
 import { Copy } from "./Copy";
@@ -46,8 +47,16 @@ function FileRow({ path, content }: { path: string; content: string }) {
               const a = document.createElement("a");
               a.href = url;
               a.download = downloadName(path);
+              // Attached before the click and revoked on a later task: a
+              // detached anchor has historically not triggered a download in
+              // Gecko, and revoking synchronously has produced 0-byte files in
+              // WebKit. "The download has already started" is not a guarantee
+              // the spec makes.
+              a.style.display = "none";
+              document.body.appendChild(a);
               a.click();
-              URL.revokeObjectURL(url);
+              document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(url), 0);
               setSaved(true);
               setTimeout(() => setSaved(false), 1800);
             }}
@@ -80,7 +89,11 @@ export function OriginPackPanel({
   // The pack is FIVE files. It is four only when this property has no IndexNow
   // key — every property onboarded before keys were generated. Say so plainly
   // and offer the one click that fixes it, rather than quietly listing four.
-  const missingKey = !site.indexNowKey;
+  // `packFiles` gates the fifth file on cleanIndexNowKey, not on truthiness, so
+  // a property carrying a stored-but-INVALID key (possible for anything
+  // onboarded before keys were validated) showed "4 of 5" with the banner — and
+  // its Generate button — hidden, leaving no way to fix it from the UI.
+  const missingKey = !cleanIndexNowKey(site.indexNowKey);
   return (
     <section className="glass rounded-3xl p-5" data-testid="origin-pack-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">

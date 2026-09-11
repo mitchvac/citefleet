@@ -754,7 +754,7 @@ function GithubPanel({
 }
 
 /**
- * What a push would do to each of the four files, read from the repo.
+ * What a push would do to each file, read from the repo.
  *
  * This exists because the generator writes from campaign state and used to PUT
  * every file unconditionally: on a property whose files were written by

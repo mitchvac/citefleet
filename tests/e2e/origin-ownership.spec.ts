@@ -164,11 +164,15 @@ test("the verdict table reports one state per file, read from the repo", async (
   const plan = page.getByTestId("origin-plan");
   await expect(plan).toBeVisible();
   await expect(plan).toContainText(`${realOwner}/${realRepo}`);
-  // Four files in the pack, so four verdicts, each carrying a state.
+  // One verdict per file the plan covers. `inspectOriginPack` is READ-ONLY, so
+  // it reports on the pack as the property stands: four files, plus the
+  // IndexNow key file only when the property already has a key. A property
+  // onboarded since keys were generated has one, so accept either.
   const states = plan.locator("[data-testid^='origin-plan-']");
-  await expect(states).toHaveCount(4);
+  const count = await states.count();
+  expect(count === 4 || count === 5, `expected 4 or 5 verdicts, got ${count}`).toBe(true);
   // And the push button now names the count it would actually write, rather
-  // than the generic label that implied all four.
+  // than the generic label that implied a fixed number.
   await expect(page.getByRole("button", { name: /^Push \d+ file/ })).toBeVisible();
 });
 

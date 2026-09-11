@@ -6,10 +6,8 @@ import {
   checkLlms,
   checkRobots,
   checkSitemapDoc,
-  checkWellKnownFile,
 } from "./origin-file-check.ts";
-import { wellKnownUrl } from "./proof-record.ts";
-import { siteVerifyToken } from "./verify-token.ts";
+import { checkOriginProof } from "./proof.ts";
 
 const AI_AGENTS = [
   "OAI-SearchBot",
@@ -289,22 +287,42 @@ export async function auditSite(site: Site): Promise<AuditResult> {
         },
   );
 
-  const wellKnownRes = await timedGet(wellKnownUrl(site));
-  const wellKnownVerdict = checkWellKnownFile(wellKnownRes, siteVerifyToken(site));
+  // ONE probe of ownership, and it is BotCentral's own: the apex well-known file
+  // or an apex DNS TXT record, whichever answers first.
+  //
+  // Deliberately not a second fetch at `${origin}`. Doing that asked a different
+  // host than the verifier does on any www-canonical property, and then reported
+  // both answers — moving the contradiction rather than removing it. The apex is
+  // what decides whether the listing verifies, so the apex is what is reported.
+  const proof = await checkOriginProof(site);
   findings.push(
-    wellKnownVerdict.ok
+    proof.proven && proof.method === "well-known-file"
       ? {
           id: "wellknown-ok",
           severity: "ok",
           title: "Origin proof file serving",
-          detail: wellKnownUrl(site),
+          detail: proof.note,
         }
-      : {
-          id: "wellknown-missing",
-          severity: "warn",
-          title: "Origin proof file not serving",
-          detail: wellKnownRes.error || wellKnownVerdict.reason,
-        },
+      : proof.proven
+        ? {
+            // A site proven by DNS owes us no file. Reporting that as a problem
+            // told a verified customer they were broken (reconcile.ts had to
+            // learn the same lesson). The method is interpolated rather than
+            // asserted, because it is the thing that varies.
+            id: "wellknown-absent-proven",
+            severity: "info",
+            title: `Origin proof file not serving — proof holds via ${proof.method}`,
+            detail: `${proof.note} The listing is safe.`,
+          }
+        : {
+            // The audit never asked this before, so "Live audit passed" printed
+            // for origins that proved nothing at all. Critical, because nothing
+            // will list.
+            id: "wellknown-missing",
+            severity: "critical",
+            title: "Nothing proves this origin",
+            detail: proof.note,
+          },
   );
 
   const hosting = await detectHosting({
@@ -331,5 +349,6 @@ export async function auditSite(site: Site): Promise<AuditResult> {
     sitemap,
     discovered,
     hosting,
+    proof,
   };
 }

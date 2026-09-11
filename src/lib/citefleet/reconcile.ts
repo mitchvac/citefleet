@@ -70,21 +70,20 @@ export function buildChecks(
   // `snap.llms` has been computed on every monitor cycle since this module was
   // written and read by nothing. llms.txt is the file AI assistants actually
   // read for a citation name, so its absence was silently invisible.
-  // A snapshot taken before this check existed carries no `llms` key — treat
-  // that as "not measured" rather than reporting every property as missing it.
-  if (snap.llms !== undefined) {
-    checks.push({
-      id: "origin-llms",
-      ok: snap.llms,
-      // Never critical: llms.txt proves nothing and blocks no listing. It is
-      // what an assistant reads to cite the site by the right name.
-      severity: snap.llms ? "ok" : "warn",
-      title: "llms.txt",
-      detail: snap.llms
-        ? "/llms.txt is serving with a heading"
-        : "/llms.txt is missing, HTML, or has no markdown heading. Assistants fall back to guessing the site's name.",
-    });
-  }
+  // No `!== undefined` guard here: `SiteMonitor.llms` is REQUIRED and the only
+  // caller passes a freshly probed snapshot, so a guard would be dead code
+  // pretending to handle a case that cannot arise.
+  checks.push({
+    id: "origin-llms",
+    ok: snap.llms,
+    // Never critical: llms.txt proves nothing and blocks no listing. It is what
+    // an assistant reads to cite the site by the right name.
+    severity: snap.llms ? "ok" : "warn",
+    title: "llms.txt",
+    detail: snap.llms
+      ? "/llms.txt is serving with a heading"
+      : "/llms.txt is missing, HTML, or has no markdown heading. Assistants fall back to guessing the site's name.",
+  });
 
   const marketingOk = marketing.length
     ? marketing.every((p) => p.kind === "ok")

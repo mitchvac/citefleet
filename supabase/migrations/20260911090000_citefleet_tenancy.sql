@@ -69,12 +69,27 @@ INSERT INTO citefleet_workspaces (id, slug, name, plan, region)
 VALUES ('ws-citefleet', 'citefleet', 'CiteFleet', 'enterprise', 'us-east-1')
 ON CONFLICT (id) DO NOTHING;
 
--- The snapshot row moves from the 'default' constant to the workspace id that is
--- now its foreign key. Guarded so a re-run, or a database that never held the
--- old row, is a no-op rather than an error.
-UPDATE citefleet_snapshot SET id = 'ws-citefleet'
+-- The snapshot row moves from the 'default' constant to its workspace id, and
+-- the id INSIDE the document is corrected to match.
+--
+-- Both halves matter. Production's payload carries
+-- `workspace.id = "ws-resonance-labs"` (verified against the live database on
+-- 2026-09-11) while the row would be keyed 'ws-citefleet'. `dispatcher.ts`
+-- stamps every newly onboarded property with `store.workspace.id`, so leaving
+-- the document alone would label new sites with a workspace that does not
+-- exist, in a row belonging to one that does.
+--
+-- Guarded so a re-run, or a database that never held the old row, is a no-op.
+UPDATE citefleet_snapshot
+   SET id = 'ws-citefleet',
+       payload = jsonb_set(payload, '{workspace,id}', '"ws-citefleet"'::jsonb, true)
  WHERE id = 'default'
    AND NOT EXISTS (SELECT 1 FROM citefleet_snapshot WHERE id = 'ws-citefleet');
+
+-- And for a database already re-keyed by an earlier run whose document was not.
+UPDATE citefleet_snapshot
+   SET payload = jsonb_set(payload, '{workspace,id}', to_jsonb(id), true)
+ WHERE payload->'workspace'->>'id' IS DISTINCT FROM id;
 
 -- Every existing account is an admin of the existing workspace, and it is their
 -- default. Without this every current user signs in to "you belong to no
@@ -83,10 +98,23 @@ INSERT INTO citefleet_workspace_members (workspace_id, user_id, role, is_default
 SELECT 'ws-citefleet', id, 'admin', true FROM citefleet_users
 ON CONFLICT (workspace_id, user_id) DO NOTHING;
 
--- Added AFTER the backfill: with the constraint in place first, the UPDATE above
--- would have to satisfy a foreign key to a row it had not reached yet.
-ALTER TABLE citefleet_snapshot
-  DROP CONSTRAINT IF EXISTS citefleet_snapshot_workspace_fk;
-ALTER TABLE citefleet_snapshot
-  ADD CONSTRAINT citefleet_snapshot_workspace_fk
-  FOREIGN KEY (id) REFERENCES citefleet_workspaces (id) ON DELETE CASCADE;
+-- NO FOREIGN KEY FROM citefleet_snapshot TO citefleet_workspaces IN THIS
+-- MIGRATION, DELIBERATELY.
+--
+-- Schema reaches production from CI on merge to main; the application image is
+-- deployed separately. So there is a window in which the OLD bundle is still
+-- running, and that bundle writes `INSERT INTO citefleet_snapshot … VALUES
+-- ('default', …)` — it predates the per-workspace key. With the foreign key in
+-- place every one of those writes fails with 23503, which means every mutation
+-- on the live console errors until the new image lands.
+--
+-- Without it, those writes land in an orphaned 'default' row that the new code
+-- ignores: work done in that window is stranded rather than rejected, and the
+-- console keeps functioning. That is the better failure.
+--
+-- Add the constraint in a follow-up migration ONCE the new bundle is deployed
+-- and `SELECT id FROM citefleet_snapshot` shows no 'default' row:
+--
+--   ALTER TABLE citefleet_snapshot
+--     ADD CONSTRAINT citefleet_snapshot_workspace_fk
+--     FOREIGN KEY (id) REFERENCES citefleet_workspaces (id) ON DELETE CASCADE;

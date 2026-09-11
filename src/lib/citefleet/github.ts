@@ -181,8 +181,14 @@ async function detectFrameworkRoutes(
  *
  * Reads every target path plus the framework layouts, then hands both to the
  * one rule in `origin-ownership.ts`. `pushOriginPack` calls this and writes
- * only what it returns as writable, so the campaign panel and the server can
- * never disagree about what is about to happen.
+ * only what it returns as writable, adding nothing back, so the campaign panel
+ * and the server agree about what is about to happen.
+ *
+ * The one way they can still differ: this reports on the key the property HAS,
+ * while `pushOriginPack` ensures a key before it asks for a plan. So a property
+ * that has never had one shows four files here and pushes five. The panel names
+ * that case explicitly ("N of 5", with a Generate button) rather than leaving
+ * the count unexplained.
  */
 export async function inspectOriginPack(ws: WorkspaceHandle, siteId: string) {
   const store = await ws.get();
@@ -205,9 +211,11 @@ export async function inspectOriginPack(ws: WorkspaceHandle, siteId: string) {
     repo: site.github.repo,
     branch: site.github.branch,
   };
-  const { ensureIndexNowKey } = await import("./dispatcher");
-  const indexNowKey = await ensureIndexNowKey(ws, siteId);
-  const files = buildOriginPack({ ...site, verifyToken: siteVerifyToken(site), indexNowKey });
+  // READ-ONLY, and it must stay that way: this runs ungated (no `assertCanAct`),
+  // so minting a key here would write a snapshot for a workspace whose acts are
+  // frozen. The plan covers the key the site already HAS; `pushOriginPack`
+  // ensures one before it asks for a plan.
+  const files = buildOriginPack({ ...site, verifyToken: siteVerifyToken(site) });
 
   const remotes = new Map<string, string | null>();
   const unreadable: string[] = [];
@@ -297,11 +305,18 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
   }
 
   const verifyToken = siteVerifyToken(site);
-  // Five files, not four: a property onboarded before keys were generated has
-  // none, and the pack would silently ship without the IndexNow file.
+
+  // The key is ensured BEFORE the plan is built, so the plan covers all five
+  // files. Generating it afterwards left a keyless property with four identical
+  // files, a `noop` plan, and a Push button that read "Push 0 files" and was
+  // disabled — the key file could never be pushed from this path at all.
+  //
+  // The cost is that a push which then aborts has already minted a key. That is
+  // acceptable where minting a second key would not be: the key is a public
+  // string, `ensureIndexNowKey` never replaces an existing one, so a retry
+  // reuses it and nothing is stranded on the customer's origin.
   const { ensureIndexNowKey } = await import("./dispatcher");
   const indexNowKey = await ensureIndexNowKey(ws, siteId);
-  const files = buildOriginPack({ ...site, verifyToken, indexNowKey });
 
   // Look before writing. `buildOriginPack` generates from campaign state, so a
   // blind PUT replaces a site's own robots policy with a generic one — it did,
@@ -313,6 +328,11 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
         `${plan.unreadable.join("; ")}. A path that cannot be read cannot be safely written.`,
     );
   }
+  const files = buildOriginPack({ ...site, verifyToken, indexNowKey });
+
+  // Only what the plan marked writable. Nothing is added here: `origin-ownership`
+  // refuses any path it was not given a read for, and adding one back would
+  // enforce that rule by coincidence rather than by the rule.
   const writablePaths = new Set(plan.writable.map((v) => v.path));
   const toWrite = files.filter((f) => writablePaths.has(f.path));
   if (!toWrite.length) {

@@ -57,7 +57,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "2. Fill Onboard a property",
-        body: "Site name = human label (Acme Dating). Origin URL = https:// plus the host only — no /pricing, no trailing slash required. Example: https://acme-dating.com. IndexNow key is optional; leave blank unless the live site already serves /{key}.txt.",
+        body: "Site name = human label (Acme Dating). Origin URL = https:// plus the host only — no /pricing, no trailing slash required. Example: https://acme-dating.com. IndexNow key is optional; leave blank and one is generated, or paste the key the live site already serves at /{key}.txt.",
       },
       {
         title: "3. Click Assign Grok fleet",
@@ -135,7 +135,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "IndexNow key",
-        body: "Optional. Only if the site already hosts a public IndexNow key file. The auditor will GET /{key}.txt to verify it.",
+        body: "Optional. Leave it blank and CiteFleet generates one — an IndexNow key is a public verification string, not a secret. Paste one only if the site already serves /{key}.txt; the auditor GETs that path to verify it.",
       },
       {
         title: "Assign Grok fleet",

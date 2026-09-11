@@ -59,8 +59,14 @@ test("the proof the registry now serves is accepted", async ({ page }) => {
   console.log("LIST|verify panel :", panel.slice(0, 240));
 
   expect(err, "Verify proof reported an error").toBe("");
-  // The proof must be reported as found, not merely "no error".
-  expect(/well-known|proven|Token (found|matched)/i.test(panel)).toBe(true);
+  // Read the PILL, not the panel text. The panel now always renders the DNS
+  // record and the well-known URL as instructions — shown before any check
+  // runs — so matching /well-known/ anywhere in it passed no matter what the
+  // proof result was. The pill is the result: `proof <method>` when proven,
+  // `proof not live` or `proof unchecked` otherwise.
+  const pill = (await page.getByTestId("auto-listing").getByText(/^proof /).innerText()).trim();
+  console.log("LIST|verify pill  :", pill);
+  expect(/^proof (well-known-file|dns-txt)$/.test(pill), `proof pill was "${pill}"`).toBe(true);
 });
 
 test("List on BotCentral publishes the card", async ({ page }) => {

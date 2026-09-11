@@ -239,7 +239,7 @@ export function CommandBoard() {
                 placeholder="https://example.com"
               />
             </Field>
-            <Field label="IndexNow key (optional)">
+            <Field label="IndexNow key (optional — blank generates one)">
               <input
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[#9b7dff]"
                 value={key}

@@ -60,8 +60,9 @@ the audit should too.
 - **Aruba** makes dot-entries invisible *and undeletable* over FTP — a support ticket
   is required to remove one. Skip `.well-known/` there entirely.
 - **WordPress sitemaps are not at `/sitemap.xml`** — core serves `/wp-sitemap.xml`,
-  Yoast serves `/sitemap_index.xml`. `originPack.ts` hardcodes the wrong URL for
-  roughly 40% of the web.
+  Yoast serves `/sitemap_index.xml`, roughly 40% of the web. **Fixed:**
+  `originPack.ts` now writes the sitemap URL the live audit discovered from the
+  site's own robots.txt (`site.sitemapUrl`) instead of assuming.
 
 ## Providers by how much of the pack they can serve
 
