@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -rhо \"process.env.[A-Z_]*\" tests/e2e/)",
+      "Bash(env)",
+      "Bash(ssh -o BatchMode=yes root@144.91.66.158 'cd /opt/citefleet && echo \"=== env var NAMES set in production ===\"; sed -n \"s/^\\\\\\([A-Z0-9_]*\\\\\\)=.*/\\\\1/p\" .env | sort; echo \"=== is the break-glass workspace configured? ===\"; grep -c \"^CITEFLEET_BREAK_GLASS_WORKSPACE=\" .env || echo 0')",
+      "Bash(ssh -o BatchMode=yes root@144.91.66.158 'cd /opt/citefleet && grep \"^CITEFLEET_BOTCENTRAL_BILLING=\" .env')",
+      "Bash(ssh -o BatchMode=yes root@144.91.66.158 'cd /opt/citefleet && cp .env .env.bak-20260911 && grep -q \"^CITEFLEET_BREAK_GLASS_WORKSPACE=\" .env || echo \"CITEFLEET_BREAK_GLASS_WORKSPACE=ws-citefleet\" >> .env; echo \"--- set to ---\"; grep \"^CITEFLEET_BREAK_GLASS_WORKSPACE=\" .env; echo \"--- recreating \\(restart does NOT reload --env-file\\) ---\"; docker rm -f citefleet >/dev/null 2>&1; docker run -d --name citefleet --restart unless-stopped --network citefleet-net --env-file .env -p 127.0.0.1:3021:3000 citefleet >/dev/null && sleep 12 && docker exec citefleet printenv CITEFLEET_BREAK_GLASS_WORKSPACE && curl -s --max-time 10 http://127.0.0.1:3021/health')",
+      "Bash(ssh -o BatchMode=yes root@144.91.66.158 'docker logs --since 25m citefleet 2>&1 | grep -iE \"error|throw|refus|workspace|not found|Error:\" | tail -20')",
+      "Bash(cd \"/Users/rodneymitchell/Downloads/productionA /citefleet-1\" && sed -n '/# Error details/,/^```$/p' \"test-results/botcentral-listing-audit-C-8f042-igates-to-the-campaign-page/error-context.md\" 2>/dev/null | head -20 && echo \"=== spec line 128 ===\" && sed -n '120,146p' tests/e2e/botcentral-listing-audit.spec.ts)",
+      "Bash(ssh -o BatchMode=yes root@144.91.66.158 'docker stop citefleet >/dev/null && echo \"container stopped\"; docker ps --format \"{{.Names}}\" | grep -c citefleet || echo \"confirmed: not running\"')",
+      "Bash(ssh -o BatchMode=yes root@144.91.66.158 'docker start citefleet >/dev/null && sleep 12 && docker ps --format \"{{.Names}} | {{.Status}}\" | grep cite && curl -s --max-time 10 http://127.0.0.1:3021/health')"
+    ],
+    "additionalDirectories": [
+      "/Users/rodneymitchell/Downloads/productionA /citefleet-1/test-results/botcentral-listing-audit-C-8f042-igates-to-the-campaign-page"
+    ]
+  }
+}

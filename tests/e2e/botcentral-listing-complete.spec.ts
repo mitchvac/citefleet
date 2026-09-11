@@ -64,9 +64,11 @@ test("the proof the registry now serves is accepted", async ({ page }) => {
   // runs — so matching /well-known/ anywhere in it passed no matter what the
   // proof result was. The pill is the result: `proof <method>` when proven,
   // `proof not live` or `proof unchecked` otherwise.
-  const pill = (await page.getByTestId("auto-listing").getByText(/^proof /).innerText()).trim();
+  // Case-insensitive: the Pill renders with `uppercase`, and innerText returns
+  // the CSS-transformed text, so the pill reads "PROOF WELL-KNOWN-FILE".
+  const pill = (await page.getByTestId("auto-listing").getByText(/^proof /i).innerText()).trim();
   console.log("LIST|verify pill  :", pill);
-  expect(/^proof (well-known-file|dns-txt)$/.test(pill), `proof pill was "${pill}"`).toBe(true);
+  expect(/^proof (well-known-file|dns-txt)$/i.test(pill), `proof pill was "${pill}"`).toBe(true);
 });
 
 test("List on BotCentral publishes the card", async ({ page }) => {
