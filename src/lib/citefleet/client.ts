@@ -6,6 +6,7 @@ import {
   auditProperty,
   billingSettingsFn,
   setBillingKeyFn,
+  setProviderFn,
   dispatchProperty,
   inspectOriginPackFn,
   loadState,
@@ -229,6 +230,10 @@ export function useFleet() {
     setBillingKey: (siteId: string, keyPrefix: string) =>
       run("billing", async () => {
         await setBillingKeyFn({ data: { siteId, keyPrefix } });
+      }),
+    setProvider: (siteId: string, slug: string) =>
+      run("provider", async () => {
+        await setProviderFn({ data: { siteId, slug } });
       }),
   };
 }

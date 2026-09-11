@@ -3,6 +3,8 @@ import { FLEET_TEMPLATE } from "./bots";
 import { auditSite } from "./auditor";
 import { billingEnabled, billingPrefixFor, publishListing } from "./botcentral";
 import { cleanPrefix } from "./topup.ts";
+import { chooseProvider, providerGuidance } from "./provider-choice.ts";
+import { PROVIDER_FLOWS } from "./provider-flows.ts";
 import {
   getStore,
   logActivity,
@@ -573,6 +575,34 @@ export async function setBillingKey(siteId: string, raw: string) {
     });
   });
   return { keyPrefix, billing };
+}
+
+/**
+ * Record which hosting provider a site runs on (the dropdown), or clear it.
+ *
+ * `chooseProvider` is the single gate: an unknown slug and a provider with no
+ * web root are both refused here with the researched reason, so the server can
+ * never store something the panel would not have offered.
+ */
+export async function setProvider(siteId: string, slug: string) {
+  const clean = slug.trim();
+  const choice = clean ? chooseProvider(PROVIDER_FLOWS, clean) : undefined;
+  await mutateStore((store) => {
+    const site = store.sites.find((s) => s.id === siteId);
+    if (!site) throw new Error("Site not found");
+    site.provider = choice;
+    logActivity(store, {
+      actor: "Operator",
+      kind: "control",
+      siteId,
+      message: choice
+        ? `Hosting provider for ${site.domain} set to ${choice.name}. ${
+            providerGuidance(PROVIDER_FLOWS, choice).detail
+          }`
+        : `Cleared the hosting provider for ${site.domain}. Origin-pack install falls back to the GitHub push route.`,
+    });
+  });
+  return { provider: choice ?? null };
 }
 
 /** Store the last proof check on the site and return it (the "Verify proof" button). */

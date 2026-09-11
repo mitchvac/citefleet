@@ -219,6 +219,15 @@ export const setBillingKeyFn = createServerFn({ method: "POST" })
     return setBillingKey(data.siteId, data.keyPrefix);
   });
 
+/** Record the hosting provider a site runs on (the provider dropdown), or clear it with "". */
+export const setProviderFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((d: { siteId: string; slug: string }) => d)
+  .handler(async ({ data }) => {
+    const { setProvider } = await import("./ops.server");
+    return setProvider(data.siteId, data.slug);
+  });
+
 /** What the billing side of this install is set to — the switch, the BotCentral hook URL, whether its secret is configured. */
 export const billingSettingsFn = createServerFn({ method: "GET" })
   .middleware([operatorMiddleware]).handler(async () => {

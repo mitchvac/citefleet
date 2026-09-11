@@ -87,6 +87,14 @@ export interface Site {
   verifyToken?: string;
   /** Where the origin is hosted, from the last Live audit (DNS + response headers). */
   hosting?: import("./hosting-hint").HostingResult;
+  /**
+   * The hosting provider the CUSTOMER picked, which is a different claim from
+   * `hosting` above: that one is detected from DNS and response headers and only
+   * ever names a CDN or platform edge, while this one names the panel a person
+   * can actually log into to place the origin pack. A site behind Cloudflare
+   * detects as Cloudflare and is hosted on Hostinger; only the customer knows.
+   */
+  provider?: import("./provider-choice").ProviderChoice;
   /** Last pre-flight proof check (same rules BotCentral applies). */
   proof?: { proven: boolean; method: "well-known-file" | "dns-txt" | "none"; note: string; checkedAt: string };
   /** GitHub webhook intake for automatic listing (secret is shown to the operator). */

@@ -11,6 +11,7 @@ export {
   rotateWebhookSecret,
   runWebhookListing,
   setBillingKey,
+  setProvider,
 } from "./dispatcher";
 export {
   handleGithubWebhook,

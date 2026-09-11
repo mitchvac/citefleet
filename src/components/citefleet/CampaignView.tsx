@@ -3,11 +3,17 @@ import { useEffect, useState } from "react";
 import { useFleet } from "@/lib/citefleet/client";
 import type { OriginPackInspection } from "@/lib/citefleet/client";
 import { Pill } from "./Shell";
+import { ProviderPicker } from "./ProviderPicker";
 import { GrokHandoff } from "./GrokHandoff";
 import type { Site, Task } from "@/lib/citefleet/types";
 import { hostingHint } from "@/lib/citefleet/hosting-hint";
 import { describeTerm, renewalState, termDaysLeft } from "@/lib/citefleet/listing-term";
 import { originRepoConflict } from "@/lib/citefleet/origin-repo";
+import {
+  droppedProviderAnswers,
+  providerGuidance,
+} from "@/lib/citefleet/provider-choice";
+import { PROVIDER_FLOWS } from "@/lib/citefleet/provider-flows";
 import { siteVerifyToken, verifyLine } from "@/lib/citefleet/verify-token";
 
 function tone(status: string) {
@@ -193,6 +199,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
       <ReconcilePanel site={site} />
 
       <GithubPanel site={site} fleet={fleet} sites={fleet.store.sites} />
+      <ProviderPanel site={site} fleet={fleet} />
       <AutoListingPanel site={site} fleet={fleet} />
       <BillingPanel site={site} fleet={fleet} />
 
@@ -214,6 +221,100 @@ export function CampaignView({ siteId }: { siteId: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+const DROPPED = droppedProviderAnswers(PROVIDER_FLOWS);
+
+/**
+ * "Origin files → your host": the other door to the same outcome as GithubPanel.
+ * A customer not deploying from a git repo still has to get the five origin
+ * files to their web root, and which panel they log into decides where that root
+ * is, which port answers, and what silently breaks.
+ *
+ * The dropdown lists only providers with a web root. The five without one are
+ * shown here as an ANSWER rather than hidden — a Squarespace customer who cannot
+ * find their host in a list concludes CiteFleet does not support them; one who
+ * reads that Squarespace shares a single uneditable robots.txt across every site,
+ * and that an apex DNS TXT record proves ownership anyway, can act.
+ */
+function ProviderPanel({
+  site,
+  fleet,
+}: {
+  site: Site;
+  fleet: ReturnType<typeof useFleet>;
+}) {
+  const [showDropped, setShowDropped] = useState(false);
+  const guidance = providerGuidance(PROVIDER_FLOWS, site.provider);
+  const chosen = site.provider;
+  return (
+    <section className="glass rounded-3xl p-5" data-testid="provider-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+            Origin files → your host
+          </p>
+          <h2 className="mt-1 text-lg font-semibold">
+            {chosen ? chosen.name : "Which host is this site on?"}
+          </h2>
+          <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
+            The web root cannot be guessed — fifteen conventions across the
+            researched set, and several hosts decline to name one at all. Pick the
+            panel you log into and CiteFleet knows where the root is, which port
+            its SFTP answers on, and what breaks verification there.
+          </p>
+        </div>
+        <Pill tone={chosen ? (guidance.tone === "good" ? "good" : "warn") : "neutral"}>
+          {chosen ? (guidance.tone === "good" ? "installable" : "manual install") : "no host set"}
+        </Pill>
+      </div>
+      <div className="mt-4 max-w-md">
+        <ProviderPicker
+          value={chosen?.slug ?? ""}
+          disabled={fleet.busy === "provider"}
+          onChange={(slug) => void fleet.setProvider(site.id, slug)}
+        />
+      </div>
+      <div className="mt-3 max-w-xl" data-testid="provider-guidance">
+        <p className="text-sm font-medium text-[#eee9ff]">{guidance.headline}</p>
+        <p className="mt-1 text-sm text-[#b7b0cc]">{guidance.detail}</p>
+      </div>
+      {fleet.error && fleet.busy === null && (
+        <p className="mt-3 text-sm text-rose-200">{fleet.error}</p>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {chosen && (
+          <button
+            type="button"
+            onClick={() => void fleet.setProvider(site.id, "")}
+            className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[#b7b0cc]"
+          >
+            Clear
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowDropped((v) => !v)}
+          data-testid="provider-not-listed"
+          className="text-xs text-[#9b95b3] underline"
+        >
+          {showDropped ? "Hide" : "Host not listed?"}
+        </button>
+      </div>
+      {showDropped && (
+        <ul className="mt-3 space-y-3" data-testid="provider-dropped">
+          {DROPPED.map((d) => (
+            <li key={d.slug} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <p className="text-sm font-medium text-[#eee9ff]">
+                {d.name} <span className="text-xs text-[#9b95b3]">· {d.share}% of the web</span>
+              </p>
+              <p className="mt-1 text-sm text-[#b7b0cc]">{d.reason}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
