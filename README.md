@@ -45,7 +45,7 @@ TanStack Start + React 19 + Nitro. Docker on a shared VPS
 ## Local
 
 ```bash
-npm ci
+npm install --ignore-scripts   # not `npm ci`: the lockfile is out of sync and npm ci refuses it
 npm run db:start                       # local Postgres 17, same major as production
 npm run db:reset                       # replay supabase/migrations/ into it
 export DATABASE_URL=$(supabase status -o env | sed -n 's/^DB_URL="\(.*\)"$/\1/p')

@@ -116,7 +116,9 @@ export async function createWorkspace(
        ))`,
       [id, userId],
     );
-    await saveSnapshot(id, seeded, tx);
+    // `expected: null` — this row must not exist yet. A workspace id collision
+    // fails the whole transaction rather than overwriting somebody's workspace.
+    await saveSnapshot(id, seeded, null, tx);
   });
   return handleFor(id);
 }

@@ -15,29 +15,87 @@ import type { WorkspaceId } from "./workspace-id.ts";
  * silently. The id is required, and it is a `WorkspaceId`, so a `siteId` cannot
  * be passed here by mistake.
  */
-export async function loadSnapshot(id: WorkspaceId): Promise<unknown | null> {
-  const sql = await getSql();
-  const rows = await sql.query<{ payload: unknown }>(
-    "SELECT payload FROM citefleet_snapshot WHERE id = $1",
-    [id],
-  );
-  return rows[0]?.payload ?? null;
+/** A snapshot as it was read, with the version the next write must name. */
+export interface LoadedSnapshot {
+  payload: unknown;
+  version: number;
 }
 
+/** Raised when the row moved between the read and the write. Retry, do not overwrite. */
+export class SnapshotConflictError extends Error {
+  // Declared and assigned explicitly rather than as constructor parameter
+  // properties: `npm test` runs under --experimental-strip-types, which is
+  // strip-only and rejects that syntax outright.
+  readonly id: string;
+  readonly expected: number;
+
+  constructor(id: string, expected: number) {
+    super(
+      `snapshot ${id} changed since it was read (expected version ${expected}) — ` +
+        "another writer got there first",
+    );
+    this.name = "SnapshotConflictError";
+    this.id = id;
+    this.expected = expected;
+  }
+}
+
+export async function loadSnapshot(id: WorkspaceId): Promise<LoadedSnapshot | null> {
+  const sql = await getSql();
+  const rows = await sql.query<{ payload: unknown; version: number }>(
+    "SELECT payload, version FROM citefleet_snapshot WHERE id = $1",
+    [id],
+  );
+  const row = rows[0];
+  return row ? { payload: row.payload, version: Number(row.version) } : null;
+}
+
+/**
+ * Write a workspace, but only if nobody else has written it since it was read.
+ *
+ * `expected` is the version `loadSnapshot` returned. The UPDATE matches only
+ * while that is still the row's version, so a writer working from a stale copy
+ * changes nothing and is told. The previous write was an unconditional upsert:
+ * two processes that both read, both edited and both saved left only the second
+ * one's work, and the first was told it had succeeded.
+ *
+ * Pass `expected: null` to create a row that must not exist yet — that is the
+ * one case where there is no prior version to name.
+ *
+ * `RETURNING version` rather than a row count, because the `Sql` surface in
+ * db.ts resolves to rows only and never exposes `rowCount`.
+ */
 export async function saveSnapshot(
   id: WorkspaceId,
   store: StoreShape,
+  expected: number | null,
   /** A transaction, when the snapshot must land with its registry rows or not at all. */
   tx?: Sql,
-): Promise<void> {
+): Promise<number> {
   const sql = tx ?? (await getSql());
-  await sql.query(
-    `INSERT INTO citefleet_snapshot (id, payload, updated_at)
-     VALUES ($1, $2::jsonb, now())
-     ON CONFLICT (id) DO UPDATE
-       SET payload = EXCLUDED.payload, updated_at = now()`,
-    [id, JSON.stringify(store)],
+  const payload = JSON.stringify(store);
+
+  if (expected === null) {
+    const created = await sql.query<{ version: number }>(
+      `INSERT INTO citefleet_snapshot (id, payload, updated_at, version)
+       VALUES ($1, $2::jsonb, now(), 1)
+       ON CONFLICT (id) DO NOTHING
+       RETURNING version`,
+      [id, payload],
+    );
+    if (!created.length) throw new SnapshotConflictError(id, 0);
+    return Number(created[0].version);
+  }
+
+  const rows = await sql.query<{ version: number }>(
+    `UPDATE citefleet_snapshot
+        SET payload = $2::jsonb, updated_at = now(), version = version + 1
+      WHERE id = $1 AND version = $3
+      RETURNING version`,
+    [id, payload, expected],
   );
+  if (!rows.length) throw new SnapshotConflictError(id, expected);
+  return Number(rows[0].version);
 }
 
 export function mergeSnapshot(seed: StoreShape, raw: unknown): StoreShape {

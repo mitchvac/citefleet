@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { typeSlow } from "./typeSlow";
+import { exactCard, markCreated, removeIfOurs } from "./fixtures";
 
 // CiteFleet may only overwrite an origin file CiteFleet wrote. `buildOriginPack`
 // generates all four files from campaign state, and `pushOriginPack` used to PUT
@@ -62,12 +63,10 @@ async function waitIdle(page: Page) {
   await page.waitForTimeout(700);
 }
 
-function card(page: Page, name: string) {
-  return page
-    .locator("article")
-    .filter({ hasText: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })
-    .first();
-}
+// Anchored on the card's own <h2> with exact: true. A substring filter matches
+// any article whose body merely mentions the name — including another
+// property's card that links to it.
+const card = exactCard;
 
 async function openCampaign(page: Page) {
   await go(page, "/");
@@ -86,6 +85,8 @@ test("setup: onboard a property with its own repo", async ({ page }) => {
   await page.getByRole("button", { name: "Assign Grok fleet" }).click();
   await waitIdle(page);
   await expect(card(page, SITE.name)).toBeVisible();
+  // Only with the card confirmed may the teardown remove it.
+  markCreated(SITE.name);
 });
 
 test("the panel offers a read-only check before any write", async ({ page }) => {
@@ -177,45 +178,14 @@ test("the verdict table reports one state per file, read from the repo", async (
 });
 
 test("teardown: remove only the property this file created", async ({ page }) => {
-  // The dialog handler is registered ONCE, for the whole page, before any
-  // navigation. An earlier version armed `page.once` immediately before the
-  // click and the removal silently did not happen — the confirm was never
-  // accepted, the property survived, and the run left it behind in the
-  // workspace. A persistent handler is the version observed to work.
-  page.on("dialog", (d) => void d.accept());
-
-  // `waitIdle`'s 700ms settle is enough locally but NOT against citefleet.app:
-  // the fetch counter hits zero before React attaches its handlers, so the
-  // click lands on an unhydrated button, nothing happens, no dialog is raised
-  // and the property survives the "teardown". Removal is the one step that must
-  // not be flaky — a missed one leaves a test property in the live workspace —
-  // so it waits generously and then verifies, retrying once.
-  // POSITIVE CONTROL, and it is not optional. An earlier version checked for
-  // this file's card straight after navigating, found zero because the board
-  // had not rendered yet, and reported a PASSING teardown while the property
-  // was still live in the workspace. A count of zero proves nothing until the
-  // board is known to be showing cards at all, so every check waits for a card
-  // that must always exist first.
-  async function boardLoaded() {
-    await go(page, "/");
-    await expect(page.locator("article").first()).toBeVisible({ timeout: 30_000 });
-    await page.waitForTimeout(1500);
-  }
-
-  await boardLoaded();
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const target = card(page, SITE.name);
-    if ((await target.count()) === 0) break;
-    await target.getByRole("link", { name: /campaign/i }).first().click();
-    // Long enough for React to attach handlers on a production round trip; a
-    // click on an unhydrated button is silently a no-op and leaves the property.
-    await page.waitForTimeout(3000);
-    const remove = page.getByRole("button", { name: "Remove property" });
-    await expect(remove).toBeVisible();
-    await remove.click();
-    await page.waitForTimeout(5000);
-    await boardLoaded();
-  }
-  await boardLoaded();
+  // Ownership, not name matching: `removeIfOurs` refuses anything this run did
+  // not create, registers the dialog handler before the click (an earlier
+  // version armed `page.once` too late and the confirm was never accepted, so
+  // the property silently survived a passing teardown), waits for React to
+  // hydrate before clicking, and waits for the board to draw before concluding
+  // the property is gone.
+  const outcome = await removeIfOurs(page, SITE.name);
+  expect(outcome, "the property this run created should have been removed").toBe("removed");
   await expect(card(page, SITE.name)).toHaveCount(0);
 });
+

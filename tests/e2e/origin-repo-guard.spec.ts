@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { typeSlow } from "./typeSlow";
+import { exactCard, markCreated, removeIfOurs } from "./fixtures";
 
 // Two properties may not write their origin pack into one GitHub folder:
 // buildOriginPack writes the same four paths for every property, so the second
@@ -49,9 +50,9 @@ async function waitIdle(page: Page) {
   await page.waitForTimeout(700);
 }
 
-function card(page: Page, name: string) {
-  return page.locator("article").filter({ hasText: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }).first();
-}
+// Anchored on the card's own <h2>, exact. A substring filter matches any
+// article that merely mentions the name.
+const card = exactCard;
 
 async function onboard(page: Page, site: { name: string; url: string }, owner: string, repo: string) {
   await go(page, "/");
@@ -67,6 +68,7 @@ test.describe.configure({ mode: "serial" });
 
 test("a first property may claim a repo folder", async ({ page }) => {
   await onboard(page, ALPHA, OWNER, SHARED_REPO);
+  markCreated(ALPHA.name);
   await expect(card(page, ALPHA.name)).toBeVisible();
 });
 
@@ -82,6 +84,7 @@ test("a second property onboarding into the same folder is refused, and is not c
 
 test("the same property onboards fine into its own folder", async ({ page }) => {
   await onboard(page, BETA, OWNER, BETA_REPO);
+  markCreated(BETA.name);
   await expect(card(page, BETA.name)).toBeVisible();
 });
 
@@ -118,17 +121,14 @@ test("the campaign form refuses CiteFleet's own repo", async ({ page }) => {
 });
 
 test("teardown: remove only the properties this file created", async ({ page }) => {
+  // `removeIfOurs` refuses anything this run did not onboard, and waits for the
+  // board to draw before concluding a property is gone — a count of zero on an
+  // undrawn board previously reported a passing teardown while the property was
+  // still live.
   for (const site of [ALPHA, BETA]) {
-    await go(page, "/");
-    const target = card(page, site.name);
-    if ((await target.count()) === 0) continue;
-    await target.getByRole("link", { name: /campaign/i }).first().click();
-    await waitIdle(page);
-    page.once("dialog", (d) => void d.accept());
-    await page.getByRole("button", { name: "Remove property" }).click();
-    await waitIdle(page);
+    const outcome = await removeIfOurs(page, site.name);
+    expect(["removed", "absent"], `${site.name}: ${outcome}`).toContain(outcome);
   }
-  await go(page, "/");
   await expect(card(page, ALPHA.name)).toHaveCount(0);
   await expect(card(page, BETA.name)).toHaveCount(0);
 });

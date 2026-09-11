@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   MAX_CACHED_WORKSPACES,
+  MAX_SAVE_ATTEMPTS,
   createWorkspaces,
   type SnapshotStore,
 } from "./workspace-handle.ts";
@@ -17,9 +18,13 @@ import type { Site, StoreShape } from "./types.ts";
 const A = asWorkspaceId("ws-alpha");
 const B = asWorkspaceId("ws-bravo");
 
-/** An in-memory stand-in for the citefleet_snapshot table. */
+/**
+ * An in-memory stand-in for the citefleet_snapshot table, INCLUDING its version
+ * column — a fake that ignored versions would let every optimistic-concurrency
+ * test pass without the mechanism existing.
+ */
 function fakeStore(over: { failSaveFor?: WorkspaceId } = {}) {
-  const rows = new Map<WorkspaceId, unknown>();
+  const rows = new Map<WorkspaceId, { payload: unknown; version: number }>();
   const loads: WorkspaceId[] = [];
   const saves: WorkspaceId[] = [];
   const io: SnapshotStore = {
@@ -27,14 +32,34 @@ function fakeStore(over: { failSaveFor?: WorkspaceId } = {}) {
       loads.push(id);
       return rows.get(id) ?? null;
     },
-    async save(id, store) {
+    async save(id, store, expected) {
       saves.push(id);
       if (over.failSaveFor === id) throw new Error("snapshot write failed");
+      const current = rows.get(id);
+      // Exactly the SQL: INSERT only when absent, UPDATE only while the version
+      // still matches.
+      if (expected === null ? current !== undefined : current?.version !== expected) {
+        throw conflict(id, expected ?? 0);
+      }
+      const version = (current?.version ?? 0) + 1;
       // Round-trip through JSON exactly as a JSONB column does.
-      rows.set(id, JSON.parse(JSON.stringify(store)));
+      rows.set(id, { payload: JSON.parse(JSON.stringify(store)), version });
+      return version;
     },
   };
   return { io, rows, loads, saves };
+}
+
+/** The error shape `persist.ts` raises, matched by name in workspace-handle.ts. */
+function conflict(id: string, expected: number) {
+  const err = new Error(`snapshot ${id} changed since it was read (expected ${expected})`);
+  err.name = "SnapshotConflictError";
+  return err;
+}
+
+/** The stored document for a tenant, as the assertions below read it. */
+function rowStore(f: ReturnType<typeof fakeStore>, id: WorkspaceId): StoreShape {
+  return f.rows.get(id)!.payload as StoreShape;
 }
 
 function siteNamed(name: string): Site {
@@ -76,8 +101,8 @@ test("each workspace persists under its OWN key", async () => {
   assert.equal(f.rows.size, 2, "two tenants must be two rows, not one");
   // This is the assertion that would have failed against the old single-row
   // design, where both writes landed on id='default'.
-  const rowA = f.rows.get(A) as StoreShape;
-  const rowB = f.rows.get(B) as StoreShape;
+  const rowA = rowStore(f, A);
+  const rowB = rowStore(f, B);
   assert.deepEqual(rowA.sites.map((s) => s.name), ["alpha"]);
   assert.deepEqual(rowB.sites.map((s) => s.name), ["bravo"]);
 });
@@ -153,7 +178,9 @@ test("a load failure yields an EMPTY workspace, never another tenant's", async (
     async load() {
       throw new Error("postgres unreachable");
     },
-    async save() {},
+    async save() {
+      return 1;
+    },
   };
   const ws = createWorkspaces(io);
   const a = await ws.handleFor(A).get();
@@ -168,21 +195,27 @@ test("a load failure yields an EMPTY workspace, never another tenant's", async (
 
 /** A store whose save can be held open, so the race can be driven deterministically. */
 function pausableStore() {
-  const rows = new Map<WorkspaceId, unknown>();
+  const rows = new Map<WorkspaceId, { payload: unknown; version: number }>();
   let held: (() => void) | null = null;
   let holdNext = false;
   const io: SnapshotStore = {
     async load(id) {
       return rows.get(id) ?? null;
     },
-    async save(id, store) {
+    async save(id, store, expected) {
       if (holdNext) {
         holdNext = false;
         await new Promise<void>((resolve) => {
           held = resolve;
         });
       }
-      rows.set(id, JSON.parse(JSON.stringify(store)));
+      const current = rows.get(id);
+      if (expected === null ? current !== undefined : current?.version !== expected) {
+        throw conflict(id, expected ?? 0);
+      }
+      const version = (current?.version ?? 0) + 1;
+      rows.set(id, { payload: JSON.parse(JSON.stringify(store)), version });
+      return version;
     },
   };
   return {
@@ -228,7 +261,7 @@ test("a write that reported success is not erased by cache eviction", async () =
   );
 
   await ws.handleFor(A).mutate((s) => s.sites.push(siteNamed("later")));
-  const finalRow = f.rows.get(A) as StoreShape;
+  const finalRow = f.rows.get(A)!.payload as StoreShape;
   assert.deepEqual(
     finalRow.sites.map((s) => s.name),
     ["kept", "later"],
@@ -240,17 +273,23 @@ test("a save that FAILED is not persisted by the next mutate", async () => {
   // The reproduction: both mutates held the same object by reference, so the
   // failed mutation's change was still on the object the second one saved.
   let failNext = true;
-  const rows = new Map<WorkspaceId, unknown>();
+  const rows = new Map<WorkspaceId, { payload: unknown; version: number }>();
   const io: SnapshotStore = {
     async load(id) {
       return rows.get(id) ?? null;
     },
-    async save(id, store) {
+    async save(id, store, expected) {
       if (failNext) {
         failNext = false;
         throw new Error("snapshot write failed");
       }
-      rows.set(id, JSON.parse(JSON.stringify(store)));
+      const current = rows.get(id);
+      if (expected === null ? current !== undefined : current?.version !== expected) {
+        throw conflict(id, expected ?? 0);
+      }
+      const version = (current?.version ?? 0) + 1;
+      rows.set(id, { payload: JSON.parse(JSON.stringify(store)), version });
+      return version;
     },
   };
   const ws = createWorkspaces(io);
@@ -261,7 +300,7 @@ test("a save that FAILED is not persisted by the next mutate", async () => {
   await assert.rejects(() => doomed, /snapshot write failed/);
   await good;
 
-  const row = rows.get(A) as StoreShape;
+  const row = rows.get(A)!.payload as StoreShape;
   assert.deepEqual(
     row.sites.map((s) => s.name),
     ["ok-write"],
@@ -272,12 +311,14 @@ test("a save that FAILED is not persisted by the next mutate", async () => {
 test("mutations on one workspace do not interleave", async () => {
   // Serialisation is what makes the failure path above safe to clean up.
   const order: string[] = [];
+  let version = 0;
   const io: SnapshotStore = {
     async load() {
       return null;
     },
     async save() {
       await new Promise((r) => setTimeout(r, 1));
+      return ++version;
     },
   };
   const ws = createWorkspaces(io);
@@ -293,6 +334,7 @@ test("two DIFFERENT workspaces still mutate concurrently", async () => {
   // Serialisation must be per tenant, not global — one slow customer must not
   // block every other customer's writes.
   const started: string[] = [];
+  const versions = new Map<string, number>();
   const io: SnapshotStore = {
     async load() {
       return null;
@@ -300,6 +342,9 @@ test("two DIFFERENT workspaces still mutate concurrently", async () => {
     async save(id) {
       started.push(String(id));
       await new Promise((r) => setTimeout(r, 5));
+      const next = (versions.get(String(id)) ?? 0) + 1;
+      versions.set(String(id), next);
+      return next;
     },
   };
   const ws = createWorkspaces(io);
@@ -316,18 +361,24 @@ test("a pinned cache under full pressure does not evict the entry being written"
   // evicts. With every older entry pinned, the only unpinned candidate was the
   // entry just inserted — so `remember` deleted its own argument and the stale
   // read came straight back.
-  const rows = new Map<WorkspaceId, unknown>();
+  const rows = new Map<WorkspaceId, { payload: unknown; version: number }>();
   const releases: Array<() => void> = [];
   let blocking = true;
   const io: SnapshotStore = {
     async load(id) {
       return rows.get(id) ?? null;
     },
-    async save(id, store) {
+    async save(id, store, expected) {
       // Only the writes that set up the race are held; once released, saves run
       // straight through, or the assertion after them would never be reached.
       if (blocking) await new Promise<void>((r) => releases.push(r));
-      rows.set(id, JSON.parse(JSON.stringify(store)));
+      const current = rows.get(id);
+      if (expected === null ? current !== undefined : current?.version !== expected) {
+        throw conflict(id, expected ?? 0);
+      }
+      const version = (current?.version ?? 0) + 1;
+      rows.set(id, { payload: JSON.parse(JSON.stringify(store)), version });
+      return version;
     },
   };
   const max = 3;
@@ -355,7 +406,7 @@ test("a pinned cache under full pressure does not evict the entry being written"
   await Promise.all([...held, last]);
   await ws.handleFor(A).mutate((s) => s.sites.push(siteNamed("later")));
   assert.deepEqual(
-    (rows.get(A) as StoreShape).sites.map((s) => s.name),
+    (rows.get(A)!.payload as StoreShape).sites.map((s) => s.name),
     ["kept", "later"],
   );
 });
@@ -363,11 +414,14 @@ test("a pinned cache under full pressure does not evict the entry being written"
 test("the per-tenant mutation queue does not retain an entry per tenant", async () => {
   // The queue map lives in the module whose entire point is a bounded cache. It
   // had no delete at all, so it grew one promise per workspace forever.
+  let version = 0;
   const io: SnapshotStore = {
     async load() {
       return null;
     },
-    async save() {},
+    async save() {
+      return ++version;
+    },
   };
   const ws = createWorkspaces(io, 4);
   for (let i = 0; i < 50; i += 1) {
@@ -375,4 +429,98 @@ test("the per-tenant mutation queue does not retain an entry per tenant", async 
   }
   assert.ok(ws.size() <= 4, `cache bound held at ${ws.size()}`);
   assert.equal(ws.queueDepth(), 0, "every drained queue entry must be released");
+});
+
+// --- Optimistic concurrency ---------------------------------------------------
+// The in-process queue serialises writes within ONE process. These cover the
+// case it cannot see: a second process, a deploy overlapping the old one, or a
+// webhook handled by another instance.
+
+test("a second process cannot silently overwrite the first", async () => {
+  // Two independent caches over one table — exactly two containers.
+  const f = fakeStore();
+  const alpha = createWorkspaces(f.io);
+  const bravo = createWorkspaces(f.io);
+
+  await alpha.handleFor(A).mutate((s) => s.sites.push(siteNamed("from-alpha")));
+  // Bravo reads BEFORE alpha's next write, so it is about to hold a stale copy.
+  await bravo.handleFor(A).get();
+  await alpha.handleFor(A).mutate((s) => s.sites.push(siteNamed("from-alpha-2")));
+
+  // Bravo now writes from its stale view. Under the old blind upsert this
+  // silently erased from-alpha-2; now it re-reads and re-applies.
+  await bravo.handleFor(A).mutate((s) => s.sites.push(siteNamed("from-bravo")));
+
+  assert.deepEqual(
+    rowStore(f, A).sites.map((s) => s.name),
+    ["from-alpha", "from-alpha-2", "from-bravo"],
+    "every write must survive — none may be lost to a stale overwrite",
+  );
+});
+
+test("the version advances once per write", async () => {
+  const f = fakeStore();
+  const ws = createWorkspaces(f.io);
+  await ws.handleFor(A).mutate((s) => s.sites.push(siteNamed("one")));
+  assert.equal(f.rows.get(A)!.version, 1, "the first write creates the row at 1");
+  await ws.handleFor(A).mutate((s) => s.sites.push(siteNamed("two")));
+  assert.equal(f.rows.get(A)!.version, 2);
+});
+
+test("a workspace under permanent contention fails loudly rather than spinning", async () => {
+  // Every save conflicts. The retry is bounded, so this must reject rather than
+  // loop forever holding a connection.
+  let attempts = 0;
+  const io: SnapshotStore = {
+    async load() {
+      return { payload: null, version: attempts };
+    },
+    async save(id) {
+      attempts += 1;
+      throw conflict(String(id), attempts);
+    },
+  };
+  const ws = createWorkspaces(io);
+  await assert.rejects(
+    () => ws.handleFor(A).mutate((s) => s.sites.push(siteNamed("never"))),
+    (err: Error) => err.name === "SnapshotConflictError",
+  );
+  assert.equal(attempts, MAX_SAVE_ATTEMPTS, `gave up after ${attempts}, expected ${MAX_SAVE_ATTEMPTS}`);
+});
+
+test("a non-conflict failure is NOT retried — it is reported at once", async () => {
+  // A conflict means "someone else won, try again". A dead connection means
+  // "the database is not there", and hammering it three times helps nobody.
+  let saves = 0;
+  const io: SnapshotStore = {
+    async load() {
+      return null;
+    },
+    async save() {
+      saves += 1;
+      throw new Error("ECONNREFUSED");
+    },
+  };
+  const ws = createWorkspaces(io);
+  await assert.rejects(() => ws.handleFor(A).mutate(() => {}), /ECONNREFUSED/);
+  assert.equal(saves, 1, "a connection failure must not be retried as if it were a conflict");
+});
+
+test("the retry re-applies the change against the FRESHER store", async () => {
+  // Not a blind replay of the old document: `fn` runs again on what the other
+  // writer left, so both changes end up present.
+  const f = fakeStore();
+  const alpha = createWorkspaces(f.io);
+  const bravo = createWorkspaces(f.io);
+  await alpha.handleFor(A).mutate((s) => s.sites.push(siteNamed("first")));
+  await bravo.handleFor(A).get(); // bravo is now stale
+  await alpha.handleFor(A).mutate((s) => s.sites.push(siteNamed("second")));
+
+  let ran = 0;
+  await bravo.handleFor(A).mutate((s) => {
+    ran += 1;
+    s.sites.push(siteNamed("third"));
+  });
+  assert.equal(ran, 2, "fn must run again on the fresh store, not once on the stale one");
+  assert.deepEqual(rowStore(f, A).sites.map((s) => s.name), ["first", "second", "third"]);
 });

@@ -1,0 +1,24 @@
+-- Optimistic concurrency for the workspace snapshot.
+--
+-- Every write to this table rewrites the WHOLE document. The write was a blind
+-- `INSERT ... ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload`, which
+-- is last-write-wins: two writers that both read the row, both apply their own
+-- change, and both save, end with only the second one's work. The first caller
+-- is told it succeeded.
+--
+-- `workspace-handle.ts` already serialises writes per workspace, but only
+-- WITHIN one process. It cannot see a second container, a deploy that overlaps
+-- the old one, or a webhook handled by another instance -- and those are exactly
+-- the cases where this bites.
+--
+-- `version` makes the write conditional: the saver must name the version it
+-- read, the UPDATE only matches while that is still the current value, and a
+-- caller whose version has moved is told so instead of silently overwriting.
+-- See src/lib/citefleet/persist.ts.
+--
+-- DEFAULT 1 so existing rows are immediately valid and the first compare-and-
+-- swap against them succeeds. BIGINT because it only ever increments; `db.ts`
+-- parses int8 as a JS number, which is exact to 2^53 -- roughly 285 million
+-- years of one write per second.
+
+ALTER TABLE citefleet_snapshot ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 1;

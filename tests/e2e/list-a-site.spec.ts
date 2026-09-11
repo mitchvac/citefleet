@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { typeSlow } from "./typeSlow";
+import { exactCard, markCreated, removeIfOurs, wasCreatedHere } from "./fixtures";
 import { LESSONS, QUIZ } from "../../src/lib/citefleet/course";
 
 // Headed e2e against live citefleet.app for ONE customer origin, in the order
@@ -141,6 +142,8 @@ test(`lesson 02 steps 1–3: onboard ${DOMAIN} on Command`, async ({ page }) => 
   await card.waitFor({ timeout: 30000 });
   await expect(card).toContainText(DOMAIN);
   await expect(card.getByRole("link", { name: "Open campaign" })).toBeVisible();
+  // Only now, with the card confirmed on screen, may the teardown touch it.
+  markCreated(SITE_NAME);
 });
 
 test("lesson 02 step 4: Live audit on the property card", async ({ page }) => {
@@ -342,22 +345,19 @@ test("lesson 12: Monitor — run monitor + reconcile (observe only, no freeze)",
 });
 
 test("lesson 06: Remove property — teardown of the sites this suite created", async ({ page }) => {
-  await page.goto("/");
-  await page.getByText("Onboard a property").waitFor();
-  for (let i = 0; i < 5 && (await siteCard(page).count()) > 0; i++) {
-    await siteCard(page).getByRole("link", { name: "Open campaign" }).click();
-    // Wait for the campaign to render before deciding whether the button exists.
-    await page.getByText(ORIGIN_FILES_HEADING).waitFor({ timeout: 20000 });
-    const remove = page.getByRole("button", { name: "Remove property" });
-    if ((await remove.count()) === 0) {
-      test.skip(true, "Remove property is not deployed on this target yet");
-    }
-    page.once("dialog", (d) => void d.accept());
-    await remove.click();
-    await page.waitForURL(/\/$/, { timeout: 30000 });
-    await page.getByText("Onboard a property").waitFor();
-  }
-  await expect(siteCard(page)).toHaveCount(0);
+  // OWNERSHIP GATE. This deleted a real production property and its 12 tasks
+  // when `E2E_SITE_NAME` happened to match one: it looped over every card the
+  // locator matched, whether or not this run had created any of them, while the
+  // onboard above is skippable. Removal is now conditional on having created it.
+  test.skip(
+    !wasCreatedHere(SITE_NAME),
+    `${SITE_NAME} was not onboarded by this run — refusing to remove a property this suite did not create`,
+  );
+
+  const outcome = await removeIfOurs(page, SITE_NAME);
+  expect(outcome, "the property this run created should have been removed").toBe("removed");
+  // Anchored on the card's own heading, not on substring text anywhere in it.
+  await expect(exactCard(page, SITE_NAME)).toHaveCount(0);
   await page.goto("/activity");
   await expect(page.getByText(`Removed ${DOMAIN} (${SITE_NAME})`).first()).toBeVisible();
 });
