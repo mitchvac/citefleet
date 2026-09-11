@@ -1,6 +1,7 @@
 import type { Site, StoreShape, TaskStatus } from "./types";
 import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook.ts";
-import { getStore, logActivity, mutateStore, recalcScores } from "./store.ts";
+import { logActivity, recalcScores } from "./store.ts";
+import type { WorkspaceHandle } from "./workspace-handle.ts";
 import { stripSecrets } from "./github.ts";
 import { siteVerifyToken } from "./verify-token.ts";
 import { readPayment, readTerm, type ListingTerm, type PaymentRequired } from "./listing-term.ts";
@@ -383,15 +384,15 @@ export function applyCatalogState(
   return move;
 }
 
-export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> {
-  const snapshot = await getStore();
+export async function hydrateListings(ws: WorkspaceHandle): Promise<StoreShape> {
+  const snapshot = await ws.get();
   const updates = await Promise.all(
     snapshot.sites.map(async (site) => ({
       id: site.id,
       listing: await lookupListing(site.domain),
     })),
   );
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     for (const update of updates) {
       const site = store.sites.find((s) => s.id === update.id);
       if (site && update.listing.error && !update.listing.listed && site.botcentral?.listed) {
@@ -404,5 +405,5 @@ export async function hydrateListings(_store?: StoreShape): Promise<StoreShape> 
     }
     applyPlaybookHrefs(store.tasks, store.sites);
   });
-  return stripSecrets(await getStore());
+  return stripSecrets(await ws.get());
 }

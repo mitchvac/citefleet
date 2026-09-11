@@ -1,26 +1,42 @@
-import { getSql } from "../db.ts";
+import { getSql, type Sql } from "../db.ts";
 import { applyPlaybookHrefs } from "./playbook.ts";
 import type { StoreShape } from "./types";
+import type { WorkspaceId } from "./workspace-id.ts";
 
-const SNAPSHOT_ID = "default";
-
-export async function loadSnapshot(): Promise<unknown | null> {
+/**
+ * The workspace id IS the snapshot's primary key — one row per tenant.
+ *
+ * This was `const SNAPSHOT_ID = "default"`: a single global row holding every
+ * customer's work. The table has always been `id TEXT PRIMARY KEY`, so the shape
+ * already allowed many rows; only the constant pinned it to one.
+ *
+ * Nothing here may default the id. A default tenant is precisely how one
+ * customer's write lands in another customer's workspace, and it would do so
+ * silently. The id is required, and it is a `WorkspaceId`, so a `siteId` cannot
+ * be passed here by mistake.
+ */
+export async function loadSnapshot(id: WorkspaceId): Promise<unknown | null> {
   const sql = await getSql();
   const rows = await sql.query<{ payload: unknown }>(
     "SELECT payload FROM citefleet_snapshot WHERE id = $1",
-    [SNAPSHOT_ID],
+    [id],
   );
   return rows[0]?.payload ?? null;
 }
 
-export async function saveSnapshot(store: StoreShape): Promise<void> {
-  const sql = await getSql();
+export async function saveSnapshot(
+  id: WorkspaceId,
+  store: StoreShape,
+  /** A transaction, when the snapshot must land with its registry rows or not at all. */
+  tx?: Sql,
+): Promise<void> {
+  const sql = tx ?? (await getSql());
   await sql.query(
     `INSERT INTO citefleet_snapshot (id, payload, updated_at)
      VALUES ($1, $2::jsonb, now())
      ON CONFLICT (id) DO UPDATE
        SET payload = EXCLUDED.payload, updated_at = now()`,
-    [SNAPSHOT_ID, JSON.stringify(store)],
+    [id, JSON.stringify(store)],
   );
 }
 

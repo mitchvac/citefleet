@@ -1,3 +1,16 @@
+// Pure operations on a workspace that is already in hand.
+//
+// There is deliberately NO `getStore()` / `mutateStore()` / `resetStore()` here
+// any more. Reading or writing a workspace goes through a `WorkspaceHandle`
+// (`workspace-handle.ts`), which cannot be obtained without naming a tenant.
+// Keeping a zero-argument convenience would mean a new call site could read
+// "the" workspace — and with more than one tenant, "the" workspace is whichever
+// one happened to be cached. That failure is silent and cross-customer, so the
+// convenience is worth less than the guarantee.
+//
+// Everything below takes `store` as its first argument and does no I/O, which is
+// why these functions needed no change and why their tests did not either.
+
 import type {
   ActivityEvent,
   Bot,
@@ -6,68 +19,6 @@ import type {
   Task,
 } from "./types";
 import { SCORE_BUCKETS } from "./playbook.ts";
-import { seedStore } from "./seed.ts";
-import { loadSnapshot, mergeSnapshot, saveSnapshot } from "./persist.ts";
-
-let cache: StoreShape | null = null;
-let boot: Promise<StoreShape> | null = null;
-
-function clone<T>(value: T): T {
-  return structuredClone(value);
-}
-
-async function persist(store: StoreShape) {
-  try {
-    await saveSnapshot(store);
-  } catch (err) {
-    console.error("[citefleet] snapshot save failed", err);
-    throw err;
-  }
-}
-
-async function bootStore(): Promise<StoreShape> {
-  const seeded = seedStore();
-  try {
-    const saved = await loadSnapshot();
-    cache = saved ? mergeSnapshot(seeded, saved) : seeded;
-  } catch (err) {
-    console.error("[citefleet] snapshot load failed — seeding", err);
-    cache = seeded;
-  }
-  for (const site of cache.sites) recalcScores(cache, site.id);
-  try {
-    await saveSnapshot(cache);
-  } catch (err) {
-    console.error("[citefleet] snapshot save failed on boot", err);
-  }
-  return cache;
-}
-
-async function ensureLoaded(): Promise<StoreShape> {
-  if (cache) return cache;
-  boot ??= bootStore();
-  return boot;
-}
-
-export async function getStore(): Promise<StoreShape> {
-  return clone(await ensureLoaded());
-}
-
-export async function mutateStore<T>(
-  fn: (store: StoreShape) => T,
-): Promise<T> {
-  const store = await ensureLoaded();
-  const result = fn(store);
-  await persist(store);
-  return result;
-}
-
-export async function resetStore(): Promise<StoreShape> {
-  cache = seedStore();
-  boot = Promise.resolve(cache);
-  await persist(cache);
-  return clone(cache);
-}
 
 export function logActivity(
   store: StoreShape,

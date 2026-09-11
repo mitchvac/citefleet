@@ -124,31 +124,35 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
   const expected = readCookie(request.headers.get("cookie"), STATE_COOKIE) || "";
   if (!code || !state || expected !== `${provider}:${state}`) return loginError("oauth-denied");
 
+  const { ensureWorkspaceFor } = await import("@/lib/citefleet/workspace-registry.server.ts");
   try {
     if (provider === "google") {
       const profile = await googleProfile(code, publicOrigin(request));
       if (!profile.verified) return loginError("email-unverified");
       if (!isAllowedEmail(profile.email)) return loginError("not-allowed");
       const { upsertOAuthUser } = await import("./users.server");
-      await upsertOAuthUser({
+      const user = await upsertOAuthUser({
         provider: "google",
         providerId: profile.id,
         email: profile.email,
         name: profile.name,
         image: profile.image,
       });
+      // A first OAuth sign-in is also a registration, so it needs a workspace
+      // for the same reason sign-up does: without one, the console loads nothing.
+      await ensureWorkspaceFor(user.id, profile.name || profile.email);
       return signedIn(request, {
+        id: user.id,
         email: profile.email,
         name: profile.name,
         imageUrl: profile.image ?? null,
       });
     }
     const profile = await githubProfile(code, publicOrigin(request));
-    // Checked BEFORE the workspace GitHub token is touched.
     if (!profile.verified) return loginError("email-unverified");
     if (!isAllowedEmail(profile.email)) return loginError("not-allowed");
     const { upsertOAuthUser } = await import("./users.server");
-    await upsertOAuthUser({
+    const user = await upsertOAuthUser({
       provider: "github",
       providerId: profile.id,
       email: profile.email,
@@ -156,11 +160,20 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
       githubToken: profile.token,
       image: profile.image,
     });
-    if (profile.token) {
-      const { setGithubToken } = await import("@/lib/citefleet/github");
-      await setGithubToken(profile.token);
-    }
+    // The GitHub token is stored on THIS ACCOUNT (`citefleet_users.github_token`,
+    // written by upsertOAuthUser above) and nowhere else.
+    //
+    // It used to also be written to `store.workspace.githubToken` — the single
+    // token `pushOriginPack` uses for every property. So whoever signed in with
+    // GitHub last had their PERSONAL token silently adopted as the workspace's,
+    // and everyone's origin-pack pushes were made with it. That was already
+    // wrong with one shared workspace; with a workspace per customer it would
+    // hand one tenant's credential to another. A workspace token is now set
+    // deliberately by a member through `setGithubTokenFn`, never as a side
+    // effect of signing in.
+    await ensureWorkspaceFor(user.id, profile.name || profile.email);
     return signedIn(request, {
+      id: user.id,
       email: profile.email,
       name: profile.name,
       imageUrl: profile.image ?? null,

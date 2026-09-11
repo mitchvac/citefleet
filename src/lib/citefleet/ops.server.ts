@@ -1,4 +1,8 @@
-export { getStore, resetStore } from "./store";
+// No `getStore` / `resetStore` here: a workspace is reached through a
+// `WorkspaceHandle` (workspace-handle.ts), which the registry hands out only
+// after resolving who is asking.
+export { handleFor } from "./workspace-handle.ts";
+export { workspaceForPrincipal, createWorkspace, addMember } from "./workspace-registry.server.ts";
 export {
   dispatchSite,
   onboardSite,

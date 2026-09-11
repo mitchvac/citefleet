@@ -15,6 +15,8 @@
  * process. The app does no DDL.
  */
 
+import type { Pool } from "pg";
+
 // An empty/whitespace DATABASE_URL (an easy misconfig in deploy UIs) must mean
 // "unset", so it fails loudly instead of connecting to nothing.
 const rawDatabaseUrl =
@@ -51,6 +53,7 @@ export interface Sql {
  */
 const globalRef = globalThis as typeof globalThis & {
   __pgSqlPromise__?: Promise<Sql>;
+  __pgPoolPromise__?: Promise<Pool>;
 };
 
 /**
@@ -91,8 +94,14 @@ const MISSING_DATABASE_URL =
   "run `supabase start` and export DB_URL from `supabase status -o env`, or " +
   "point DATABASE_URL at the Supabase session pooler for a deployment.";
 
-function createPgSql(): Promise<Sql> {
-  globalRef.__pgSqlPromise__ ??= (async () => {
+/**
+ * The shared pool, memoized on globalThis for the same HMR reason as the Sql
+ * promise. Split out from `createPgSql` because `withTransaction` needs the pool
+ * itself — a transaction must run every statement on ONE connection, which
+ * `pool.query()` cannot promise.
+ */
+function createPool(): Promise<Pool> {
+  globalRef.__pgPoolPromise__ ??= (async () => {
     if (!databaseUrl) throw new Error(MISSING_DATABASE_URL);
     const { Pool, types } = await import("pg");
     types.setTypeParser(OID_INT8, Number);
@@ -101,7 +110,17 @@ function createPgSql(): Promise<Sql> {
     // One pool per process. Correct against Supabase's session pooler (5432)
     // and against a direct connection; the transaction pooler (6543) holds no
     // session state and is not supported here.
-    const pool = new Pool({ connectionString: databaseUrl });
+    return new Pool({ connectionString: databaseUrl });
+  })().catch((err) => {
+    globalRef.__pgPoolPromise__ = undefined;
+    throw err;
+  });
+  return globalRef.__pgPoolPromise__;
+}
+
+function createPgSql(): Promise<Sql> {
+  globalRef.__pgSqlPromise__ ??= (async () => {
+    const pool = await createPool();
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
       return res.rows as T[];
@@ -149,4 +168,76 @@ export function getSql(): Promise<Sql> {
  */
 export function ensureDbReady(): Promise<void> {
   return getSql().then(() => undefined);
+}
+
+/**
+ * Run `fn` inside one transaction on one connection: BEGIN, then COMMIT, or
+ * ROLLBACK and rethrow. The connection is always released.
+ *
+ * Why this exists: `getSql()` runs each statement through `pool.query()`, which
+ * may hand out a DIFFERENT connection every time — so a BEGIN issued that way
+ * can be followed by an INSERT on another connection, outside the transaction it
+ * was meant to join. Multi-statement writes that must not half-apply (a
+ * workspace row plus its membership plus its first snapshot) belong here.
+ *
+ * Nesting is not supported: each call takes its own connection from the pool, so
+ * an inner call is a SEPARATE transaction that commits independently. Pass `tx`
+ * down instead of opening a second one.
+ */
+export async function withTransaction<T>(fn: (tx: Sql) => Promise<T>): Promise<T> {
+  if (typeof window !== "undefined") {
+    throw new Error("@/lib/db is server-only — withTransaction cannot run in the browser.");
+  }
+  const pool = await createPool();
+  return runInTransaction(await pool.connect(), fn);
+}
+
+/**
+ * One checked-out connection, as much of it as the transaction logic touches.
+ * Named separately so `runInTransaction` can be driven by a fake in tests —
+ * the same reason `smtp.ts` takes an injected `SmtpIO` rather than a socket.
+ */
+export interface TxClient {
+  query(text: string, params?: unknown[]): Promise<{ rows: unknown[] }>;
+  release(): void;
+}
+
+/**
+ * The transaction itself, separated from where the connection came from. Every
+ * ordering guarantee worth having — BEGIN first, COMMIT only on success,
+ * ROLLBACK on throw, release always, `tx` dead afterwards — is decided here and
+ * is therefore testable without a database.
+ */
+export async function runInTransaction<T>(
+  client: TxClient,
+  fn: (tx: Sql) => Promise<T>,
+): Promise<T> {
+  // The handle is invalidated on the way out. Without this, a caller that stashes
+  // `tx` and uses it after the transaction ends would run statements on a
+  // released connection — outside any transaction, and possibly on a connection
+  // now serving someone else. Failing loudly beats writing to the wrong place.
+  let open = true;
+  const tx = toSql(async <T2>(text: string, params: unknown[]) => {
+    if (!open) throw new Error("this transaction has already finished — do not reuse `tx`");
+    const res = await client.query(text, params);
+    return res.rows as T2[];
+  });
+  try {
+    await client.query("BEGIN");
+    const result = await fn(tx);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    // A rollback can itself fail when the connection died mid-transaction. That
+    // must not replace the original error, which is the one that explains why.
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      /* the connection is gone; Postgres has already rolled back */
+    }
+    throw err;
+  } finally {
+    open = false;
+    client.release();
+  }
 }

@@ -24,11 +24,13 @@ test("a session created without an account is anonymous, not empty-stringed", ()
 test("a session created with an account carries it back", () => {
   resetOperatorState();
   const id = createSession(Date.now(), {
+    id: "u_9f2c1a",
     email: "ops@citefleet.app",
     name: "Ops",
     imageUrl: "https://lh3.googleusercontent.com/a/abc",
   });
   assert.deepEqual(sessionUser(id), {
+    id: "u_9f2c1a",
     email: "ops@citefleet.app",
     name: "Ops",
     imageUrl: "https://lh3.googleusercontent.com/a/abc",
@@ -38,7 +40,7 @@ test("a session created with an account carries it back", () => {
 test("an expired session surfaces no identity", () => {
   resetOperatorState();
   const t0 = Date.now();
-  const id = createSession(t0, { email: "ops@citefleet.app", name: "Ops" });
+  const id = createSession(t0, { id: "u_9f2c1a", email: "ops@citefleet.app", name: "Ops" });
   // Positive control FIRST: hasSession deletes an expired entry, so reading
   // after the expiry check would pass for the wrong reason.
   assert.equal(sessionUser(id, t0 + 1000)?.email, "ops@citefleet.app");

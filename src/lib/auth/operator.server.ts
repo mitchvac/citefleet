@@ -63,12 +63,36 @@ export function currentSessionUser(request: Request): SessionUser | null {
   return sessionUser(id);
 }
 
-export function requireOperator(): void {
+/**
+ * Who is making this request.
+ *
+ * A signed-in account is a `user` principal carrying the id a workspace
+ * membership is keyed by. The shared operator token has no account behind it, so
+ * it is a `break-glass` principal — named rather than pretended away, because
+ * every action it takes is unattributable and the code that spends money or
+ * publishes on a customer's behalf should be able to see that.
+ */
+export type Principal =
+  | { kind: "user"; userId: string; email: string }
+  | { kind: "break-glass" };
+
+/**
+ * Gate the request AND say who made it.
+ *
+ * This returned `void` before, so the 23 server functions behind it knew a
+ * session existed and nothing else — there was no identity to scope anything to,
+ * which is why a single global workspace was the only thing that could be built.
+ */
+export function requireOperator(): Principal {
   const request = getRequest();
   if (!request) throw new OperatorUnauthorizedError("no request context");
   const id = readCookie(request.headers.get("cookie"), OPERATOR_COOKIE);
   if (!hasSession(id)) throw new OperatorUnauthorizedError("sign-in required");
   assertSameSiteRequest();
+  const user = sessionUser(id);
+  return user
+    ? { kind: "user", userId: user.id, email: user.email }
+    : { kind: "break-glass" };
 }
 
 async function readFields(request: Request): Promise<{
@@ -116,7 +140,12 @@ export async function handleLogin(request: Request): Promise<Response> {
     clearFailures(key);
     return signedInResponse(
       request,
-      createSession(Date.now(), { email: user.email, name: user.name, imageUrl: user.imageUrl }),
+      createSession(Date.now(), {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        imageUrl: user.imageUrl,
+      }),
     );
   }
   const result = attemptLogin(fields.token, clientKey(request));
@@ -136,7 +165,35 @@ export async function handleSignup(request: Request): Promise<Response> {
     password: fields.password,
   });
   if (!created.ok) return loginError(created.reason === "exists" ? "exists" : "invalid");
-  return signedInResponse(request, createSession());
+
+  // A new account must land in a workspace of its own. `workspaceForPrincipal`
+  // fails closed — it refuses to guess a tenant — so an account with no
+  // membership signs in to a console that can load nothing. Creating the
+  // workspace here is what makes sign-up self-serve instead of putting every
+  // new customer into the original shared one.
+  const { createWorkspace } = await import("@/lib/citefleet/workspace-registry.server.ts");
+  try {
+    await createWorkspace(created.user.id, created.user.name || created.user.email);
+  } catch (err) {
+    // The account exists but has nowhere to work. Say so rather than signing
+    // them in to an empty console that cannot explain itself.
+    console.error("[citefleet] workspace creation failed for a new account", err);
+    return loginError("invalid");
+  }
+
+  // `createSession()` with no argument was the bug: a freshly created account was
+  // signed in ANONYMOUSLY, indistinguishable from the break-glass token. /api/me
+  // answered null and the new user had to sign out and back in before the app
+  // knew who they were. `createUser` returns the row — use it.
+  return signedInResponse(
+    request,
+    createSession(Date.now(), {
+      id: created.user.id,
+      email: created.user.email,
+      name: created.user.name,
+      imageUrl: created.user.imageUrl,
+    }),
+  );
 }
 
 export function handleLogout(request: Request): Response {

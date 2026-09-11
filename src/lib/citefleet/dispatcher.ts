@@ -6,12 +6,11 @@ import { cleanPrefix } from "./topup.ts";
 import { chooseProvider, providerGuidance } from "./provider-choice.ts";
 import { PROVIDER_FLOWS } from "./provider-flows.ts";
 import {
-  getStore,
   logActivity,
-  mutateStore,
   recalcScores,
   touchBot,
 } from "./store";
+import type { WorkspaceHandle } from "./workspace-handle.ts";
 import { assertCanAct, doorForPlaybook, freezeReason, isFrozen } from "./control";
 import type { AuditResult, PlaybookId, Site, Task } from "./types";
 import { siteVerifyToken } from "./verify-token.ts";
@@ -29,7 +28,7 @@ function botForPlaybook(playbookId: PlaybookId) {
   return FLEET_TEMPLATE.find((b) => b.playbookIds.includes(playbookId));
 }
 
-export async function onboardSite(input: {
+export async function onboardSite(ws: WorkspaceHandle, input: {
   name: string;
   url: string;
   routes?: string[];
@@ -38,7 +37,7 @@ export async function onboardSite(input: {
 }): Promise<Site> {
   const url = input.url.replace(/\/$/, "");
   const domain = new URL(url).hostname;
-  const workspaceId = (await getStore()).workspace.id;
+  const workspaceId = (await ws.get()).workspace.id;
   const site: Site = {
     id: `site-${crypto.randomUUID().slice(0, 8)}`,
     workspaceId,
@@ -66,7 +65,7 @@ export async function onboardSite(input: {
         : undefined,
   };
 
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     // Onboarding writes site.github straight from the form, so it needs the
     // same slot check the attach form gets — otherwise a new property can be
     // created already pointing at another property's origin folder.
@@ -95,10 +94,10 @@ export async function onboardSite(input: {
   return site;
 }
 
-export async function dispatchSite(siteId: string) {
+export async function dispatchSite(ws: WorkspaceHandle, siteId: string) {
   const assigned: Array<{ bot: string; task: string }> = [];
 
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
     const open = store.tasks.filter(
@@ -164,13 +163,13 @@ export async function dispatchSite(siteId: string) {
   return { assigned };
 }
 
-export async function runAuditAndApply(siteId: string): Promise<AuditResult> {
-  const store = await getStore();
+export async function runAuditAndApply(ws: WorkspaceHandle, siteId: string): Promise<AuditResult> {
+  const store = await ws.get();
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
   const audit = await auditSite(site);
 
-  await mutateStore((s) => {
+  await ws.mutate((s) => {
     const current = s.sites.find((x) => x.id === siteId);
     if (!current) return;
     current.lastAuditAt = audit.at;
@@ -270,8 +269,8 @@ export async function runAuditAndApply(siteId: string): Promise<AuditResult> {
   return audit;
 }
 
-export async function runTask(taskId: string) {
-  const preview = await getStore();
+export async function runTask(ws: WorkspaceHandle, taskId: string) {
+  const preview = await ws.get();
   const existing = preview.tasks.find((t) => t.id === taskId);
   if (!existing) throw new Error("Task not found");
   const door = doorForPlaybook(existing.playbookId);
@@ -280,7 +279,7 @@ export async function runTask(taskId: string) {
   }
 
   let snapshot: Task | undefined;
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const task = store.tasks.find((t) => t.id === taskId);
     if (!task) throw new Error("Task not found");
     snapshot = task;
@@ -312,7 +311,7 @@ export async function runTask(taskId: string) {
       snapshot.playbookId,
     )
   ) {
-    const audit = await runAuditAndApply(snapshot.siteId);
+    const audit = await runAuditAndApply(ws, snapshot.siteId);
     const relevant = audit.findings.filter(
       (f) => f.playbookId === snapshot!.playbookId,
     );
@@ -320,7 +319,7 @@ export async function runTask(taskId: string) {
       (f) => f.severity === "critical" || f.severity === "warn",
     );
 
-    await mutateStore((store) => {
+    await ws.mutate((store) => {
       const task = store.tasks.find((t) => t.id === taskId);
       if (!task) return;
       if (blocked) {
@@ -359,10 +358,10 @@ export async function runTask(taskId: string) {
   }
 
   if (snapshot.playbookId === "botcentral_list") {
-    return { audit: null, listing: await publishSiteToBotCentral(snapshot.siteId) };
+    return { audit: null, listing: await publishSiteToBotCentral(ws, snapshot.siteId) };
   }
 
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const task = store.tasks.find((t) => t.id === taskId);
     if (!task) return;
     task.status = "assigned";
@@ -408,9 +407,9 @@ export async function runTask(taskId: string) {
  * bots working it go to standby, the audit log keeps its history. The BotCentral
  * card (if any) is not touched — the catalog is a separate system of record.
  */
-export async function removeSite(siteId: string) {
+export async function removeSite(ws: WorkspaceHandle, siteId: string) {
   let domain = "";
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
     domain = site.domain;
@@ -436,10 +435,10 @@ export async function removeSite(siteId: string) {
   return { ok: true as const, siteId, domain };
 }
 
-export async function publishSiteToBotCentral(siteId: string) {
-  const preview = await getStore();
+export async function publishSiteToBotCentral(ws: WorkspaceHandle, siteId: string) {
+  const preview = await ws.get();
   assertCanAct(preview, "catalog");
-  const store = await getStore();
+  const store = await ws.get();
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
   // A publish that carries a key prefix spends the customer's balance (a
@@ -453,7 +452,7 @@ export async function publishSiteToBotCentral(siteId: string) {
   // Pre-flight: apply BotCentral's own proof rules first, so a missing proof is
   // reported with the exact line to add instead of as a 422 from the registry.
   const proof = await checkOriginProof({ ...site, verifyToken });
-  await mutateStore((s) => {
+  await ws.mutate((s) => {
     const current = s.sites.find((x) => x.id === siteId);
     if (current) current.proof = proof;
   });
@@ -469,7 +468,7 @@ export async function publishSiteToBotCentral(siteId: string) {
     ? `${payment.message}. Top up the key at ${payment.topup}, then List on BotCentral.`
     : undefined;
 
-  await mutateStore((s) => {
+  await ws.mutate((s) => {
     const current = s.sites.find((x) => x.id === siteId);
     if (current) {
       current.verifyToken = verifyToken;
@@ -548,7 +547,7 @@ export async function publishSiteToBotCentral(siteId: string) {
  * (`billingPrefixFor`), so a key can be entered today and start paying only
  * when CITEFLEET_BOTCENTRAL_BILLING is turned on.
  */
-export async function setBillingKey(siteId: string, raw: string) {
+export async function setBillingKey(ws: WorkspaceHandle, siteId: string, raw: string) {
   const value = raw.trim();
   const keyPrefix = value ? cleanPrefix(value) : "";
   if (value && !keyPrefix) {
@@ -557,7 +556,7 @@ export async function setBillingKey(siteId: string, raw: string) {
     );
   }
   const billing = billingEnabled();
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
     site.billing = keyPrefix ? { keyPrefix, setAt: new Date().toISOString() } : undefined;
@@ -584,10 +583,10 @@ export async function setBillingKey(siteId: string, raw: string) {
  * web root are both refused here with the researched reason, so the server can
  * never store something the panel would not have offered.
  */
-export async function setProvider(siteId: string, slug: string) {
+export async function setProvider(ws: WorkspaceHandle, siteId: string, slug: string) {
   const clean = slug.trim();
   const choice = clean ? chooseProvider(PROVIDER_FLOWS, clean) : undefined;
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
     site.provider = choice;
@@ -606,12 +605,12 @@ export async function setProvider(siteId: string, slug: string) {
 }
 
 /** Store the last proof check on the site and return it (the "Verify proof" button). */
-export async function verifySiteProof(siteId: string) {
-  const store = await getStore();
+export async function verifySiteProof(ws: WorkspaceHandle, siteId: string) {
+  const store = await ws.get();
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
   const proof = await checkOriginProof(site);
-  await mutateStore((s) => {
+  await ws.mutate((s) => {
     const current = s.sites.find((x) => x.id === siteId);
     if (current) current.proof = proof;
     logActivity(s, {
@@ -631,9 +630,9 @@ export async function verifySiteProof(siteId: string) {
  * an existing secret: the console is public in v1, so anything a server fn
  * returns is readable by anyone. Rotating invalidates the previous secret.
  */
-export async function rotateWebhookSecret(siteId: string) {
+export async function rotateWebhookSecret(ws: WorkspaceHandle, siteId: string) {
   const secret = newWebhookSecret();
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
     const had = Boolean(site.webhook?.secret);
@@ -653,6 +652,7 @@ export async function rotateWebhookSecret(siteId: string) {
  * then run the normal publish. Runs in the background of the request.
  */
 export async function runWebhookListing(
+  ws: WorkspaceHandle,
   siteId: string,
   reason: string,
   opts: { attempts?: number; delayMs?: number } = {},
@@ -662,7 +662,7 @@ export async function runWebhookListing(
   // finally so a later delivery can start a fresh check.
   const record = async (result: string, message: string, kind: "audit" | "index" = "audit") => {
     try {
-      await mutateStore((s) => {
+      await ws.mutate((s) => {
         const current = s.sites.find((x) => x.id === siteId);
         if (current?.webhook) current.webhook.lastResult = result;
         logActivity(s, { actor: "Sentinel", kind, siteId, message });
@@ -672,11 +672,11 @@ export async function runWebhookListing(
     }
   };
   try {
-    const store = await getStore();
+    const store = await ws.get();
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) return { ok: false, error: "Site not found" };
     const proof = await waitForProof(site, { attempts: opts.attempts ?? 10, delayMs: opts.delayMs ?? 30_000 });
-    await mutateStore((s) => {
+    await ws.mutate((s) => {
       const current = s.sites.find((x) => x.id === siteId);
       if (current) current.proof = proof;
     });
@@ -688,7 +688,7 @@ export async function runWebhookListing(
       return { ok: false, error: proof.note };
     }
     try {
-      const listing = await publishSiteToBotCentral(siteId);
+      const listing = await publishSiteToBotCentral(ws, siteId);
       await record(
         `proof ${proof.method} after ${proof.attempts} check(s) · listed`,
         `Hook (${reason}): ${site.domain} proof ${proof.method}; card ${listing.listed ? "live" : "not listed"}.`,
@@ -711,13 +711,14 @@ export async function runWebhookListing(
 }
 
 export async function patchTask(
+  ws: WorkspaceHandle,
   taskId: string,
   patch: Partial<Pick<Task, "status" | "blockedReason">> & {
     checklistId?: string;
     done?: boolean;
   },
 ) {
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const task = store.tasks.find((t) => t.id === taskId);
     if (!task) throw new Error("Task not found");
     const door = doorForPlaybook(task.playbookId);

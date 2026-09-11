@@ -12,17 +12,22 @@ export const Route = createFileRoute("/api/hooks/github")({
         ),
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const { handleGithubWebhook, runWebhookListing, getStore } = await import("@/lib/citefleet/ops.server");
-        const { mutateStore } = await import("@/lib/citefleet/store");
+        const { handleGithubWebhook, runWebhookListing } = await import("@/lib/citefleet/ops.server");
+        const { repoFullName } = await import("@/lib/citefleet/webhook.ts");
+        const { hookDeps } = await import("@/lib/citefleet/hook-tenant.server.ts");
+        // Which tenant owns this repo, found by searching — never defaulted.
+        let repo = "";
+        try {
+          repo = repoFullName(JSON.parse(rawBody) as Record<string, unknown>);
+        } catch {
+          /* a body that is not JSON falls through to the handler's own 400 */
+        }
+        const deps = await hookDeps({ repo }, (ws, siteId, reason) => {
+          void runWebhookListing(ws, siteId, reason);
+        });
         const result = await handleGithubWebhook(
           { rawBody, header: (name) => request.headers.get(name) },
-          {
-            getStore,
-            mutateStore,
-            onCheck: (siteId, reason) => {
-              void runWebhookListing(siteId, reason);
-            },
-          },
+          deps,
         );
         return Response.json(result.body, { status: result.status });
       },

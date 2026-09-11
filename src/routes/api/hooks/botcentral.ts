@@ -14,13 +14,24 @@ export const Route = createFileRoute("/api/hooks/botcentral")({
         ),
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const { handleBotcentralWebhook, applyCatalogState, getStore } = await import("@/lib/citefleet/ops.server");
-        const { mutateStore } = await import("@/lib/citefleet/store");
+        const { handleBotcentralWebhook, applyCatalogState } = await import("@/lib/citefleet/ops.server");
+        const { hookDeps } = await import("@/lib/citefleet/hook-tenant.server.ts");
+        // BotCentral names the host its event is about; that host decides the
+        // tenant. An unknown host resolves to an empty store, which is how the
+        // handler already answers 202-ignore for a domain nobody listed here.
+        let domain = "";
+        try {
+          const parsed = JSON.parse(rawBody) as { domain?: unknown };
+          if (typeof parsed.domain === "string") domain = parsed.domain;
+        } catch {
+          /* the handler answers 400 for a body that is not JSON */
+        }
+        const tenant = await hookDeps({ domain });
         const result = await handleBotcentralWebhook(
           { rawBody, header: (name) => request.headers.get(name) },
           {
-            getStore,
-            mutateStore,
+            getStore: tenant.getStore,
+            mutateStore: tenant.mutateStore,
             apply: applyCatalogState,
             catalogUrl: process.env.BOTCENTRAL_URL || "https://botcentral.org",
           },

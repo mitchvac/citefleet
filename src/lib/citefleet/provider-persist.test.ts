@@ -5,6 +5,7 @@ import { seedStore } from "./seed.ts";
 import { chooseProvider } from "./provider-choice.ts";
 import { PROVIDER_FLOWS } from "./provider-flows.ts";
 import type { Site, StoreShape } from "./types.ts";
+import { ROOT_WORKSPACE_ID } from "./workspace-id.ts";
 
 // The database deliverable for the provider dropdown.
 //
@@ -17,7 +18,7 @@ import type { Site, StoreShape } from "./types.ts";
 // document, which is the one link these tests do not cover (see the report).
 
 function storeWithSite(site: Partial<Site>): StoreShape {
-  const store = seedStore();
+  const store = seedStore(ROOT_WORKSPACE_ID);
   store.sites = [
     {
       id: "s1",
@@ -39,7 +40,7 @@ function storeWithSite(site: Partial<Site>): StoreShape {
 
 /** Exactly what saveSnapshot → JSONB → loadSnapshot → mergeSnapshot does. */
 function roundTrip(store: StoreShape): StoreShape {
-  return mergeSnapshot(seedStore(), JSON.parse(JSON.stringify(store)));
+  return mergeSnapshot(seedStore(ROOT_WORKSPACE_ID), JSON.parse(JSON.stringify(store)));
 }
 
 test("a chosen provider survives the snapshot round-trip with no migration", () => {
@@ -56,10 +57,10 @@ test("positive control: the round-trip really is doing the work", () => {
   // Rule 20 — if mergeSnapshot silently returned the seed, the test above would
   // pass for the wrong reason on an empty seed. It does not: the seed has no
   // sites at all, so a passing assertion proves the payload was read.
-  assert.equal(seedStore().sites.length, 0, "seed must carry no properties");
+  assert.equal(seedStore(ROOT_WORKSPACE_ID).sites.length, 0, "seed must carry no properties");
   assert.equal(roundTrip(storeWithSite({})).sites.length, 1);
   // And a payload that is not a store falls back to the seed rather than merging.
-  assert.equal(mergeSnapshot(seedStore(), "not a store").sites.length, 0);
+  assert.equal(mergeSnapshot(seedStore(ROOT_WORKSPACE_ID), "not a store").sites.length, 0);
 });
 
 test("clearing the provider does not resurrect the old value", () => {

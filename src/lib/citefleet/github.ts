@@ -8,7 +8,8 @@ import {
 import { siteVerifyToken } from "./verify-token.ts";
 import { maskStoreSecrets } from "./secrets.ts";
 import { assertCanAct } from "./control.ts";
-import { getStore, logActivity, mutateStore } from "./store.ts";
+import { logActivity } from "./store.ts";
+import type { WorkspaceHandle } from "./workspace-handle.ts";
 import {
   normalizeOwner,
   normalizeRepo,
@@ -183,8 +184,8 @@ async function detectFrameworkRoutes(
  * only what it returns as writable, so the campaign panel and the server can
  * never disagree about what is about to happen.
  */
-export async function inspectOriginPack(siteId: string) {
-  const store = await getStore();
+export async function inspectOriginPack(ws: WorkspaceHandle, siteId: string) {
+  const store = await ws.get();
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
   if (!site.github?.owner || !site.github.repo) {
@@ -230,13 +231,14 @@ export async function inspectOriginPack(siteId: string) {
 }
 
 export async function attachGithub(
+  ws: WorkspaceHandle,
   siteId: string,
   input: { owner: string; repo: string; branch?: string; root?: string },
 ) {
   const owner = normalizeOwner(input.owner);
   const repo = normalizeRepo(input.repo);
   if (!owner || !repo) throw new Error("GitHub owner and repo are required");
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
     const conflict = originRepoConflict(site, { owner, repo, root: input.root }, store.sites);
@@ -257,12 +259,12 @@ export async function attachGithub(
       message: `GitHub connected: ${owner}/${repo} (${site.github.branch}, root ${site.github.root || "/"}).`,
     });
   });
-  return (await getStore()).sites.find((s) => s.id === siteId)?.github;
+  return (await ws.get()).sites.find((s) => s.id === siteId)?.github;
 }
 
-export async function setGithubToken(token: string) {
+export async function setGithubToken(ws: WorkspaceHandle, token: string) {
   const trimmed = token.trim();
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     store.workspace.githubToken = trimmed || undefined;
     logActivity(store, {
       actor: "Operator",
@@ -275,8 +277,8 @@ export async function setGithubToken(token: string) {
   return { ok: Boolean(trimmed) };
 }
 
-export async function pushOriginPack(siteId: string) {
-  const store = await getStore();
+export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
+  const store = await ws.get();
   assertCanAct(store, "submissions");
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
@@ -298,7 +300,7 @@ export async function pushOriginPack(siteId: string) {
   // Look before writing. `buildOriginPack` generates from campaign state, so a
   // blind PUT replaces a site's own robots policy with a generic one — it did,
   // and the diff is in origin-ownership.ts. Only what the rule accepts is sent.
-  const plan = await inspectOriginPack(siteId);
+  const plan = await inspectOriginPack(ws, siteId);
   if (plan.unreadable.length) {
     throw new Error(
       `Refusing to push: the repo would not answer for ${plan.unreadable.length} path(s) — ` +
@@ -335,7 +337,7 @@ export async function pushOriginPack(siteId: string) {
     );
   }
   const last = results.find((r) => r.url) || results[results.length - 1];
-  await mutateStore((s) => {
+  await ws.mutate((s) => {
     const current = s.sites.find((x) => x.id === siteId);
     if (current) current.verifyToken = verifyToken;
     if (current?.github) {

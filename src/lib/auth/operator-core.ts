@@ -17,11 +17,24 @@ export const LOCKOUT_MS = 60_000;
 const MIN_TOKEN_LENGTH = 32;
 
 /**
- * Who a session belongs to. Optional because the operator TOKEN path is a
- * break-glass credential with no account behind it — that session is genuinely
- * anonymous and must stay that way rather than being attributed to someone.
+ * Who a session belongs to. Still optional on the session record, because the
+ * operator TOKEN path is a break-glass credential with no account behind it —
+ * that session is genuinely anonymous and must stay that way rather than being
+ * attributed to someone.
+ *
+ * `id` is REQUIRED here, and it is `citefleet_users.id`. It used to be absent:
+ * `verifyUser` and `upsertOAuthUser` both return the row id and every caller
+ * threw it away, so a signed-in request could be attributed to an email but
+ * never joined to anything. An email is not an identity key — it changes, and
+ * it cannot carry a foreign key to a workspace membership. Making it optional
+ * would push a null branch into every consumer, and those branches diverge.
  */
-export type SessionUser = { email: string; name: string; imageUrl?: string | null };
+export type SessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  imageUrl?: string | null;
+};
 
 const sessions = new Map<
   string,

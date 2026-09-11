@@ -9,7 +9,8 @@ import { lookupListing } from "./botcentral";
 import { buildChecks } from "./reconcile";
 import { checkOriginProof } from "./proof.ts";
 import { ensureControl, isFrozen, pushJob } from "./control";
-import { getStore, logActivity, mutateStore } from "./store";
+import { logActivity } from "./store";
+import type { WorkspaceHandle } from "./workspace-handle.ts";
 import { renewalEmail, renewalNotices } from "./listing-term.ts";
 import { allowedEmails } from "@/lib/auth/operator-allowlist";
 import { mailConfigured, sendMail } from "@/lib/mail/smtp";
@@ -188,8 +189,8 @@ export async function probePlatform(): Promise<PlatformHealth> {
  * a mailer is configured. A failed send is logged and retried next cycle; a
  * missing mailer is logged once and stamped, so the log does not repeat.
  */
-export async function sendRenewalNotices(nowMs = Date.now()): Promise<Array<{ siteId: string; sent: number; error?: string }>> {
-  const store = await getStore();
+export async function sendRenewalNotices(ws: WorkspaceHandle, nowMs = Date.now()): Promise<Array<{ siteId: string; sent: number; error?: string }>> {
+  const store = await ws.get();
   const due = renewalNotices(store.sites, nowMs);
   const out: Array<{ siteId: string; sent: number; error?: string }> = [];
   const origin = (process.env.CITEFLEET_PUBLIC_URL || "https://citefleet.app").replace(/\/$/, "");
@@ -210,7 +211,7 @@ export async function sendRenewalNotices(nowMs = Date.now()): Promise<Array<{ si
       }
     }
     const line = mail.text.split("\n")[2];
-    await mutateStore((s) => {
+    await ws.mutate((s) => {
       const current = s.sites.find((x) => x.id === site.id);
       if (!current) return;
       // Stamp once anyone has been told (or there was nobody to tell), so the
@@ -237,8 +238,8 @@ export async function sendRenewalNotices(nowMs = Date.now()): Promise<Array<{ si
   return out;
 }
 
-export async function runMonitorCycle() {
-  const before = await getStore();
+export async function runMonitorCycle(ws: WorkspaceHandle) {
+  const before = await ws.get();
   const platform = await probePlatform();
   const snapshots: Record<string, SiteMonitor> = {};
 
@@ -255,7 +256,7 @@ export async function runMonitorCycle() {
     };
   }
 
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     const control = ensureControl(store);
     control.lastMonitorAt = new Date().toISOString();
     control.lastReconcileAt = control.lastMonitorAt;
@@ -275,6 +276,6 @@ export async function runMonitorCycle() {
     });
   });
 
-  await sendRenewalNotices();
-  return (await getStore()).control;
+  await sendRenewalNotices(ws);
+  return (await ws.get()).control;
 }

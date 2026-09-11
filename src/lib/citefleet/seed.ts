@@ -2,13 +2,19 @@ import { FLEET_TEMPLATE } from "./bots.ts";
 import { ENGINE_MATRIX, applyPlaybookHrefs } from "./playbook.ts";
 import { defaultControl } from "./control.ts";
 import type { StoreShape } from "./types";
+import type { WorkspaceId } from "./workspace-id.ts";
 
 /**
  * A fresh CiteFleet workspace: the nine-bot fleet on standby, the answer-engine
  * matrix, the control plane, and no properties. Customers are onboarded from
  * Command; nothing customer-specific ships in code.
+ *
+ * The id is a REQUIRED argument rather than a constant. It used to be the
+ * literal "ws-citefleet", which was correct while one workspace existed and
+ * would silently stamp every new tenant with the same identity now that more
+ * than one can.
  */
-export function seedStore(): StoreShape {
+export function seedStore(id: WorkspaceId, name = "CiteFleet"): StoreShape {
   const now = new Date().toISOString();
   const bots = FLEET_TEMPLATE.map((bot) => ({
     ...bot,
@@ -20,8 +26,8 @@ export function seedStore(): StoreShape {
 
   const store: StoreShape = {
     workspace: {
-      id: "ws-citefleet",
-      name: "CiteFleet",
+      id,
+      name,
       plan: "enterprise",
       region: "us-east-1",
     },

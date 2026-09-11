@@ -8,7 +8,8 @@
  * Behind the `spend` kill door: freezing spend on Monitor refuses this.
  */
 import { assertCanAct } from "./control";
-import { getStore, logActivity, mutateStore } from "./store";
+import { logActivity } from "./store";
+import type { WorkspaceHandle } from "./workspace-handle.ts";
 import { settleRequestBody, type TopupInvoice } from "./topup";
 
 const DEFAULT_URL = "https://botcentral.org";
@@ -22,9 +23,9 @@ function serviceToken() {
   return process.env.BOTCENTRAL_SERVICE_TOKEN?.trim() || "";
 }
 
-export async function settleTopup(input: { id?: unknown; tx?: unknown; prefix?: unknown }): Promise<TopupInvoice> {
+export async function settleTopup(ws: WorkspaceHandle, input: { id?: unknown; tx?: unknown; prefix?: unknown }): Promise<TopupInvoice> {
   const body = settleRequestBody(input);
-  assertCanAct(await getStore(), "spend");
+  assertCanAct(await ws.get(), "spend");
   if (serviceToken().length < 16) {
     throw new Error("BOTCENTRAL_SERVICE_TOKEN missing on CiteFleet");
   }
@@ -44,7 +45,7 @@ export async function settleTopup(input: { id?: unknown; tx?: unknown; prefix?: 
     throw new Error(payload.error || `settle ${res.status}`);
   }
   const invoice = payload.invoice;
-  await mutateStore((store) =>
+  await ws.mutate((store) =>
     logActivity(store, {
       actor: "operator",
       kind: "system",

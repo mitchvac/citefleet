@@ -7,6 +7,8 @@ import { createMiddleware } from "@tanstack/react-start";
  */
 export const operatorMiddleware = createMiddleware({ type: "function" }).server(async ({ next }) => {
   const { requireOperator } = await import("./operator.server");
-  requireOperator();
-  return next();
+  // The principal travels with the request. Passing nothing is why every server
+  // fn could only know that SOMEONE was signed in — with no identity to scope a
+  // request to, a single global workspace was the only thing that could be built.
+  return next({ context: { principal: requireOperator() } });
 });

@@ -1,20 +1,42 @@
 import { createServerFn } from "@tanstack/react-start";
 import { operatorMiddleware } from "@/lib/auth/operator-middleware";
+import type { Principal } from "@/lib/auth/operator.server";
+import type { WorkspaceHandle } from "./workspace-handle.ts";
 
 // Every server fn here is behind the signed-in session (see operator.server.ts).
 // Public: /health, llms.txt, sitemap.xml, /learn, /login, /api/hooks/*.
 
+/**
+ * The workspace this request acts in, resolved from who is making it.
+ *
+ * Every handler below starts here. There is no other way in: the domain
+ * functions take a `WorkspaceHandle` as their first argument and one cannot be
+ * conjured from a string, so a handler that forgot to resolve a tenant does not
+ * compile rather than operating on someone else's data.
+ */
+async function wsFor(context: { principal: Principal }): Promise<WorkspaceHandle> {
+  const { workspaceForPrincipal } = await import("./workspace-registry.server.ts");
+  return workspaceForPrincipal(context.principal);
+}
+
 export const loadState = createServerFn({ method: "GET" })
-  .middleware([operatorMiddleware]).handler(async () => {
+  .middleware([operatorMiddleware]).handler(async ({ context }) => {
   const { hydrateListings } = await import("./ops.server");
-  return hydrateListings();
+  return hydrateListings(await wsFor(context));
 });
 
 export const resetState = createServerFn({ method: "POST" })
-  .middleware([operatorMiddleware]).handler(async () => {
-  const { resetStore } = await import("./ops.server");
+  .middleware([operatorMiddleware]).handler(async ({ context }) => {
   const { maskStoreSecrets } = await import("./secrets.ts");
-  return maskStoreSecrets(await resetStore());
+  const { seedStore } = await import("./seed.ts");
+  const ws = await wsFor(context);
+  // Reset THIS workspace, never "the" workspace. Seeded with the handle's own
+  // id so a reset cannot re-stamp the tenant with a different identity.
+  const fresh = seedStore(ws.id);
+  await ws.mutate((store) => {
+    Object.assign(store, fresh);
+  });
+  return maskStoreSecrets(await ws.get());
 });
 
 export const onboardProperty = createServerFn({ method: "POST" })
@@ -27,38 +49,39 @@ export const onboardProperty = createServerFn({ method: "POST" })
       github?: { owner: string; repo: string; branch?: string; root?: string };
     }) => d,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     if (!data.url || data.url === "https://") {
       throw new Error("url required");
     }
     const { onboardSite, dispatchSite } = await import("./ops.server");
-    const site = await onboardSite(data);
-    await dispatchSite(site.id);
+    const ws = await wsFor(context);
+    const site = await onboardSite(ws, data);
+    await dispatchSite(ws, site.id);
     return { id: site.id };
   });
 
 export const dispatchProperty = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { dispatchSite } = await import("./ops.server");
-    return dispatchSite(data.siteId);
+    return dispatchSite(await wsFor(context), data.siteId);
   });
 
 export const removePropertyFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { removeSite } = await import("./ops.server");
-    return removeSite(data.siteId);
+    return removeSite(await wsFor(context), data.siteId);
   });
 
 export const verifyProofFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { verifySiteProof } = await import("./ops.server");
-    return verifySiteProof(data.siteId);
+    return verifySiteProof(await wsFor(context), data.siteId);
   });
 
 // Always mints a NEW secret and returns it once. An existing secret is never
@@ -66,33 +89,34 @@ export const verifyProofFn = createServerFn({ method: "POST" })
 export const webhookSecretFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { rotateWebhookSecret } = await import("./ops.server");
-    return rotateWebhookSecret(data.siteId);
+    return rotateWebhookSecret(await wsFor(context), data.siteId);
   });
 
 export const auditProperty = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { runAuditAndApply } = await import("./ops.server");
-    return runAuditAndApply(data.siteId);
+    return runAuditAndApply(await wsFor(context), data.siteId);
   });
 
 export const runTaskFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { taskId: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { runTask } = await import("./ops.server");
-    return runTask(data.taskId);
+    return runTask(await wsFor(context), data.taskId);
   });
 
 export const patchTaskFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { taskId: string; body: Record<string, unknown> }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { patchTask } = await import("./ops.server");
     await patchTask(
+      await wsFor(context),
       data.taskId,
       data.body as {
         status?: "queued" | "assigned" | "running" | "blocked" | "done" | "failed";
@@ -107,14 +131,15 @@ export const patchTaskFn = createServerFn({ method: "POST" })
 export const setAutopilotFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { enabled: boolean; grok?: boolean }) => d)
-  .handler(async ({ data }) => {
-    const { setAutopilot, runAutopilotTick, getStore, grokConfigured } =
+  .handler(async ({ data, context }) => {
+    const { setAutopilot, runAutopilotTick, grokConfigured } =
       await import("./ops.server");
-    await setAutopilot(data.enabled);
+    const ws = await wsFor(context);
+    await setAutopilot(ws, data.enabled);
     const result = data.enabled
-      ? await runAutopilotTick({ grok: Boolean(data.grok) })
+      ? await runAutopilotTick(ws, { grok: Boolean(data.grok) })
       : null;
-    const store = await getStore();
+    const store = await ws.get();
     return {
       enabled: Boolean(store.workspace.autopilot),
       lastTickAt: store.workspace.autopilotLastTickAt || null,
@@ -126,24 +151,24 @@ export const setAutopilotFn = createServerFn({ method: "POST" })
 export const tickAutopilotFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { grok?: boolean }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { runAutopilotTick } = await import("./ops.server");
-    return runAutopilotTick({ grok: Boolean(data?.grok) });
+    return runAutopilotTick(await wsFor(context), { grok: Boolean(data?.grok) });
   });
 
 export const publishListingFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { publishSiteToBotCentral } = await import("./ops.server");
-    return publishSiteToBotCentral(data.siteId);
+    return publishSiteToBotCentral(await wsFor(context), data.siteId);
   });
 
 export const runControlCycleFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware]).handler(
-  async () => {
+  async ({ context }) => {
     const { runMonitorCycle } = await import("./ops.server");
-    return runMonitorCycle();
+    return runMonitorCycle(await wsFor(context));
   },
 );
 
@@ -157,13 +182,13 @@ export const setKillFn = createServerFn({ method: "POST" })
       reason?: string;
     }) => d,
   )
-  .handler(async ({ data }) => {
-    const { applyKill, getStore } = await import("./ops.server");
-    const { mutateStore } = await import("./store");
-    await mutateStore((store) => {
+  .handler(async ({ data, context }) => {
+    const { applyKill } = await import("./ops.server");
+    const ws = await wsFor(context);
+    await ws.mutate((store) => {
       applyKill(store, { ...data, by: "Operator" });
     });
-    return (await getStore()).control.kill;
+    return (await ws.get()).control.kill;
   });
 
 export const attachGithubFn = createServerFn({ method: "POST" })
@@ -177,17 +202,17 @@ export const attachGithubFn = createServerFn({ method: "POST" })
       root?: string;
     }) => d,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { attachGithub } = await import("./ops.server");
-    return attachGithub(data.siteId, data);
+    return attachGithub(await wsFor(context), data.siteId, data);
   });
 
 export const pushOriginPackFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { pushOriginPack } = await import("./ops.server");
-    return pushOriginPack(data.siteId);
+    return pushOriginPack(await wsFor(context), data.siteId);
   });
 
 /**
@@ -197,38 +222,45 @@ export const pushOriginPackFn = createServerFn({ method: "POST" })
 export const inspectOriginPackFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { inspectOriginPack } = await import("./ops.server");
-    return inspectOriginPack(data.siteId);
+    return inspectOriginPack(await wsFor(context), data.siteId);
   });
 
 export const setGithubTokenFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { token: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { setGithubToken } = await import("./ops.server");
-    return setGithubToken(data.token);
+    return setGithubToken(await wsFor(context), data.token);
   });
 
 /** The customer's BotCentral key prefix for a property (empty string clears it). Stored, not sent, until billing is switched on. */
 export const setBillingKeyFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string; keyPrefix: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { setBillingKey } = await import("./ops.server");
-    return setBillingKey(data.siteId, data.keyPrefix);
+    return setBillingKey(await wsFor(context), data.siteId, data.keyPrefix);
   });
 
 /** Record the hosting provider a site runs on (the provider dropdown), or clear it with "". */
 export const setProviderFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { siteId: string; slug: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { setProvider } = await import("./ops.server");
-    return setProvider(data.siteId, data.slug);
+    return setProvider(await wsFor(context), data.siteId, data.slug);
   });
 
-/** What the billing side of this install is set to — the switch, the BotCentral hook URL, whether its secret is configured. */
+/**
+ * What the billing side of this install is set to — the switch, the BotCentral
+ * hook URL, whether its secret is configured.
+ *
+ * Deliberately takes no workspace: every value here is deployment configuration
+ * read from the environment and is identical for every tenant. Resolving one
+ * would imply these answers differ per customer, and they do not.
+ */
 export const billingSettingsFn = createServerFn({ method: "GET" })
   .middleware([operatorMiddleware]).handler(async () => {
   const { billingEnabled, botcentralHookSecret, botcentralHookUrl } = await import("./ops.server");
@@ -244,7 +276,7 @@ export const billingSettingsFn = createServerFn({ method: "GET" })
 export const settleTopupFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { id: string; tx: string; prefix?: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { settleTopup } = await import("./ops.server");
-    return settleTopup(data);
+    return settleTopup(await wsFor(context), data);
   });

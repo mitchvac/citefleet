@@ -1,18 +1,19 @@
 import { askGrok, grokConfigured } from "./grokApi";
 import { dispatchSite, publishSiteToBotCentral, runAuditAndApply } from "./dispatcher";
-import { getStore, logActivity, mutateStore, recalcScores } from "./store";
+import { logActivity, recalcScores } from "./store";
+import type { WorkspaceHandle } from "./workspace-handle.ts";
 import { assertCanAct, isFrozen } from "./control";
 
 const MENTION_TASKS = new Set(["x_mentions", "directories", "press"]);
 
-export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
-  const before = await getStore();
+export async function runAutopilotTick(ws: WorkspaceHandle, opts: { grok?: boolean } = {}) {
+  const before = await ws.get();
   const reports: string[] = [];
   const wantGrok = Boolean(opts.grok) && grokConfigured();
   const actsFrozen = isFrozen(before, "autopilot");
 
   for (const site of before.sites) {
-    const audit = await runAuditAndApply(site.id);
+    const audit = await runAuditAndApply(ws, site.id);
     reports.push(
       `${site.domain}: audit ${audit.ok ? "ok" : "issues"} (${audit.findings.length} findings)`,
     );
@@ -20,17 +21,17 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
       reports.push(`${site.domain}: acts frozen — skip dispatch/publish`);
       continue;
     }
-    await dispatchSite(site.id);
+    await dispatchSite(ws, site.id);
 
-    const listingTask = (await getStore()).tasks.find(
+    const listingTask = (await ws.get()).tasks.find(
       (t) =>
         t.siteId === site.id &&
         t.playbookId === "botcentral_list" &&
         t.status !== "done",
     );
-    if (listingTask && audit.ok && !isFrozen(await getStore(), "catalog")) {
+    if (listingTask && audit.ok && !isFrozen(await ws.get(), "catalog")) {
       try {
-        const listing = await publishSiteToBotCentral(site.id);
+        const listing = await publishSiteToBotCentral(ws, site.id);
         reports.push(
           `${site.domain}: BotCentral ${listing.listed ? "listed" : "not listed"}`,
         );
@@ -41,9 +42,9 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
       }
     }
 
-    if (!wantGrok || isFrozen(await getStore(), "mentions")) continue;
+    if (!wantGrok || isFrozen(await ws.get(), "mentions")) continue;
 
-    const latest = await getStore();
+    const latest = await ws.get();
     const open = latest.tasks.find(
       (t) =>
         t.siteId === site.id &&
@@ -55,7 +56,7 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
     const bot = latest.bots.find((b) => b.id === open.botId);
     const reply = await askGrok(site, open, bot?.callsign);
 
-    await mutateStore((store) => {
+    await ws.mutate((store) => {
       const task = store.tasks.find((t) => t.id === open.id);
       if (!task) return;
       task.evidence.unshift({
@@ -90,7 +91,7 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
     );
   }
 
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     store.workspace.autopilotLastTickAt = new Date().toISOString();
     logActivity(store, {
       actor: "Sentinel",
@@ -106,12 +107,12 @@ export async function runAutopilotTick(opts: { grok?: boolean } = {}) {
   };
 }
 
-export async function setAutopilot(enabled: boolean) {
+export async function setAutopilot(ws: WorkspaceHandle, enabled: boolean) {
   if (enabled) {
-    const store = await getStore();
+    const store = await ws.get();
     assertCanAct(store, "autopilot");
   }
-  await mutateStore((store) => {
+  await ws.mutate((store) => {
     store.workspace.autopilot = enabled;
     logActivity(store, {
       actor: "Operator",
