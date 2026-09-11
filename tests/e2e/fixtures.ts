@@ -74,6 +74,25 @@ export async function boardDrawn(page: Page): Promise<void> {
 }
 
 /**
+ * Pages already wired to auto-accept confirms.
+ *
+ * The handler must be attached exactly once per page. Attaching it per call
+ * meant a teardown removing two properties registered two handlers, both fired
+ * for the same confirm, and the second threw "Cannot accept dialog which is
+ * already handled" — failing a teardown that had actually worked.
+ */
+const dialogsWired = new WeakSet<Page>();
+
+function acceptDialogsOnce(page: Page): void {
+  if (dialogsWired.has(page)) return;
+  dialogsWired.add(page);
+  // Persistent, and registered before the click. An earlier version armed
+  // `page.once` immediately before clicking; the confirm was never accepted and
+  // the property silently survived a "passing" teardown.
+  page.on("dialog", (d) => void d.accept());
+}
+
+/**
  * Remove a property, but ONLY if this run created it.
  *
  * Returns "removed", "not-ours" (present but this run did not create it), or
@@ -90,10 +109,7 @@ export async function removeIfOurs(
   const target = exactCard(page, name);
   if ((await target.count()) === 0) return "absent";
 
-  // A persistent handler, registered before the click: an earlier version armed
-  // `page.once` immediately before clicking and the confirm was never accepted,
-  // so the property silently survived a "passing" teardown.
-  page.on("dialog", (d) => void d.accept());
+  acceptDialogsOnce(page);
   await target.getByRole("link", { name: /campaign/i }).first().click();
   // Long enough for React to attach handlers on a production round trip; a click
   // on an unhydrated button is silently a no-op and leaves the property behind.
