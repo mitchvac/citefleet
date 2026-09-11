@@ -7,6 +7,7 @@ import {
   billingSettingsFn,
   setBillingKeyFn,
   setProviderFn,
+  setIndexNowKeyFn,
   dispatchProperty,
   inspectOriginPackFn,
   loadState,
@@ -234,6 +235,10 @@ export function useFleet() {
     setProvider: (siteId: string, slug: string) =>
       run("provider", async () => {
         await setProviderFn({ data: { siteId, slug } });
+      }),
+    setIndexNowKey: (siteId: string, key: string) =>
+      run("indexnow", async () => {
+        await setIndexNowKeyFn({ data: { siteId, key } });
       }),
   };
 }

@@ -1,6 +1,17 @@
 import { resolveTxt } from "node:dns/promises";
 import type { Site } from "./types";
-import { normalizeDomain, siteVerifyToken, verifyLine } from "./verify-token.ts";
+import { siteVerifyToken } from "./verify-token.ts";
+import { looksLikeHtml, tokenPresent } from "./origin-file-check.ts";
+import { proofHint, wellKnownUrl } from "./proof-record.ts";
+
+// `proofHint`, `wellKnownUrl`, `looksLikeHtml` and `tokenPresent` moved into
+// browser-safe modules so a component can render the record without dragging
+// `node:dns/promises` into the client bundle (client-bundle-guard.test.ts).
+// Re-exported here because this module's public surface is what the rest of the
+// app and `proof.test.ts` already import.
+export { looksLikeHtml, tokenPresent } from "./origin-file-check.ts";
+export { proofHint, proofRecord, wellKnownUrl } from "./proof-record.ts";
+export type { ProofRecord } from "./proof-record.ts";
 
 /**
  * Pre-flight proof of control — the same rules BotCentral's verifier applies
@@ -24,40 +35,6 @@ export interface ProofDeps {
   fetchText?: (url: string) => Promise<{ status: number; text: string; contentType: string }>;
   resolveTxt?: (domain: string) => Promise<string[][]>;
   now?: () => Date;
-}
-
-export function looksLikeHtml(text: string): boolean {
-  const head = text.slice(0, 400).toLowerCase();
-  return (
-    head.includes("<!doctype") ||
-    head.includes("<html") ||
-    head.includes("<head") ||
-    head.includes("<body")
-  );
-}
-
-export function tokenPresent(haystack: string, token: string): boolean {
-  if (!token) return false;
-  return haystack.includes(`botcentral-verify=${token}`) || haystack.includes(token);
-}
-
-export function wellKnownUrl(site: Pick<Site, "domain">): string {
-  return `https://${site.domain.replace(/^www\./, "")}/.well-known/botcentral.txt`;
-}
-
-/**
- * What the operator or customer must add. DNS is named FIRST: it needs no
- * deploy, it is the name BotCentral's verifier actually queries (a bare apex
- * TXT, SPEC 4.3), and it keeps proving when a redeploy drops the origin pack.
- * The file is the same line over HTTP. Either one alone is enough.
- */
-export function proofHint(site: Pick<Site, "domain">): string {
-  const apex = normalizeDomain(site.domain);
-  return (
-    `Add an apex DNS TXT record - Type TXT, Name @, Value ${verifyLine(siteVerifyToken(site))} ` +
-    `(in some panels Name is left blank, or is written ${apex}). ` +
-    `Or serve that same line as plain text at ${wellKnownUrl(site)}.`
-  );
 }
 
 async function defaultFetchText(url: string) {

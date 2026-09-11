@@ -8,6 +8,8 @@ import type {
 import { lookupListing } from "./botcentral";
 import { buildChecks } from "./reconcile";
 import { checkOriginProof } from "./proof.ts";
+import { checkLlms, checkWellKnownFile } from "./origin-file-check.ts";
+import { siteVerifyToken } from "./verify-token.ts";
 import { ensureControl, isFrozen, pushJob } from "./control";
 import { logActivity } from "./store";
 import type { WorkspaceHandle } from "./workspace-handle.ts";
@@ -129,10 +131,10 @@ async function probeSite(site: Site): Promise<Omit<SiteMonitor, "checks" | "bloc
   const wk = await probe(`${origin}/.well-known/botcentral.txt`);
   const llms = await probe(`${origin}/llms.txt`);
   const listing = await lookupListing(site.domain);
-  const wellKnownText =
-    wk.status === 200 &&
-    !wk.contentType.includes("html") &&
-    /domain:\s*\S+/i.test(wk.text);
+  // Look for the PROOF TOKEN, not merely a `domain:` line. The old predicate
+  // matched any file containing `domain: something` — including one written by
+  // somebody else entirely — and reported it as CiteFleet's proof file.
+  const wellKnownText = checkWellKnownFile(wk, siteVerifyToken(site)).ok;
 
   // Proof of control is NOT the file probe above. An origin proven by an apex
   // DNS TXT record serves no file at all, and reporting that as "no proof"
@@ -156,7 +158,11 @@ async function probeSite(site: Site): Promise<Omit<SiteMonitor, "checks" | "bloc
     proven: proof.proven,
     proofMethod: proof.method,
     proofNote: proof.note,
-    llms: llms.status === 200 && llms.text.trim().startsWith("#"),
+    // `startsWith("#")` was wrong about CiteFleet's OWN file: buildOriginPack
+    // opens llms.txt with an HTML ownership comment, so every correctly
+    // installed pack scored false here. Nothing caught it because reconcile.ts
+    // never read this field — it does now.
+    llms: checkLlms(llms).ok,
   };
 }
 

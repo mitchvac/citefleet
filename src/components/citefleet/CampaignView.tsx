@@ -4,6 +4,8 @@ import { useFleet } from "@/lib/citefleet/client";
 import type { OriginPackInspection } from "@/lib/citefleet/client";
 import { Pill } from "./Shell";
 import { ProviderPicker } from "./ProviderPicker";
+import { Row } from "./Copy";
+import { OriginPackPanel } from "./OriginPackPanel";
 import { GrokHandoff } from "./GrokHandoff";
 import type { Site, Task } from "@/lib/citefleet/types";
 import { hostingHint } from "@/lib/citefleet/hosting-hint";
@@ -15,6 +17,7 @@ import {
 } from "@/lib/citefleet/provider-choice";
 import { PROVIDER_FLOWS } from "@/lib/citefleet/provider-flows";
 import { siteVerifyToken, verifyLine } from "@/lib/citefleet/verify-token";
+import { proofRecord } from "@/lib/citefleet/proof-record";
 
 function tone(status: string) {
   if (status === "done") return "good" as const;
@@ -200,6 +203,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
 
       <GithubPanel site={site} fleet={fleet} sites={fleet.store.sites} />
       <ProviderPanel site={site} fleet={fleet} />
+      <OriginPackPanel site={site} fleet={fleet} />
       <AutoListingPanel site={site} fleet={fleet} />
       <BillingPanel site={site} fleet={fleet} />
 
@@ -325,6 +329,7 @@ function AutoListingPanel({
   site: Site;
   fleet: ReturnType<typeof useFleet>;
 }) {
+  const record = proofRecord(site);
   const proof = site.proof;
   const hook = site.webhook;
   // The secret is shown once, right after generate/rotate; the store never carries it.
@@ -353,6 +358,32 @@ function AutoListingPanel({
         <Pill tone={proof?.proven ? "good" : "warn"}>
           {proof ? (proof.proven ? `proof ${proof.method}` : "proof not live") : "proof unchecked"}
         </Pill>
+      </div>
+      {/*
+        The record itself, shown BEFORE anyone presses Verify proof.
+        `proofRecord` is a pure function of the domain, so there is nothing to
+        wait for — and until now the instruction existed only as a tail on
+        `proof.note`, in the smallest text on the page, and only AFTER a check
+        had already failed. The customer who has not started yet is exactly the
+        one who needs it.
+      */}
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3" data-testid="proof-record">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
+          Add this DNS record — no deploy needed
+        </p>
+        <div className="mt-2">
+          <Row label="Type" value={record.type} />
+          <Row label="Name" value={record.name} />
+          <Row label="Value" value={record.value} />
+        </div>
+        <p className="mt-2 text-xs text-[#e2c36d]">{record.newRecordWarning}</p>
+        <p className="mt-1 text-xs text-[#9b95b3]">
+          {record.nameNote} This is CiteFleet’s publisher token — the same record
+          works for every domain you list here. Serving{" "}
+          <span className="mono break-all">{record.value}</span> as plain text at{" "}
+          <span className="mono break-all">{record.fileUrl}</span> proves the same
+          thing; either one alone is enough.
+        </p>
       </div>
       {proof && (
         <p className="mt-3 text-xs text-[#9b95b3]" data-testid="proof-note">

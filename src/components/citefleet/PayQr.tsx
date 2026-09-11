@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { Row } from "./Copy";
 import { encodeQr, qrSvgPath } from "@/lib/citefleet/qr";
 import { payTarget } from "@/lib/citefleet/pay-uri";
 import type { TopupInvoice } from "@/lib/citefleet/topup";
@@ -9,42 +10,6 @@ import type { TopupInvoice } from "@/lib/citefleet/topup";
  * bound no treasury address for the network — there is no destination to encode,
  * and the page's existing "pay out of band" note covers that case honestly.
  */
-function Copy({ label, value }: { label: string; value: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setDone(true);
-          setTimeout(() => setDone(false), 1800);
-        } catch {
-          setDone(false); // clipboard blocked (insecure context / denied permission)
-        }
-      }}
-      className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[#cfc8e8] hover:bg-white/5"
-      aria-label={`Copy ${label}`}
-    >
-      {done ? "Copied" : "Copy"}
-    </button>
-  );
-}
-
-function Row({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-2 first:border-t-0">
-      <span className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">{label}</span>
-      <span className="flex min-w-0 items-center gap-2">
-        <span className={`${mono ? "mono" : ""} min-w-0 truncate text-sm text-white`} title={value}>
-          {value}
-        </span>
-        <Copy label={label} value={value} />
-      </span>
-    </div>
-  );
-}
-
 export function PayQr({ invoice }: { invoice: TopupInvoice }) {
   const target = useMemo(() => payTarget(invoice), [invoice]);
   const qr = useMemo(() => {

@@ -1,6 +1,15 @@
 import type { AuditResult, Site } from "./types";
 import { discoverRoutes, sitemapUrlFromRobots } from "./route-discovery.ts";
 import { detectHosting } from "./hosting.ts";
+import {
+  checkIndexNowKeyFile,
+  checkLlms,
+  checkRobots,
+  checkSitemapDoc,
+  checkWellKnownFile,
+} from "./origin-file-check.ts";
+import { wellKnownUrl } from "./proof-record.ts";
+import { siteVerifyToken } from "./verify-token.ts";
 
 const AI_AGENTS = [
   "OAI-SearchBot",
@@ -171,8 +180,13 @@ export async function auditSite(site: Site): Promise<AuditResult> {
   // botcentral.org — `Sitemap: /sitemaps/sitemap.xml`, 27 real URLs — as
   // having no sitemap at all, and sent the check to /sitemap.xml, which 404s.
   const sitemapDeclared = sitemapUrlFromRobots(robotsText, origin) !== null;
+  // A 200 is not a file. Azure's navigationFallback and DigitalOcean's
+  // catchall_document both answer 200 with index.html for a path that does not
+  // exist, so the old `status === 200 && length > 0` scored an app shell as a
+  // healthy robots.txt while BotCentral rejected it.
+  const robotsVerdict = checkRobots(robotsRes);
   const robots = {
-    ok: robotsRes.status === 200 && robotsText.length > 0,
+    ok: robotsVerdict.ok,
     status: robotsRes.status,
     allowsAi,
     sitemapDeclared,
@@ -211,11 +225,8 @@ export async function auditSite(site: Site): Promise<AuditResult> {
   const sitemapUrl = discovered.sitemapUrl || site.sitemapUrl || `${origin}/sitemap.xml`;
   const sm = await timedGet(sitemapUrl);
   const urlCount = (sm.text.match(/<loc>/g) || []).length;
-  const sitemap = {
-    ok: sm.status === 200 && (urlCount > 0 || sm.text.includes("<urlset")),
-    status: sm.status,
-    urlCount,
-  };
+  const sitemapVerdict = checkSitemapDoc(sm);
+  const sitemap = { ok: sitemapVerdict.ok, status: sm.status, urlCount };
   findings.push(
     sitemap.ok
       ? {
@@ -229,7 +240,7 @@ export async function auditSite(site: Site): Promise<AuditResult> {
           id: "sitemap-missing",
           severity: "critical",
           title: "Sitemap not readable",
-          detail: sm.error || `HTTP ${sm.status} at ${sitemapUrl}`,
+          detail: sm.error || `${sitemapVerdict.reason} (${sitemapUrl})`,
           playbookId: "sitemap",
         },
   );
@@ -237,8 +248,10 @@ export async function auditSite(site: Site): Promise<AuditResult> {
   if (site.indexNowKey) {
     const keyUrl = `${origin}/${site.indexNowKey}.txt`;
     const keyRes = await timedGet(keyUrl);
-    const keyOk =
-      keyRes.status === 200 && keyRes.text.includes(site.indexNowKey);
+    // IndexNow requires the file to hold the key and nothing else. The old
+    // `includes` passed on an HTML page that merely mentioned it.
+    const keyVerdict = checkIndexNowKeyFile(keyRes, site.indexNowKey);
+    const keyOk = keyVerdict.ok;
     findings.push(
       keyOk
         ? {
@@ -252,11 +265,47 @@ export async function auditSite(site: Site): Promise<AuditResult> {
             id: "indexnow-key-missing",
             severity: "warn",
             title: "IndexNow key file not verified",
-            detail: `${keyUrl} → ${keyRes.status ?? keyRes.error}`,
+            detail: keyRes.error || keyVerdict.reason,
             playbookId: "indexnow",
           },
     );
   }
+
+  // llms.txt and .well-known/botcentral.txt were never fetched by the audit at
+  // all — the button labelled "Live audit" reported a healthy site while two of
+  // the five pack files were missing. They are the two that AI assistants and
+  // BotCentral's verifier actually read.
+  const llmsUrl = `${origin}/llms.txt`;
+  const llmsRes = await timedGet(llmsUrl);
+  const llmsVerdict = checkLlms(llmsRes);
+  findings.push(
+    llmsVerdict.ok
+      ? { id: "llms-ok", severity: "ok", title: "llms.txt readable", detail: llmsUrl }
+      : {
+          id: "llms-missing",
+          severity: "warn",
+          title: "llms.txt not readable",
+          detail: llmsRes.error || llmsVerdict.reason,
+        },
+  );
+
+  const wellKnownRes = await timedGet(wellKnownUrl(site));
+  const wellKnownVerdict = checkWellKnownFile(wellKnownRes, siteVerifyToken(site));
+  findings.push(
+    wellKnownVerdict.ok
+      ? {
+          id: "wellknown-ok",
+          severity: "ok",
+          title: "Origin proof file serving",
+          detail: wellKnownUrl(site),
+        }
+      : {
+          id: "wellknown-missing",
+          severity: "warn",
+          title: "Origin proof file not serving",
+          detail: wellKnownRes.error || wellKnownVerdict.reason,
+        },
+  );
 
   const hosting = await detectHosting({
     domain: site.domain,

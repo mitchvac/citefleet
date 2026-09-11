@@ -205,7 +205,9 @@ export async function inspectOriginPack(ws: WorkspaceHandle, siteId: string) {
     repo: site.github.repo,
     branch: site.github.branch,
   };
-  const files = buildOriginPack({ ...site, verifyToken: siteVerifyToken(site) });
+  const { ensureIndexNowKey } = await import("./dispatcher");
+  const indexNowKey = await ensureIndexNowKey(ws, siteId);
+  const files = buildOriginPack({ ...site, verifyToken: siteVerifyToken(site), indexNowKey });
 
   const remotes = new Map<string, string | null>();
   const unreadable: string[] = [];
@@ -295,7 +297,11 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
   }
 
   const verifyToken = siteVerifyToken(site);
-  const files = buildOriginPack({ ...site, verifyToken });
+  // Five files, not four: a property onboarded before keys were generated has
+  // none, and the pack would silently ship without the IndexNow file.
+  const { ensureIndexNowKey } = await import("./dispatcher");
+  const indexNowKey = await ensureIndexNowKey(ws, siteId);
+  const files = buildOriginPack({ ...site, verifyToken, indexNowKey });
 
   // Look before writing. `buildOriginPack` generates from campaign state, so a
   // blind PUT replaces a site's own robots policy with a generic one — it did,

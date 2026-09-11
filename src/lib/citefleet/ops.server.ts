@@ -16,6 +16,7 @@ export {
   runWebhookListing,
   setBillingKey,
   setProvider,
+  setIndexNowKey,
 } from "./dispatcher";
 export {
   handleGithubWebhook,

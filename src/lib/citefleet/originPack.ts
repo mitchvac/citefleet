@@ -1,4 +1,5 @@
 import type { Site } from "./types";
+import { cleanIndexNowKey } from "./indexnow.ts";
 import { siteVerifyToken, verifyLine } from "./verify-token.ts";
 import { OWNER_MARKER } from "./origin-ownership.ts";
 
@@ -22,10 +23,17 @@ export function originRoot(site: Site) {
   return (site.github?.root || "public").replace(/^\/|\/$/g, "");
 }
 
-export function buildOriginPack(site: Site): OriginFile[] {
+/**
+ * The pack as the WEB sees it: paths relative to the site's web root, which is
+ * what somebody typing them into a hosting panel's File Manager needs.
+ *
+ * `buildOriginPack` is the same files with the repo folder in front
+ * (`public/robots.txt`), which is what the GitHub push needs. One generator, two
+ * views — a customer on Hostinger and a customer on Vercel must receive byte-
+ * identical files, or the proof that verifies one would not verify the other.
+ */
+export function packFiles(site: Site): OriginFile[] {
   const origin = site.url.replace(/\/$/, "");
-  const root = originRoot(site);
-  const prefix = root ? `${root}/` : "";
   const routes = (site.routes.length ? site.routes : ["/", "/privacy", "/terms"]).filter(
     (r) => r === "/" || !r.startsWith("/api"),
   );
@@ -43,7 +51,13 @@ export function buildOriginPack(site: Site): OriginFile[] {
     "Disallow: /settings",
     "",
     ...AI_AGENTS.flatMap((ua) => [`User-agent: ${ua}`, "Allow: /", ""]),
-    `Sitemap: ${origin}/sitemap.xml`,
+    // The sitemap the site ACTUALLY serves, not an assumption. WordPress core
+    // answers /wp-sitemap.xml and Yoast /sitemap_index.xml — roughly 40% of the
+    // web — so a hardcoded /sitemap.xml pointed crawlers at a 404 for them.
+    // `site.sitemapUrl` is this exact value: set to `${url}/sitemap.xml` at
+    // onboard (identical to the old hardcode) and overwritten by the live audit
+    // with what robots.txt declared. Reading it is never worse than assuming.
+    `Sitemap: ${site.sitemapUrl || `${origin}/sitemap.xml`}`,
     "",
   ].join("\n");
 
@@ -100,18 +114,25 @@ export function buildOriginPack(site: Site): OriginFile[] {
   ].join("\n");
 
   const files: OriginFile[] = [
-    { path: `${prefix}robots.txt`, content: robots },
-    { path: `${prefix}sitemap.xml`, content: sitemap },
-    { path: `${prefix}llms.txt`, content: llms },
-    { path: `${prefix}.well-known/botcentral.txt`, content: wellKnown },
+    { path: "robots.txt", content: robots },
+    { path: "sitemap.xml", content: sitemap },
+    { path: "llms.txt", content: llms },
+    { path: ".well-known/botcentral.txt", content: wellKnown },
   ];
 
-  if (site.indexNowKey) {
-    files.push({
-      path: `${prefix}${site.indexNowKey}.txt`,
-      content: `${site.indexNowKey}\n`,
-    });
+  // The key is validated before it is ever stored (`cleanIndexNowKey`), because
+  // this line turns it into a path that the GitHub Contents API writes to.
+  const key = cleanIndexNowKey(site.indexNowKey);
+  if (key) {
+    files.push({ path: `${key}.txt`, content: `${key}\n` });
   }
 
   return files;
+}
+
+/** The pack as the REPO sees it: the same files under the property's origin folder. */
+export function buildOriginPack(site: Site): OriginFile[] {
+  const root = originRoot(site);
+  const prefix = root ? `${root}/` : "";
+  return packFiles(site).map((f) => ({ ...f, path: `${prefix}${f.path}` }));
 }

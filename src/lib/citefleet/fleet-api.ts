@@ -244,6 +244,15 @@ export const setBillingKeyFn = createServerFn({ method: "POST" })
     return setBillingKey(await wsFor(context), data.siteId, data.keyPrefix);
   });
 
+/** Set or rotate a property's IndexNow key. An empty string generates one. */
+export const setIndexNowKeyFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((d: { siteId: string; key: string }) => d)
+  .handler(async ({ data, context }) => {
+    const { setIndexNowKey } = await import("./ops.server");
+    return setIndexNowKey(await wsFor(context), data.siteId, data.key);
+  });
+
 /** Record the hosting provider a site runs on (the provider dropdown), or clear it with "". */
 export const setProviderFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])

@@ -4,6 +4,7 @@ import { auditSite } from "./auditor";
 import { billingEnabled, billingPrefixFor, publishListing } from "./botcentral";
 import { cleanPrefix } from "./topup.ts";
 import { chooseProvider, providerGuidance } from "./provider-choice.ts";
+import { INDEXNOW_KEY_HELP, cleanIndexNowKey, resolveIndexNowKey } from "./indexnow.ts";
 import { PROVIDER_FLOWS } from "./provider-flows.ts";
 import {
   logActivity,
@@ -37,6 +38,9 @@ export async function onboardSite(ws: WorkspaceHandle, input: {
 }): Promise<Site> {
   const url = input.url.replace(/\/$/, "");
   const domain = new URL(url).hostname;
+  if (input.indexNowKey && !cleanIndexNowKey(input.indexNowKey)) {
+    throw new Error(INDEXNOW_KEY_HELP);
+  }
   const workspaceId = (await ws.get()).workspace.id;
   const site: Site = {
     id: `site-${crypto.randomUUID().slice(0, 8)}`,
@@ -46,7 +50,11 @@ export async function onboardSite(ws: WorkspaceHandle, input: {
     url,
     status: "auditing",
     sitemapUrl: `${url}/sitemap.xml`,
-    indexNowKey: input.indexNowKey,
+    // Generated when the customer supplies none, so the pack is always five
+    // files rather than four and the `indexnow` task can actually close. An
+    // invalid paste is REFUSED here, not quietly dropped — the value becomes a
+    // path the GitHub push writes to.
+    indexNowKey: resolveIndexNowKey(undefined, input.indexNowKey),
     verifyToken: siteVerifyToken({ domain }),
     routes: input.routes?.length
       ? input.routes
@@ -602,6 +610,69 @@ export async function setProvider(ws: WorkspaceHandle, siteId: string, slug: str
     });
   });
   return { provider: choice ?? null };
+}
+
+/**
+ * Make sure a property HAS an IndexNow key, generating one if it does not.
+ *
+ * `onboardSite` generates one for every new property, but every property
+ * onboarded before that existed has none — and with no key the pack is four
+ * files instead of five and the `indexnow` task can never close. Idempotent, and
+ * it never replaces an existing key (see `resolveIndexNowKey` for why that
+ * matters). Called wherever the pack is about to be built or shown.
+ */
+export async function ensureIndexNowKey(ws: WorkspaceHandle, siteId: string): Promise<string> {
+  const store = await ws.get();
+  const site = store.sites.find((s) => s.id === siteId);
+  if (!site) throw new Error("Site not found");
+  const existing = cleanIndexNowKey(site.indexNowKey);
+  if (existing) return existing;
+  const key = resolveIndexNowKey(undefined);
+  await ws.mutate((s) => {
+    const current = s.sites.find((x) => x.id === siteId);
+    if (!current) return;
+    current.indexNowKey = key;
+    logActivity(s, {
+      actor: "Operator",
+      kind: "control",
+      siteId,
+      message:
+        `Generated the IndexNow key ${key} for ${site.domain} — the origin pack is five files, ` +
+        `not four. Publish /${key}.txt with the rest of the pack.`,
+    });
+  });
+  return key;
+}
+
+/**
+ * Set or rotate a property's IndexNow key.
+ *
+ * An empty `raw` generates one. A rotation is deliberate and has a cost worth
+ * knowing: the `<key>.txt` file carries no ownership marker, so CiteFleet can
+ * create it but can never recognise and replace it. The file for the OLD key
+ * stays on the customer's origin, and only they can delete it.
+ */
+export async function setIndexNowKey(ws: WorkspaceHandle, siteId: string, raw: string) {
+  const pasted = raw.trim();
+  if (pasted && !cleanIndexNowKey(pasted)) throw new Error(INDEXNOW_KEY_HELP);
+  const key = cleanIndexNowKey(pasted) || resolveIndexNowKey(undefined);
+  await ws.mutate((store) => {
+    const site = store.sites.find((s) => s.id === siteId);
+    if (!site) throw new Error("Site not found");
+    const previous = site.indexNowKey;
+    site.indexNowKey = key;
+    logActivity(store, {
+      actor: "Operator",
+      kind: "control",
+      siteId,
+      message:
+        previous && previous !== key
+          ? `Rotated the IndexNow key for ${site.domain} to ${key}. Push origin files to publish /${key}.txt — ` +
+            `/${previous}.txt stays on the origin until someone deletes it there.`
+          : `Set the IndexNow key for ${site.domain} to ${key}. Push origin files to publish /${key}.txt.`,
+    });
+  });
+  return { key };
 }
 
 /** Store the last proof check on the site and return it (the "Verify proof" button). */
