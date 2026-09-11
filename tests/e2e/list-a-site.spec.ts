@@ -63,6 +63,25 @@ test.describe("user gate (signed out)", () => {
     expect(signup.status()).toBe(303);
     expect(signup.headers()["location"] || "").toMatch(/error=not-allowed/);
   });
+
+  test("Forgot your password switches the form to reset mode and says so", async ({ page }) => {
+    // The click always worked; the page just retitled itself "Create your
+    // account" because the heading was a two-way ternary and `forgot` fell into
+    // the else branch. It looked broken, which is the same thing to whoever
+    // pressed it — so the heading is what this pins.
+    await page.goto("/login");
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await page.getByTestId("forgot-password").click();
+
+    await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create your account" })).toHaveCount(0);
+    // The password field is gone and the action says what it will do.
+    await expect(page.getByLabel("Password")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Email me a reset link" })).toBeVisible();
+    // An OAuth-only account has no password to reset; the copy must say so,
+    // because that is the actual state of the accounts on this deployment.
+    await expect(page.getByText(/no password to reset/i)).toBeVisible();
+  });
 });
 
 test("training: read every lesson, the glossary, and pass the operator test", async ({

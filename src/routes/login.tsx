@@ -45,12 +45,34 @@ function LoginPage() {
           </Link>
           <ShareApp />
         </div>
+        {/*
+          Three modes, so three headings. This was a two-way ternary and
+          `forgot` fell through to the else branch: pressing "Forgot your
+          password?" retitled the page "Create your account" over an email field
+          and an "Email me a reset link" button. The click worked — it just
+          looked like it had gone wrong, which is the same thing to whoever
+          pressed it.
+        */}
         <h1 className="mt-6 text-2xl font-semibold">
-          {mode === "signin" ? "Sign in" : "Create your account"}
+          {mode === "signin"
+            ? "Sign in"
+            : mode === "signup"
+              ? "Create your account"
+              : "Reset your password"}
         </h1>
         <p className="mt-2 text-sm text-[#b7b0cc]">
-          Customers and operators sign in here. List a site, prove origin, and
-          publish to BotCentral from this workspace.
+          {mode === "forgot" ? (
+            <>
+              Enter the email on your account and we will send a link to set a new
+              password. Signed up with Google or GitHub? Use that button instead —
+              those accounts have no password to reset.
+            </>
+          ) : (
+            <>
+              Customers and operators sign in here. List a site, prove origin, and
+              publish to BotCentral from this workspace.
+            </>
+          )}
         </p>
         {error && (
           <p
