@@ -295,7 +295,7 @@ for i in $(seq 1 40); do
 done
 if [[ -n "$ok" ]]; then
   echo "SUCCESS — CiteFleet at https://$DOMAIN (other sites on this box left intact)"
-  echo "Sign in at https://$DOMAIN/login — allow-listed emails only (/root/citefleet-operator.emails); token fallback: cat $OP_FILE"
+  echo "Sign in at https://$DOMAIN/login — account creation is open; token fallback: cat $OP_FILE"
 else
   echo "App did not answer yet. docker logs $CONTAINER --tail 50"
 fi
