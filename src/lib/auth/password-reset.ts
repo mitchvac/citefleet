@@ -9,6 +9,9 @@
 /** How long a link stays good. Short: the mailbox is the weak link, not us. */
 export const RESET_TTL_MS = 30 * 60 * 1000;
 
+/** Browser label and server reservation share one resend interval. */
+export const RESET_RESEND_SECONDS = 30;
+
 /** Matches `createUser`, which refuses anything shorter. */
 export const MIN_PASSWORD_LENGTH = 8;
 

@@ -12,7 +12,9 @@
  *   - AUTH PLAIN only. Gmail requires an App Password (2FA on the account);
  *     the plain account password is refused by Google with 535.
  *   - one recipient, plain text, ASCII headers. No attachments, no HTML,
- *     no CC/BCC, no connection pooling, no retry.
+ *     no CC/BCC or connection pooling.
+ *   - one bounded retry only before submission or after an explicit 4xx. A
+ *     connection loss after the body is written is ambiguous and never retried.
  *
  * The protocol half is pure and takes an injected `SmtpIO`, so the whole
  * transcript is testable without opening a socket — the same shape `proof.ts`
@@ -26,6 +28,9 @@ const PORT = 465;
 const CRLF = "\r\n";
 /** Gmail drops an idle submission connection well before this. */
 const TIMEOUT_MS = 20_000;
+const RETRY_DELAY_MS = 500;
+const MAX_SEND_ATTEMPTS = 2;
+export const MAX_SEND_LATENCY_MS = TIMEOUT_MS * MAX_SEND_ATTEMPTS + RETRY_DELAY_MS;
 
 export interface SmtpReply {
   code: number;
@@ -36,6 +41,24 @@ export interface Mail {
   to: string;
   subject: string;
   text: string;
+  messageId?: string;
+}
+
+export type MailReceipt = { attempts: number; acceptedAt: string; messageId: string };
+
+export class SmtpError extends Error {
+  attempts = 1;
+  readonly stage: string;
+  readonly code: number | null;
+  readonly safeToRetry: boolean;
+
+  constructor(message: string, stage: string, code: number | null, safeToRetry: boolean) {
+    super(message);
+    this.name = "SmtpError";
+    this.stage = stage;
+    this.code = code;
+    this.safeToRetry = safeToRetry;
+  }
 }
 
 /** Write a command, read one reply. Injected so the transcript is testable. */
@@ -113,7 +136,7 @@ export function buildMessage(
   m: Mail,
   from: string,
   now: Date = new Date(),
-  id: string = randomBytes(12).toString("hex"),
+  id: string = m.messageId ?? randomBytes(12).toString("hex"),
 ): string {
   assertHeaderSafe("from", from);
   assertHeaderSafe("to", m.to);
@@ -137,7 +160,12 @@ function expect(reply: SmtpReply, wanted: number, step: string): void {
   if (reply.code !== wanted) {
     // Reply text can echo the envelope but never the credential — AUTH PLAIN's
     // argument is not part of any reply, and we never interpolate it here.
-    throw new Error(`SMTP ${step} failed: ${reply.code} ${reply.lines[0] ?? ""}`.trim());
+    throw new SmtpError(
+      `SMTP ${step} failed: ${reply.code} ${reply.lines[0] ?? ""}`.trim(),
+      step,
+      reply.code || null,
+      reply.code >= 400 && reply.code < 500,
+    );
   }
 }
 
@@ -153,41 +181,55 @@ export async function runSession(
   from: string,
   ehloName = "citefleet.app",
 ): Promise<void> {
-  expect(await io.read(), 220, "greeting");
+  const message = buildMessage(m, from);
+  let stage = "greeting";
+  let bodySubmitted = false;
+  try {
+    expect(await io.read(), 220, stage);
 
-  await io.write(`EHLO ${ehloName}${CRLF}`);
-  expect(await io.read(), 250, "EHLO");
+    stage = "EHLO";
+    await io.write(`EHLO ${ehloName}${CRLF}`);
+    expect(await io.read(), 250, stage);
 
-  await io.write(`AUTH PLAIN ${authPlainToken(auth.user, auth.password)}${CRLF}`);
-  const authed = await io.read();
-  if (authed.code === 535) {
-    // The single most common misconfiguration, worth naming precisely.
-    throw new Error(
-      "SMTP auth rejected (535). Gmail needs an App Password with 2FA enabled — " +
-        "the account password will not work.",
-    );
+    stage = "AUTH";
+    await io.write(`AUTH PLAIN ${authPlainToken(auth.user, auth.password)}${CRLF}`);
+    const authed = await io.read();
+    if (authed.code === 535) {
+      throw new SmtpError(
+        "SMTP auth rejected (535). Gmail needs an App Password with 2FA enabled — " +
+          "the account password will not work.",
+        stage,
+        535,
+        false,
+      );
+    }
+    expect(authed, 235, stage);
+
+    stage = "MAIL FROM";
+    await io.write(`MAIL FROM:<${from}>${CRLF}`);
+    expect(await io.read(), 250, stage);
+
+    stage = "RCPT TO";
+    await io.write(`RCPT TO:<${m.to}>${CRLF}`);
+    const rcpt = await io.read();
+    if (rcpt.code !== 250 && rcpt.code !== 251) expect(rcpt, 250, stage);
+
+    stage = "DATA";
+    await io.write(`DATA${CRLF}`);
+    expect(await io.read(), 354, stage);
+
+    stage = "message body";
+    bodySubmitted = true;
+    await io.write(`${message}${CRLF}.${CRLF}`);
+    expect(await io.read(), 250, stage);
+  } catch (error) {
+    if (error instanceof SmtpError) throw error;
+    throw new SmtpError(`SMTP ${stage} transport failed`, stage, null, !bodySubmitted);
   }
-  expect(authed, 235, "AUTH");
 
-  await io.write(`MAIL FROM:<${from}>${CRLF}`);
-  expect(await io.read(), 250, "MAIL FROM");
-
-  await io.write(`RCPT TO:<${m.to}>${CRLF}`);
-  const rcpt = await io.read();
-  // 250 accepted, 251 accepted-and-forwarded. Both are a delivery commitment.
-  if (rcpt.code !== 250 && rcpt.code !== 251) {
-    expect(rcpt, 250, "RCPT TO");
-  }
-
-  await io.write(`DATA${CRLF}`);
-  expect(await io.read(), 354, "DATA");
-
-  await io.write(`${buildMessage(m, from)}${CRLF}.${CRLF}`);
-  expect(await io.read(), 250, "message body");
-
-  await io.write(`QUIT${CRLF}`);
-  // Some servers close before answering QUIT; the message is already accepted,
-  // so a missing 221 is not a delivery failure and must not be raised as one.
+  // The provider has accepted the message. QUIT cannot change that result, so
+  // a socket close or write error here must not turn success into a retry.
+  await io.write(`QUIT${CRLF}`).catch(() => undefined);
 }
 
 /** Whether the mailer is configured. `/health` and the reset flow both ask. */
@@ -243,12 +285,7 @@ function reader(socket: TLSSocket) {
     });
 }
 
-/**
- * Send one message. Throws on any failure — the caller decides whether a failed
- * send is fatal. Never retries: a duplicated password-reset email is worse than
- * a missing one, because the second link invalidates nothing and confuses.
- */
-export async function sendMail(m: Mail): Promise<void> {
+async function submitOnce(m: Mail): Promise<void> {
   const user = (process.env.CITEFLEET_SMTP_USER || "").trim();
   const password = normalizeAppPassword(process.env.CITEFLEET_SMTP_PASSWORD || "");
   const from = mailFrom();
@@ -258,11 +295,15 @@ export async function sendMail(m: Mail): Promise<void> {
 
   const socket = tlsConnect({ host: HOST, port: PORT, servername: HOST });
   socket.setTimeout(TIMEOUT_MS);
+  socket.once("timeout", () => socket.destroy(new Error("SMTP socket timed out")));
+  const deadline = setTimeout(
+    () => socket.destroy(new Error("SMTP attempt timed out")),
+    TIMEOUT_MS,
+  );
   try {
     await new Promise<void>((resolve, reject) => {
       socket.once("secureConnect", () => resolve());
       socket.once("error", reject);
-      socket.once("timeout", () => reject(new Error("SMTP connect timed out")));
     });
     const read = reader(socket);
     const io: SmtpIO = {
@@ -273,7 +314,46 @@ export async function sendMail(m: Mail): Promise<void> {
       read,
     };
     await runSession(io, m, { user, password }, from);
+  } catch (error) {
+    if (error instanceof SmtpError) throw error;
+    throw new SmtpError("SMTP connection failed", "connect", null, true);
   } finally {
+    clearTimeout(deadline);
     socket.destroy();
   }
+}
+
+export async function sendMailWithRetry(
+  mail: Mail,
+  submit: (prepared: Mail) => Promise<void>,
+  sleep: (delayMs: number) => Promise<void> = (delayMs) =>
+    new Promise((resolve) => setTimeout(resolve, delayMs)),
+): Promise<MailReceipt> {
+  const messageId = mail.messageId ?? randomBytes(12).toString("hex");
+  const prepared = { ...mail, messageId };
+  for (let attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt += 1) {
+    try {
+      await submit(prepared);
+      return { attempts: attempt, acceptedAt: new Date().toISOString(), messageId };
+    } catch (error) {
+      if (error instanceof SmtpError) error.attempts = attempt;
+      if (!(error instanceof SmtpError) || !error.safeToRetry || attempt === MAX_SEND_ATTEMPTS) {
+        throw error;
+      }
+      await sleep(RETRY_DELAY_MS);
+    }
+  }
+  throw new Error("SMTP retry loop ended unexpectedly");
+}
+
+/** Send once, with one safe retry for a transient pre-acceptance failure. */
+export function sendMail(m: Mail): Promise<MailReceipt> {
+  return sendMailWithRetry(m, submitOnce);
+}
+
+/** Stable, recipient-free code suitable for operational telemetry. */
+export function mailFailureCode(error: unknown): string {
+  if (!(error instanceof SmtpError)) return "smtp:unknown";
+  const stage = error.stage.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return `smtp:${stage}:${error.code ?? "transport"}`;
 }

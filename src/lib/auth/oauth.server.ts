@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { SessionUser } from "./operator-core.ts";
-import { createAccountSession, readCookie, sessionCookie } from "./operator-core.ts";
+import { readCookie, sessionCookie } from "./operator-core.ts";
+import { createAccountSession } from "./auth-state.server.ts";
 
 const STATE_COOKIE = "citefleet_oauth";
 const STATE_TTL = 10 * 60;
@@ -65,8 +66,12 @@ function loginError(reason: string): Response {
   return redirect(`/login?error=${reason}`);
 }
 
-function signedIn(request: Request, user: SessionUser, extraCookies: string[] = []): Response {
-  const session = sessionCookie(createAccountSession(user), {
+async function signedIn(
+  request: Request,
+  user: SessionUser,
+  extraCookies: string[] = [],
+): Promise<Response> {
+  const session = sessionCookie(await createAccountSession(user), {
     secure: isSecure(request),
   });
   const cookies = [session, stateCookie("", request, 0), ...extraCookies];
@@ -129,7 +134,7 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
       // A first OAuth sign-in is also a registration, so it needs a workspace
       // for the same reason sign-up does: without one, the console loads nothing.
       await ensureWorkspaceFor(user.id, profile.name || profile.email);
-      return signedIn(request, {
+      return await signedIn(request, {
         id: user.id,
         email: profile.email,
         name: profile.name,
@@ -159,7 +164,7 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
     // deliberately by a member through `setGithubTokenFn`, never as a side
     // effect of signing in.
     await ensureWorkspaceFor(user.id, profile.name || profile.email);
-    return signedIn(request, {
+    return await signedIn(request, {
       id: user.id,
       email: profile.email,
       name: profile.name,

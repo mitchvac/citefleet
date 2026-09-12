@@ -4,6 +4,7 @@ import { BrandLogo } from "@/components/citefleet/BrandLogo";
 import { PublicFooter } from "@/components/citefleet/PublicFooter";
 import { ShareApp } from "@/components/citefleet/ShareApp";
 import { loginMessage } from "@/lib/auth/login-messages";
+import { RESET_RESEND_SECONDS } from "@/lib/auth/password-reset";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -11,6 +12,7 @@ function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(0);
   const [oauth, setOauth] = useState<{ google: boolean; github: boolean }>({
     google: true,
     github: true,
@@ -29,6 +31,20 @@ function LoginPage() {
       })
       .catch(() => undefined);
   }, []);
+  useEffect(() => {
+    if (!sent) return;
+    setResendSeconds(RESET_RESEND_SECONDS);
+    const timer = window.setInterval(() => {
+      setResendSeconds((seconds) => {
+        if (seconds <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return seconds - 1;
+      });
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [sent]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -88,13 +104,29 @@ function LoginPage() {
             </p>
           )}
           {sent && !error && (
-            <p
+            <div
               className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200"
               data-testid="login-sent"
+              aria-live="polite"
             >
-              If that address has a CiteFleet account, a reset link is on its way. It works once and
-              expires in 30 minutes.
-            </p>
+              <p>
+                If that address has a CiteFleet account, a reset link is on its way. It works once
+                and expires in 30 minutes.
+              </p>
+              <button
+                type="button"
+                disabled={resendSeconds > 0}
+                className="mt-2 text-xs font-medium underline underline-offset-4 disabled:cursor-wait disabled:no-underline disabled:opacity-70"
+                onClick={() => {
+                  setMode("forgot");
+                  setSent(false);
+                }}
+              >
+                {resendSeconds > 0
+                  ? `Request another link in ${resendSeconds}s`
+                  : "Request another reset link"}
+              </button>
+            </div>
           )}
 
           <div className="mt-6 space-y-2">

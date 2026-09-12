@@ -1,10 +1,4 @@
-import type {
-  PlatformHealth,
-  ProbeKind,
-  ProbeRow,
-  Site,
-  SiteMonitor,
-} from "./types";
+import type { PlatformHealth, ProbeKind, ProbeRow, Site, SiteMonitor } from "./types";
 import { lookupListing } from "./botcentral";
 import { buildChecks } from "./reconcile";
 import { checkOriginProof } from "./proof.ts";
@@ -15,7 +9,8 @@ import { logActivity } from "./store";
 import type { WorkspaceHandle } from "./workspace-handle.ts";
 import { renewalEmail, renewalNotices } from "./listing-term.ts";
 import { allowedEmails } from "@/lib/auth/operator-allowlist";
-import { mailConfigured, sendMail } from "@/lib/mail/smtp";
+import { mailConfigured, mailFailureCode } from "@/lib/mail/smtp";
+import { sendTrackedMail } from "@/lib/mail/events.server";
 
 const MARKETING = new Set([
   "/",
@@ -73,17 +68,16 @@ function classify(status: number | null, text: string, contentType: string): Pro
   if (status === 402) return "payment402";
   if (!status) return "error";
   const jsonish = contentType.includes("json") || text.trim().startsWith("{");
-  if (
-    status === 404 ||
-    (jsonish && /not[\s_-]*found|"status"\s*:\s*404/i.test(text))
-  ) {
+  if (status === 404 || (jsonish && /not[\s_-]*found|"status"\s*:\s*404/i.test(text))) {
     return jsonish && status !== 404 ? "spa404" : "dead";
   }
   if (status >= 400) return "dead";
   return "ok";
 }
 
-async function probeSite(site: Site): Promise<Omit<SiteMonitor, "checks" | "blockedByKill" | "drift">> {
+async function probeSite(
+  site: Site,
+): Promise<Omit<SiteMonitor, "checks" | "blockedByKill" | "drift">> {
   const origin = site.url.replace(/\/$/, "");
   const routes = site.routes.length ? site.routes : ["/", "/privacy", "/terms"];
   const probes: ProbeRow[] = [];
@@ -122,9 +116,7 @@ async function probeSite(site: Site): Promise<Omit<SiteMonitor, "checks" | "bloc
   const smUrl = site.sitemapUrl || `${origin}/sitemap.xml`;
   const sm = await probe(smUrl);
   const sitemapBody = sm.text || "";
-  const locUrls = [...sitemapBody.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)].map(
-    (m) => m[1].trim(),
-  );
+  const locUrls = [...sitemapBody.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)].map((m) => m[1].trim());
   const locHttp = locUrls.filter((u) => /^http:\/\//i.test(u)).length;
   const sitemapUrlCount = locUrls.length;
 
@@ -195,7 +187,10 @@ export async function probePlatform(): Promise<PlatformHealth> {
  * a mailer is configured. A failed send is logged and retried next cycle; a
  * missing mailer is logged once and stamped, so the log does not repeat.
  */
-export async function sendRenewalNotices(ws: WorkspaceHandle, nowMs = Date.now()): Promise<Array<{ siteId: string; sent: number; error?: string }>> {
+export async function sendRenewalNotices(
+  ws: WorkspaceHandle,
+  nowMs = Date.now(),
+): Promise<Array<{ siteId: string; sent: number; error?: string }>> {
   const store = await ws.get();
   const due = renewalNotices(store.sites, nowMs);
   const out: Array<{ siteId: string; sent: number; error?: string }> = [];
@@ -205,15 +200,19 @@ export async function sendRenewalNotices(ws: WorkspaceHandle, nowMs = Date.now()
     const mailer = mailConfigured();
     const recipients = mailer ? allowedEmails() : [];
     let sent = 0;
-    const failed: string[] = [];
+    let failed = 0;
     let error: string | undefined;
     for (const to of recipients) {
       try {
-        await sendMail({ to, subject: mail.subject, text: mail.text });
+        await sendTrackedMail("renewal-reminder", null, {
+          to,
+          subject: mail.subject,
+          text: mail.text,
+        });
         sent += 1;
       } catch (err) {
-        failed.push(to);
-        error = `${to}: ${err instanceof Error ? err.message : "send failed"}`;
+        failed += 1;
+        error = mailFailureCode(err);
       }
     }
     const line = mail.text.split("\n")[2];
@@ -223,7 +222,8 @@ export async function sendRenewalNotices(ws: WorkspaceHandle, nowMs = Date.now()
       // Stamp once anyone has been told (or there was nobody to tell), so the
       // next cycle does not mail the addresses that already got it. Only a
       // cycle where every send failed is retried.
-      if (!recipients.length || sent > 0) current.renewalNoticeFor = site.term?.paidUntil ?? undefined;
+      if (!recipients.length || sent > 0)
+        current.renewalNoticeFor = site.term?.paidUntil ?? undefined;
       logActivity(s, {
         actor: "Sentinel",
         kind: "monitor",
@@ -232,10 +232,10 @@ export async function sendRenewalNotices(ws: WorkspaceHandle, nowMs = Date.now()
           ? `Renewal reminder for ${site.domain} (no mailer configured — this line is the reminder). ${line}`
           : !recipients.length
             ? `Renewal reminder for ${site.domain} (CITEFLEET_OPERATOR_EMAILS is empty — this line is the reminder). ${line}`
-            : failed.length && !sent
+            : failed && !sent
               ? `Renewal reminder for ${site.domain} could not be sent (${error}); will retry next cycle. ${line}`
-              : failed.length
-                ? `Renewal reminder for ${site.domain} sent to ${sent} of ${recipients.length} operator addresses; failed: ${failed.join(", ")}. ${line}`
+              : failed
+                ? `Renewal reminder for ${site.domain} sent to ${sent} of ${recipients.length} operator addresses; ${failed} failed. ${line}`
                 : `Renewal reminder for ${site.domain} sent to ${sent} operator address${sent === 1 ? "" : "es"}. ${line}`,
       });
     });

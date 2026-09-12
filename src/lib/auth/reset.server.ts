@@ -1,11 +1,13 @@
+import { sessionCookie } from "./operator-core.ts";
 import {
   clearFailures,
+  createAccountSession,
   isLocked,
   noteFailure,
-  createAccountSession,
-  sessionCookie,
-} from "./operator-core.ts";
+  revokeUserSessions,
+} from "./auth-state.server.ts";
 import { consumeReset, requestReset } from "./password-reset.server.ts";
+import { authClientKey } from "./client-key.server.ts";
 
 /**
  * HTTP for the password-reset flow: POST /api/forgot and POST /api/reset.
@@ -22,11 +24,6 @@ function isSecure(request: Request): boolean {
   } catch {
     return false;
   }
-}
-
-function clientKey(request: Request): string {
-  const fwd = request.headers.get("x-forwarded-for") || "";
-  return fwd.split(",")[0].trim() || "unknown";
 }
 
 function redirect(to: string, retryAfterMs?: number): Response {
@@ -64,24 +61,22 @@ async function readForm(request: Request): Promise<Record<string, string>> {
  */
 export async function handleForgot(request: Request): Promise<Response> {
   const fields = await readForm(request);
-  const key = clientKey(request);
-  const wait = isLocked(key);
+  const key = authClientKey(request);
+  const wait = await isLocked(key);
   if (wait > 0) return redirect("/login?error=locked", wait);
 
   const email = (fields.email || "").trim();
   if (!email.includes("@")) {
-    noteFailure(key);
+    await noteFailure(key);
     // Still the generic answer: a malformed address is not worth its own line
     // and distinguishing it would start the oracle over again.
     return redirect("/login?sent=1");
   }
 
   const outcome = await requestReset(email, key);
-  if (outcome.sent) {
-    clearFailures(key);
-  } else {
+  if (!outcome.sent && outcome.reason !== "cooldown") {
     // Counted against the same budget so probing for members is not free.
-    noteFailure(key);
+    await noteFailure(key);
     if (outcome.reason === "mail-unconfigured" || outcome.reason === "send-failed") {
       // The one honest exception: this is OUR failure, not a statement about
       // the address, so it reveals nothing and hiding it would strand the user
@@ -101,8 +96,8 @@ export async function handleForgot(request: Request): Promise<Response> {
  */
 export async function handleReset(request: Request): Promise<Response> {
   const fields = await readForm(request);
-  const key = clientKey(request);
-  const wait = isLocked(key);
+  const key = authClientKey(request);
+  const wait = await isLocked(key);
   if (wait > 0) return redirect("/login?error=locked", wait);
 
   const token = fields.token || "";
@@ -111,19 +106,21 @@ export async function handleReset(request: Request): Promise<Response> {
 
   const result = await consumeReset(token, password);
   if (!result.ok) {
-    noteFailure(key);
+    await noteFailure(key);
     // A weak password is the user's own input and keeps them on the form; a
     // dead token sends them back to sign-in, because there is nothing to retry.
     if (result.reason === "weak-password") return redirect(`${back}&error=weak-password`);
     return redirect(`/login?error=reset-${result.reason}`);
   }
 
-  clearFailures(key);
+  await clearFailures(key);
+  await revokeUserSessions(result.user.id);
+  const sessionId = await createAccountSession(result.user);
   return new Response(null, {
     status: 303,
     headers: {
       Location: "/",
-      "Set-Cookie": sessionCookie(createAccountSession(result.user), {
+      "Set-Cookie": sessionCookie(sessionId, {
         secure: isSecure(request),
       }),
     },

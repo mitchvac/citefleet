@@ -1,20 +1,23 @@
 import { getRequest } from "@tanstack/react-start/server";
 import { assertSameSiteRequest } from "./isolation.server";
-import { sessionUser, type SessionUser } from "./operator-core.ts";
 import {
   OPERATOR_COOKIE,
-  attemptLogin,
-  clearFailures,
   clearedCookie,
-  createAccountSession,
-  isLocked,
-  noteFailure,
-  hasSession,
   operatorTokenConfigured,
   readCookie,
-  revokeSession,
   sessionCookie,
+  type SessionUser,
 } from "./operator-core.ts";
+import {
+  attemptLogin,
+  clearFailures,
+  createAccountSession,
+  isLocked,
+  lookupSession,
+  noteFailure,
+  revokeSession,
+} from "./auth-state.server.ts";
+import { authClientKey } from "./client-key.server.ts";
 
 export class OperatorUnauthorizedError extends Error {
   readonly status = 401;
@@ -22,20 +25,6 @@ export class OperatorUnauthorizedError extends Error {
     super(`Unauthorized: ${detail}`);
     this.name = "OperatorUnauthorizedError";
   }
-}
-
-function clientKey(request: Request): string {
-  const real = request.headers.get("x-real-ip");
-  if (real) return real.trim();
-  const xff = request.headers.get("x-forwarded-for");
-  if (xff) {
-    const hops = xff
-      .split(",")
-      .map((h) => h.trim())
-      .filter(Boolean);
-    if (hops.length) return hops[hops.length - 1];
-  }
-  return "unknown";
 }
 
 function isSecure(request: Request): boolean {
@@ -63,9 +52,9 @@ function loginError(reason: string, retryAfterMs?: number): Response {
  * not an error: the operator token path is a break-glass credential with no
  * account behind it, and the header simply shows nothing for it.
  */
-export function currentSessionUser(request: Request): SessionUser | null {
+export async function currentSessionUser(request: Request): Promise<SessionUser | null> {
   const id = readCookie(request.headers.get("cookie"), OPERATOR_COOKIE);
-  return sessionUser(id);
+  return (await lookupSession(id)).user;
 }
 
 /**
@@ -86,13 +75,14 @@ export type Principal = { kind: "user"; userId: string; email: string } | { kind
  * session existed and nothing else — there was no identity to scope anything to,
  * which is why a single global workspace was the only thing that could be built.
  */
-export function requireOperator(): Principal {
+export async function requireOperator(): Promise<Principal> {
   const request = getRequest();
   if (!request) throw new OperatorUnauthorizedError("no request context");
   const id = readCookie(request.headers.get("cookie"), OPERATOR_COOKIE);
-  if (!hasSession(id)) throw new OperatorUnauthorizedError("sign-in required");
+  const session = await lookupSession(id);
+  if (!session.authenticated) throw new OperatorUnauthorizedError("sign-in required");
   assertSameSiteRequest();
-  const user = sessionUser(id);
+  const user = session.user;
   return user ? { kind: "user", userId: user.id, email: user.email } : { kind: "break-glass" };
 }
 
@@ -125,8 +115,8 @@ async function readFields(request: Request): Promise<{
 export async function handleLogin(request: Request): Promise<Response> {
   const fields = await readFields(request);
   if (fields.email && fields.password) {
-    const key = clientKey(request);
-    const wait = isLocked(key);
+    const key = authClientKey(request);
+    const wait = await isLocked(key);
     if (wait > 0) return loginError("locked", wait);
     const { verifyUser } = await import("./users.server");
     // Every email takes the same path (DB lookup + scrypt, burned when no hash
@@ -134,13 +124,13 @@ export async function handleLogin(request: Request): Promise<Response> {
     // registered.
     const user = await verifyUser(fields.email, fields.password);
     if (!user) {
-      noteFailure(key);
+      await noteFailure(key);
       return loginError("bad-credentials");
     }
-    clearFailures(key);
+    await clearFailures(key);
     return signedInResponse(
       request,
-      createAccountSession({
+      await createAccountSession({
         id: user.id,
         email: user.email,
         name: user.name,
@@ -148,7 +138,7 @@ export async function handleLogin(request: Request): Promise<Response> {
       }),
     );
   }
-  const result = attemptLogin(fields.token, clientKey(request));
+  const result = await attemptLogin(fields.token, authClientKey(request));
   if (!result.ok) return loginError(result.reason, result.retryAfterMs);
   return signedInResponse(request, result.sessionId);
 }
@@ -185,7 +175,7 @@ export async function handleSignup(request: Request): Promise<Response> {
   // knew who they were. `createUser` returns the row — use it.
   return signedInResponse(
     request,
-    createAccountSession({
+    await createAccountSession({
       id: created.user.id,
       email: created.user.email,
       name: created.user.name,
@@ -194,8 +184,8 @@ export async function handleSignup(request: Request): Promise<Response> {
   );
 }
 
-export function handleLogout(request: Request): Response {
-  revokeSession(readCookie(request.headers.get("cookie"), OPERATOR_COOKIE));
+export async function handleLogout(request: Request): Promise<Response> {
+  await revokeSession(readCookie(request.headers.get("cookie"), OPERATOR_COOKIE));
   return new Response(null, {
     status: 303,
     headers: { Location: "/login", "Set-Cookie": clearedCookie({ secure: isSecure(request) }) },

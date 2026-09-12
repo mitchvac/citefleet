@@ -9,6 +9,10 @@ import {
   parseReply,
   replyComplete,
   runSession,
+  mailFailureCode,
+  MAX_SEND_LATENCY_MS,
+  sendMailWithRetry,
+  SmtpError,
   type SmtpIO,
   type SmtpReply,
 } from "./smtp.ts";
@@ -79,10 +83,7 @@ test("a Google App Password works whether or not the operator keeps the spaces",
   const spaced = authPlainToken("me@gmail.com", "abcd efgh ijkl mnop");
   const bare = authPlainToken("me@gmail.com", "abcdefghijklmnop");
   assert.equal(spaced, bare);
-  assert.equal(
-    Buffer.from(spaced, "base64").toString("utf8"),
-    "\0me@gmail.com\0abcdefghijklmnop",
-  );
+  assert.equal(Buffer.from(spaced, "base64").toString("utf8"), "\0me@gmail.com\0abcdefghijklmnop");
   assert.equal(normalizeAppPassword("  abcd efgh\tijkl mnop \n"), "abcdefghijklmnop");
 });
 
@@ -124,7 +125,10 @@ test("the happy path issues the commands in order and sends the body", async () 
 });
 
 test("the credential never appears in a raised error", async () => {
-  const { io } = fakeIo([...HAPPY.slice(0, 2), "535-5.7.8 Username and Password not accepted\r\n535 5.7.8 https://support.google.com\r\n"]);
+  const { io } = fakeIo([
+    ...HAPPY.slice(0, 2),
+    "535-5.7.8 Username and Password not accepted\r\n535 5.7.8 https://support.google.com\r\n",
+  ]);
   await assert.rejects(
     runSession(
       io,
@@ -194,5 +198,101 @@ test("a missing 221 after QUIT is not a delivery failure", async () => {
       { user: "ops@citefleet.app", password: "p" },
       "ops@citefleet.app",
     ),
+  );
+});
+
+test("one explicit transient failure retries with the same Message-ID", async () => {
+  const seen: string[] = [];
+  const sleeps: number[] = [];
+  let calls = 0;
+  const receipt = await sendMailWithRetry(
+    { to: "u@example.test", subject: "s", text: "t" },
+    async (mail) => {
+      calls += 1;
+      seen.push(mail.messageId ?? "");
+      if (calls === 1) throw new SmtpError("temporary", "EHLO", 421, true);
+    },
+    async (ms) => {
+      sleeps.push(ms);
+    },
+  );
+  assert.equal(receipt.attempts, 2);
+  assert.match(receipt.messageId, /^[0-9a-f]{24}$/);
+  assert.deepEqual(seen, [receipt.messageId, receipt.messageId]);
+  assert.deepEqual(sleeps, [500]);
+});
+
+test("the bounded retry policy cannot wait past the 60-second recovery target", () => {
+  assert.ok(MAX_SEND_LATENCY_MS < 60_000);
+  assert.equal(MAX_SEND_LATENCY_MS, 40_500);
+});
+
+test("a permanent rejection and an ambiguous body failure are never retried", async () => {
+  for (const failure of [
+    new SmtpError("recipient refused", "RCPT TO", 550, false),
+    new SmtpError("connection lost", "message body", null, false),
+  ]) {
+    let calls = 0;
+    await assert.rejects(
+      sendMailWithRetry(
+        { to: "u@example.test", subject: "s", text: "t" },
+        async () => {
+          calls += 1;
+          throw failure;
+        },
+        async () => undefined,
+      ),
+      failure,
+    );
+    assert.equal(calls, 1);
+  }
+});
+
+test("a transport loss after the body write is classified as ambiguous", async () => {
+  const { io: base, written } = fakeIo(HAPPY.slice(0, 6));
+  const io: SmtpIO = {
+    write: base.write,
+    read: async () => {
+      if (written.some((line) => line.startsWith("From:"))) throw new Error("socket gone");
+      return base.read();
+    },
+  };
+  await assert.rejects(
+    runSession(
+      io,
+      { to: "u@example.test", subject: "s", text: "t" },
+      { user: "ops@citefleet.app", password: "p" },
+      "ops@citefleet.app",
+    ),
+    (error: Error) => {
+      assert.ok(error instanceof SmtpError);
+      assert.equal(error.stage, "message body");
+      assert.equal(error.safeToRetry, false);
+      assert.equal(mailFailureCode(error), "smtp:message-body:transport");
+      return true;
+    },
+  );
+});
+
+test("QUIT write failure stays successful after provider acceptance", async () => {
+  const { io: base, written } = fakeIo(HAPPY);
+  const io: SmtpIO = {
+    read: base.read,
+    write: async (data) => {
+      if (data.startsWith("QUIT")) throw new Error("closed");
+      await base.write(data);
+    },
+  };
+  await assert.doesNotReject(
+    runSession(
+      io,
+      { to: "u@example.test", subject: "s", text: "t" },
+      { user: "ops@citefleet.app", password: "p" },
+      "ops@citefleet.app",
+    ),
+  );
+  assert.ok(
+    written.some((line) => line.startsWith("From:")),
+    "positive control: body sent",
   );
 });

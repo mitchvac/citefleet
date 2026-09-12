@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
 import {
   RESET_SUBJECT,
+  RESET_RESEND_SECONDS,
   RESET_TTL_MS,
   passwordAcceptable,
   resetEmailBody,
@@ -9,7 +10,8 @@ import {
   resetRejection,
   type ResetRejection,
 } from "./password-reset.ts";
-import { sendMail, mailConfigured } from "@/lib/mail/smtp";
+import { mailConfigured } from "@/lib/mail/smtp";
+import { reserveMailSlot, sendTrackedMail } from "@/lib/mail/events.server";
 import type { CiteFleetUser } from "./users.server.ts";
 
 /**
@@ -42,7 +44,11 @@ function publicUrl(): string {
 }
 
 export type RequestOutcome =
-  { sent: true } | { sent: false; reason: "no-account" | "mail-unconfigured" | "send-failed" };
+  | { sent: true }
+  | {
+      sent: false;
+      reason: "no-account" | "mail-unconfigured" | "send-failed" | "cooldown";
+    };
 
 /**
  * Create a reset and email it. The CALLER MUST NOT vary its response on this
@@ -58,6 +64,9 @@ export async function requestReset(emailRaw: string, ip: string | null): Promise
   ]);
   const user = rows[0];
   if (!user) return { sent: false, reason: "no-account" };
+
+  const reserved = await reserveMailSlot("password-reset", user.id, RESET_RESEND_SECONDS * 1_000);
+  if (!reserved) return { sent: false, reason: "cooldown" };
 
   // Any earlier unspent link is retired first. Two live links for one account
   // means a stolen older email still works after the user has quietly re-run
@@ -81,23 +90,23 @@ export async function requestReset(emailRaw: string, ip: string | null): Promise
   );
 
   try {
-    await sendMail({
+    await sendTrackedMail("password-reset", user.id, {
       to: email,
       subject: RESET_SUBJECT,
       text: resetEmailBody(resetLink(publicUrl(), token), RESET_TTL_MS),
     });
-  } catch (err) {
+  } catch {
     // Burn the token: a link we could not deliver must not stay live.
     await sql.query("UPDATE citefleet_password_resets SET used_at = now() WHERE token_hash = $1", [
       hashToken(token),
     ]);
-    console.error("[citefleet] reset email failed", err instanceof Error ? err.message : err);
     return { sent: false, reason: "send-failed" };
   }
   return { sent: true };
 }
 
-export type ConsumeResult = { ok: true; user: CiteFleetUser } | { ok: false; reason: ResetRejection };
+export type ConsumeResult =
+  { ok: true; user: CiteFleetUser } | { ok: false; reason: ResetRejection };
 
 /**
  * Spend a token and set the new password. The UPDATE that marks it spent is

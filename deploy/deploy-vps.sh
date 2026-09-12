@@ -30,7 +30,7 @@ REPO_URL="https://github.com/mitchvac/citefleet.git"
 DB_URL="${1:-}"
 if [[ -n "$DB_URL" && ! "$DB_URL" =~ ^postgres(ql)?:// ]]; then
   echo "Usage: bash deploy/deploy-vps.sh [postgres://...]"
-  echo "DATABASE_URL is optional. Omit it to boot on in-memory store."
+  echo "DATABASE_URL may be omitted only when the durable URL already exists on the VPS."
   exit 1
 fi
 
@@ -68,6 +68,15 @@ if [[ ! -s "$OP_FILE" ]]; then
   chmod 600 "$OP_FILE"
 fi
 OPERATOR_TOKEN="$(tr -d '\n' < "$OP_FILE")"
+
+# HMAC key for obscuring client addresses in the distributed auth limiter.
+# Separate from the operator credential so either can rotate independently.
+AUTH_FILE="/root/citefleet-auth.secret"
+if [[ ! -s "$AUTH_FILE" ]]; then
+  openssl rand -hex 32 > "$AUTH_FILE"
+  chmod 600 "$AUTH_FILE"
+fi
+AUTH_SECRET="$(tr -d '\n' < "$AUTH_FILE")"
 
 NET="citefleet-net"
 PG_NAME="citefleet-postgres"
@@ -165,6 +174,7 @@ fi
   echo "BOTCENTRAL_URL=https://botcentral.org"
   printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
   printf 'CITEFLEET_OPERATOR_TOKEN=%s\n' "$OPERATOR_TOKEN"
+  printf 'CITEFLEET_AUTH_SECRET=%s\n' "$AUTH_SECRET"
   # Optional comma-separated recipients for listing-renewal reminders.
   if [[ -s /root/citefleet-operator.emails ]]; then
     printf 'CITEFLEET_OPERATOR_EMAILS=%s\n' "$(tr -d '\n' < /root/citefleet-operator.emails)"

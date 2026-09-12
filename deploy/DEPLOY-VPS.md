@@ -118,8 +118,11 @@ line 2 secret; redirect URIs `/api/oauth/google-callback`,
 `deploy/deploy-vps.sh` generates `/root/citefleet-operator.token` once and
 injects it as `CITEFLEET_OPERATOR_TOKEN`. Open `https://citefleet.app/login`
 and paste `cat /root/citefleet-operator.token`. Rotate by replacing the file
-and redeploying. Sessions live in memory, so every redeploy or container
-restart signs the operator out. The e2e suite signs in with
+and redeploying; break-glass sessions bound to the old token stop working.
+Account and break-glass sessions are stored as token hashes in Supabase-hosted
+PostgreSQL, so a normal redeploy no longer signs everyone out. The script also
+generates `/root/citefleet-auth.secret`, used to HMAC client addresses before
+the shared rate limiter stores them. The e2e suite signs in with
 `E2E_OPERATOR_TOKEN=<same value>`.
 
 ## 3. Build & run

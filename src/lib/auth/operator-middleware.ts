@@ -10,5 +10,5 @@ export const operatorMiddleware = createMiddleware({ type: "function" }).server(
   // The principal travels with the request. Passing nothing is why every server
   // fn could only know that SOMEONE was signed in — with no identity to scope a
   // request to, a single global workspace was the only thing that could be built.
-  return next({ context: { principal: requireOperator() } });
+  return next({ context: { principal: await requireOperator() } });
 });

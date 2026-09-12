@@ -1,19 +1,19 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 /**
- * Operator gate, pure part (no request context; unit-tested).
+ * Operator gate, pure part (no request context or storage; unit-tested).
  *
  * CiteFleet is a single-operator console. One shared secret
  * (CITEFLEET_OPERATOR_TOKEN, env) is exchanged at /login for a random session
- * id kept in memory and sent back as an httpOnly cookie. The cookie never holds
- * the token. Sessions die with the process (the operator signs in again) and
- * can be revoked by sign-out or by rotating the env token.
+ * id sent back as an httpOnly cookie. The cookie never holds the token. Durable
+ * session and rate-limit storage lives in auth-state.server.ts.
  */
 
 export const OPERATOR_COOKIE = "citefleet_op";
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const MAX_FAILURES = 5;
 export const LOCKOUT_MS = 60_000;
+export const FAILURE_TTL_MS = 60 * 60 * 1000;
 const MIN_TOKEN_LENGTH = 32;
 
 /**
@@ -36,29 +36,6 @@ export type SessionUser = {
   imageUrl?: string | null;
 };
 
-const sessions = new Map<
-  string,
-  { createdAt: number; expiresAt: number; user?: SessionUser }
->();
-const failures = new Map<string, { count: number; lockedUntil: number; lastAt: number }>();
-const FAILURE_TTL_MS = 60 * 60 * 1000;
-const MAX_TRACKED_CLIENTS = 10_000;
-
-/** Forget stale failure records so anonymous traffic cannot grow the map without bound. */
-export function pruneFailures(now = Date.now()): void {
-  for (const [key, f] of failures) {
-    if (f.lastAt <= now - FAILURE_TTL_MS && f.lockedUntil <= now) failures.delete(key);
-  }
-  if (failures.size > MAX_TRACKED_CLIENTS) {
-    const oldest = [...failures.entries()].sort((a, b) => a[1].lastAt - b[1].lastAt);
-    for (const [key] of oldest.slice(0, failures.size - MAX_TRACKED_CLIENTS)) failures.delete(key);
-  }
-}
-
-export function trackedClients(): number {
-  return failures.size;
-}
-
 export function operatorTokenConfigured(token = process.env.CITEFLEET_OPERATOR_TOKEN): boolean {
   return typeof token === "string" && token.trim().length >= MIN_TOKEN_LENGTH;
 }
@@ -71,94 +48,31 @@ export function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(da, db);
 }
 
-/** Per-client failure tracking shared by the token and password paths. */
-export function isLocked(clientKey: string, now = Date.now()): number {
-  pruneFailures(now);
-  const f = failures.get(clientKey);
-  return f && f.lockedUntil > now ? f.lockedUntil - now : 0;
+export function hashSessionToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }
-export function noteFailure(clientKey: string, now = Date.now()): void {
-  const f = failures.get(clientKey);
-  const count = (f && f.lockedUntil <= now && f.count >= MAX_FAILURES ? 0 : (f?.count ?? 0)) + 1;
-  failures.set(clientKey, { count, lockedUntil: count >= MAX_FAILURES ? now + LOCKOUT_MS : 0, lastAt: now });
+
+export function hashOperatorToken(token: string): string {
+  return createHash("sha256").update(`operator:${token}`).digest("hex");
 }
-export function clearFailures(clientKey: string): void {
-  failures.delete(clientKey);
+
+/** The database sees an HMAC, never a raw client IP or forwarding header. */
+export function hashClientKey(clientKey: string, secret: string): string {
+  if (secret.trim().length < MIN_TOKEN_LENGTH) {
+    throw new Error("auth-state secret must be at least 32 characters");
+  }
+  return createHmac("sha256", secret).update(`client:${clientKey}`).digest("hex");
 }
 
 export type LoginResult =
   | { ok: true; sessionId: string }
   | { ok: false; reason: "not-configured" | "locked" | "bad-token"; retryAfterMs?: number };
 
-/** Verify a presented token for a client (keyed by IP) with lockout after repeated failures. */
-export function attemptLogin(
-  presented: string,
-  clientKey: string,
-  opts: { token?: string; now?: number } = {},
-): LoginResult {
-  const token = (opts.token ?? process.env.CITEFLEET_OPERATOR_TOKEN ?? "").trim();
-  const now = opts.now ?? Date.now();
-  if (!operatorTokenConfigured(token)) return { ok: false, reason: "not-configured" };
-  const wait = isLocked(clientKey, now);
-  if (wait > 0) return { ok: false, reason: "locked", retryAfterMs: wait };
-  if (!safeEqual(presented.trim(), token)) {
-    noteFailure(clientKey, now);
-    return { ok: false, reason: "bad-token" };
-  }
-  clearFailures(clientKey);
-  return { ok: true, sessionId: createSession(now) };
-}
-
-export function createSession(now = Date.now(), user?: SessionUser): string {
-  const id = randomBytes(32).toString("hex");
-  sessions.set(id, { createdAt: now, expiresAt: now + SESSION_TTL_MS, user });
-  return id;
-}
-
-/** Account sessions must always carry the identity used for tenant resolution. */
-export function createAccountSession(user: SessionUser, now = Date.now()): string {
-  return createSession(now, user);
-}
-
-/**
- * The account behind a session, or null for the token path and for anything
- * expired. Read through the same expiry check as `hasSession` so a stale
- * session can never surface a name.
- */
-export function sessionUser(id: string | undefined, now = Date.now()): SessionUser | null {
-  if (!id) return null;
-  const s = sessions.get(id);
-  if (!s || s.expiresAt <= now) return null;
-  return s.user ?? null;
-}
-
-export function hasSession(id: string | undefined, now = Date.now()): boolean {
-  if (!id) return false;
-  const s = sessions.get(id);
-  if (!s) return false;
-  if (s.expiresAt <= now) {
-    sessions.delete(id);
-    return false;
-  }
-  return true;
-}
-
-export function revokeSession(id: string | undefined): void {
-  if (id) sessions.delete(id);
-}
-
-/** Test/ops helper: forget every session and lockout. */
-export function resetOperatorState(): void {
-  sessions.clear();
-  failures.clear();
-}
-
-export function sessionCount(): number {
-  return sessions.size;
-}
-
 /** Cookie attributes for the session id (never the token). */
-export function sessionCookie(id: string, opts: { secure: boolean; maxAgeSeconds?: number }): string {
+export function sessionCookie(
+  id: string,
+  opts: { secure: boolean; maxAgeSeconds?: number },
+): string {
   const parts = [
     `${OPERATOR_COOKIE}=${id}`,
     "Path=/",

@@ -22,9 +22,11 @@ list for renewal reminders; it does not control account access.
   likewise in `/root/citefleet-github.oauth`.
 - Ops fallback: the server token in `/root/citefleet-operator.token` still
   signs in through the same form (paste it in the token field).
-- The cookie holds a random session id. Sessions live in memory: a container
-  restart or redeploy signs everyone out. Five wrong attempts from one address
-  (token or password) lock that address out for 60 seconds.
+- The cookie holds a random session id; only its SHA-256 digest is stored in
+  Supabase-hosted PostgreSQL, so a normal restart or redeploy keeps sessions.
+  Five wrong attempts from one address (token or password) lock that address
+  out for 60 seconds through the shared database limiter. Stored client keys
+  are HMAC digests, not raw addresses.
 - Public without sign-in: `/health`, `/llms.txt`, `/sitemap.xml`, the
   Training pages, `/login`, and the three hook endpoints (signature only).
 
@@ -140,7 +142,7 @@ signature can be verified.
 | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `Proof not live yet — …`                                               | The origin does not serve the proof line (or serves an HTML shell) and there is no DNS record.                                                                                            | Add the file or the TXT record, then Verify proof.                       |
 | `ownership not proven` (from BotCentral)                               | Pre-flight passed but the registry's own fetch failed (propagation, redirect, host-specific).                                                                                             | Wait a minute and retry; check the file from another network.            |
-| `Unauthorized: sign-in required`                                       | Session expired or container restarted.                                                                                                                                                   | Sign in again.                                                           |
+| `Unauthorized: sign-in required`                                       | Session expired, was revoked, or its break-glass token was rotated.                                                                                                                        | Sign in again.                                                           |
 | `Unauthorized: operator token not configured`                          | `CITEFLEET_OPERATOR_TOKEN` missing in `.env`.                                                                                                                                             | Rerun the deploy script; it mints and injects it.                        |
 | Hook answers `401`                                                     | Wrong secret, unknown repository/domain, or tampered body — all look the same on purpose.                                                                                                 | Rotate the secret and update the repository webhook.                     |
 | Hook answers `202 duplicate` / `in-progress`                           | GitHub redelivered an id, or a check from a moment ago is still running.                                                                                                                  | Nothing; the running check picks up the deploy.                          |

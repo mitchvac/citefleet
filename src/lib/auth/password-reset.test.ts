@@ -122,9 +122,11 @@ test("the forgot endpoint never varies its answer on whether an account exists",
 test("a failed send burns the token instead of leaving a live link", () => {
   // A link we could not deliver is a live credential nobody received.
   const src = read("password-reset.server.ts");
-  const start = src.indexOf("} catch (err) {");
+  const send = src.indexOf('sendTrackedMail("password-reset"');
+  const start = src.indexOf("} catch {", send);
+  assert.ok(send > 0, "positive control: tracked send found");
   assert.ok(start > 0, "positive control: send failure handler found");
-  const handler = src.slice(start, start + 500);
+  const handler = src.slice(start, start + 1_500);
   assert.match(handler, /UPDATE citefleet_password_resets SET used_at = now\(\)/);
   assert.match(handler, /send-failed/);
 });
@@ -150,4 +152,52 @@ test("the token is spent by a guarded UPDATE, not a read-then-write", () => {
     !/\btoken\b/.test(insert![1]),
     `a plaintext token column would be a stored credential: ${insert![1]}`,
   );
+});
+
+test("reset delivery records provider acceptance or failure without recipient data", () => {
+  const server = read("password-reset.server.ts");
+  assert.match(server, /sendTrackedMail\("password-reset", user\.id/);
+
+  const migration = readFileSync(
+    new URL(
+      "../../../supabase/migrations/20260912091000_citefleet_mail_events.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /status IN \('queued', 'accepted', 'failed'\)/);
+  assert.match(migration, /user_id\s+TEXT REFERENCES citefleet_users/);
+  assert.doesNotMatch(
+    migration,
+    /^\s+(recipient|email|token_hash)\s+/m,
+    "mail telemetry must not store delivery secrets or addresses",
+  );
+  assert.match(migration, /ALTER TABLE citefleet_mail_events ENABLE ROW LEVEL SECURITY/);
+});
+
+test("reset resends reserve one shared database cooldown before creating another token", () => {
+  const reset = read("password-reset.server.ts");
+  const reservation = reset.indexOf("reserveMailSlot(");
+  const retire = reset.indexOf("UPDATE citefleet_password_resets SET used_at = now()");
+  assert.ok(reservation > 0, "positive control: cooldown reservation exists");
+  assert.ok(
+    retire > reservation,
+    "the resend slot must be claimed before replacing the live token",
+  );
+  assert.match(reset, /RESET_RESEND_SECONDS \* 1_000/);
+
+  const events = readFileSync(new URL("../mail/events.server.ts", import.meta.url), "utf8");
+  assert.match(events, /ON CONFLICT \(kind, user_id\) DO UPDATE/);
+  assert.match(events, /next_allowed_at <= \$4/);
+  assert.match(events, /RETURNING user_id/);
+
+  const migration = readFileSync(
+    new URL(
+      "../../../supabase/migrations/20260912091000_citefleet_mail_events.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS citefleet_mail_limits/);
+  assert.match(migration, /PRIMARY KEY \(kind, user_id\)/);
 });
