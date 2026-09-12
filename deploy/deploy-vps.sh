@@ -4,6 +4,12 @@
 # Never rm sites-enabled/*. Never add default_server. Never 301 unknown Hosts.
 set -euo pipefail
 
+TARGET_REVISION="${CITEFLEET_DEPLOY_REVISION:-}"
+if [[ -n "$TARGET_REVISION" && ! "$TARGET_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "deploy: CITEFLEET_DEPLOY_REVISION must be one full lowercase git SHA" >&2
+  exit 1
+fi
+
 # Bash reads a script incrementally and `git reset --hard` replaces this file
 # mid-run. So: sync the checkout FIRST, then re-exec the UPDATED script from a
 # private copy (with the git step skipped) — a change to this script takes
@@ -12,8 +18,18 @@ set -euo pipefail
 if [[ -z "${CITEFLEET_DEPLOY_COPY:-}" ]]; then
   if [[ "${CITEFLEET_SKIP_GIT:-}" != "1" && -d "/opt/citefleet/.git" ]]; then
     git -C /opt/citefleet fetch origin
-    git -C /opt/citefleet checkout -B main origin/main
-    git -C /opt/citefleet reset --hard origin/main
+    if [[ -n "$TARGET_REVISION" ]]; then
+      MAIN_REVISION="$(git -C /opt/citefleet rev-parse --verify origin/main)"
+      if [[ "$TARGET_REVISION" != "$MAIN_REVISION" ]]; then
+        echo "deploy: requested revision is not current origin/main" >&2
+        exit 1
+      fi
+      git -C /opt/citefleet checkout --detach "$TARGET_REVISION"
+      git -C /opt/citefleet reset --hard "$TARGET_REVISION"
+    else
+      git -C /opt/citefleet checkout -B main origin/main
+      git -C /opt/citefleet reset --hard origin/main
+    fi
   fi
   _copy="$(mktemp /tmp/citefleet-deploy.XXXXXX)"
   cp /opt/citefleet/deploy/deploy-vps.sh "$_copy" 2>/dev/null || cp "${BASH_SOURCE[0]}" "$_copy"
@@ -44,8 +60,18 @@ mkdir -p "$APP_DIR"
 if [[ "${CITEFLEET_SKIP_GIT:-}" != "1" ]]; then
 if [[ -d "$APP_DIR/.git" ]]; then
   git -C "$APP_DIR" fetch origin
-  git -C "$APP_DIR" checkout -B main origin/main
-  git -C "$APP_DIR" reset --hard origin/main
+  if [[ -n "$TARGET_REVISION" ]]; then
+    MAIN_REVISION="$(git -C "$APP_DIR" rev-parse --verify origin/main)"
+    if [[ "$TARGET_REVISION" != "$MAIN_REVISION" ]]; then
+      echo "deploy: requested revision is not current origin/main" >&2
+      exit 1
+    fi
+    git -C "$APP_DIR" checkout --detach "$TARGET_REVISION"
+    git -C "$APP_DIR" reset --hard "$TARGET_REVISION"
+  else
+    git -C "$APP_DIR" checkout -B main origin/main
+    git -C "$APP_DIR" reset --hard origin/main
+  fi
 elif [[ -f ./Dockerfile && -f ./deploy/nginx-citefleet.app.conf ]]; then
   tar -C . --exclude .git --exclude node_modules --exclude .output -cf - . | tar -C "$APP_DIR" -xf -
 else
@@ -53,6 +79,21 @@ else
 fi
 fi
 cd "$APP_DIR"
+
+REVISION="$(git rev-parse --verify HEAD 2>/dev/null || true)"
+if [[ ! "$REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "deploy: the application checkout has no full git revision" >&2
+  exit 1
+fi
+if [[ -n "$TARGET_REVISION" && "$REVISION" != "$TARGET_REVISION" ]]; then
+  echo "deploy: checkout does not match CITEFLEET_DEPLOY_REVISION" >&2
+  exit 1
+fi
+echo "deploy: revision $REVISION"
+
+# Keep the forced-command wrapper current after every trusted manual deploy.
+install -m 755 deploy/ci-deploy-command.sh /usr/local/sbin/citefleet-ci-deploy
+install -m 644 deploy/nginx-security-headers.conf /etc/nginx/snippets/citefleet-security-headers.conf
 
 TOKEN_FILE="/root/citefleet-botcentral.token"
 if [[ ! -s "$TOKEN_FILE" ]]; then
@@ -171,6 +212,7 @@ fi
   echo "NITRO_PORT=3000"
   echo "VITE_AUTH_ENABLED=false"
   echo "CITEFLEET_PUBLIC_URL=https://citefleet.app"
+  printf 'CITEFLEET_REVISION=%s\n' "$REVISION"
   echo "BOTCENTRAL_URL=https://botcentral.org"
   printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
   printf 'CITEFLEET_OPERATOR_TOKEN=%s\n' "$OPERATOR_TOKEN"
@@ -230,12 +272,86 @@ mkdir -p "$BK"
 # the backup was useless at the one moment it was needed (2026-09-05).
 cp -aL /etc/nginx/sites-enabled/. "$BK"/ 2>/dev/null || true
 
-# BUILD FIRST. Everything below this line mutates live serving state, so a build
-# failure must happen while nothing has been touched yet. This ordering is not
-# cosmetic: on 2026-09-05 a stale COPY in the Dockerfile failed the build AFTER
-# nginx had already been reloaded onto the plain-HTTP bootstrap config, and
-# citefleet.app served without its certificate until someone noticed.
-docker build -t "$IMAGE" .
+# BUILD AND PROBE FIRST. The candidate has no published port, so it can prove
+# that the image boots and reaches Supabase while the live container remains
+# untouched.
+IMAGE_TAG="$IMAGE:$REVISION"
+CANDIDATE="${CONTAINER}-candidate"
+ROLLBACK="${CONTAINER}-rollback"
+
+container_healthy() {
+  local name="$1"
+  for _ in $(seq 1 40); do
+    if docker exec "$name" node -e '
+      const expected = process.argv[1];
+      fetch("http://127.0.0.1:3000/health")
+        .then(async (response) => {
+          const body = await response.json();
+          if (!response.ok || body.ok !== true || body.db !== "postgres" || body.revision !== expected) {
+            process.exit(1);
+          }
+        })
+        .catch(() => process.exit(1));
+    ' "$REVISION" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+public_healthy() {
+  local body headers login_status providers
+  body="$(curl -fsS "https://$DOMAIN/health" 2>/dev/null || true)"
+  [[ "$body" == *'"ok":true'* && "$body" == *'"db":"postgres"'* && "$body" == *"\"revision\":\"$REVISION\""* ]] || return 1
+
+  login_status="$(curl -sS -o /dev/null -w '%{http_code}' "https://$DOMAIN/login" 2>/dev/null || true)"
+  [[ "$login_status" == "200" ]] || return 1
+
+  providers="$(curl -fsS "https://$DOMAIN/api/oauth/providers" 2>/dev/null || true)"
+  [[ "$providers" == *'"google":'* && "$providers" == *'"github":'* ]] || return 1
+
+  headers="$(curl -fsS -D - -o /dev/null "https://$DOMAIN/login" 2>/dev/null || true)"
+  for header in \
+    strict-transport-security \
+    x-content-type-options \
+    referrer-policy \
+    permissions-policy \
+    content-security-policy; do
+    printf '%s\n' "$headers" | grep -qi "^$header:" || return 1
+  done
+}
+
+rollback_healthy() {
+  local body
+  for _ in $(seq 1 40); do
+    body="$(curl -fsS "http://$HOST_PORT/health" 2>/dev/null || true)"
+    if [[ "$body" == *'"ok":true'* && "$body" == *'"db":"postgres"'* ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+docker build -t "$IMAGE_TAG" .
+docker rm -f "$CANDIDATE" >/dev/null 2>&1 || true
+if ! docker run -d \
+  --name "$CANDIDATE" \
+  --network "$NET" \
+  --env-file .env \
+  "$IMAGE_TAG" >/dev/null; then
+  echo "deploy: candidate failed to start; live container was not touched" >&2
+  docker rm -f "$CANDIDATE" >/dev/null 2>&1 || true
+  exit 1
+fi
+if ! container_healthy "$CANDIDATE"; then
+  echo "deploy: candidate failed readiness; live container was not touched" >&2
+  docker logs "$CANDIDATE" --tail 50 >&2 || true
+  docker rm -f "$CANDIDATE" >/dev/null 2>&1 || true
+  exit 1
+fi
+docker rm -f "$CANDIDATE" >/dev/null
 
 CERT_DIR="$(ls -d /etc/letsencrypt/live/*citefleet* 2>/dev/null | head -1 || true)"
 
@@ -252,14 +368,44 @@ else
   echo "Certificate present ($CERT_DIR) -- leaving the TLS vhost in place until the new one is written."
 fi
 
-docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-docker run -d \
+HAD_ROLLBACK=0
+docker rm -f "$ROLLBACK" >/dev/null 2>&1 || true
+if docker inspect "$CONTAINER" >/dev/null 2>&1; then
+  docker stop "$CONTAINER" >/dev/null
+  docker rename "$CONTAINER" "$ROLLBACK"
+  HAD_ROLLBACK=1
+fi
+
+rollback_live() {
+  set +e
+  docker logs "$CONTAINER" --tail 50 >&2
+  docker rm -f "$CONTAINER" >/dev/null 2>&1
+  if [[ "$HAD_ROLLBACK" == 1 ]]; then
+    docker rename "$ROLLBACK" "$CONTAINER"
+    docker start "$CONTAINER" >/dev/null
+  fi
+  if [[ -f "$BK/citefleet" ]]; then
+    cp -f "$BK/citefleet" /etc/nginx/sites-available/citefleet
+    nginx -t >/dev/null 2>&1 && systemctl reload nginx
+  fi
+  if [[ "$HAD_ROLLBACK" == 1 ]] && rollback_healthy; then
+    echo "deploy: ROLLBACK COMPLETE; revision $REVISION was not released" >&2
+  else
+    echo "deploy: rollback failed to recover the prior service; operator action required" >&2
+  fi
+  set -e
+}
+
+if ! docker run -d \
   --name "$CONTAINER" \
   --restart unless-stopped \
   --network "$NET" \
   --env-file .env \
   -p "$HOST_PORT":3000 \
-  "$IMAGE"
+  "$IMAGE_TAG"; then
+  rollback_live
+  exit 1
+fi
 
 # CERT_DIR was resolved before the build (see above).
 if [[ -n "$CERT_DIR" && -f "$CERT_DIR/fullchain.pem" ]]; then
@@ -274,6 +420,7 @@ server {
     server_name www.$DOMAIN;
     ssl_certificate     $CERT_DIR/fullchain.pem;
     ssl_certificate_key $CERT_DIR/privkey.pem;
+    include /etc/nginx/snippets/citefleet-security-headers.conf;
     return 301 https://$DOMAIN\$request_uri;
 }
 server {
@@ -282,6 +429,7 @@ server {
     ssl_certificate     $CERT_DIR/fullchain.pem;
     ssl_certificate_key $CERT_DIR/privkey.pem;
     client_max_body_size 8m;
+    include /etc/nginx/snippets/citefleet-security-headers.conf;
     location / {
         proxy_pass http://$HOST_PORT;
         proxy_http_version 1.1;
@@ -298,17 +446,32 @@ NGX
 fi
 
 ln -sfn /etc/nginx/sites-available/citefleet /etc/nginx/sites-enabled/citefleet
-nginx -t
-systemctl reload nginx
-
-ok=""
-for i in $(seq 1 40); do
-  if curl -sf "http://$HOST_PORT/health" >/dev/null 2>&1; then ok=1; break; fi
-  sleep 3
-done
-if [[ -n "$ok" ]]; then
-  echo "SUCCESS — CiteFleet at https://$DOMAIN (other sites on this box left intact)"
-  echo "Sign in at https://$DOMAIN/login — account creation is open; token fallback: cat $OP_FILE"
-else
-  echo "App did not answer yet. docker logs $CONTAINER --tail 50"
+if ! nginx -t || ! systemctl reload nginx; then
+  rollback_live
+  exit 1
 fi
+
+if ! container_healthy "$CONTAINER"; then
+  echo "deploy: live container failed readiness" >&2
+  rollback_live
+  exit 1
+fi
+
+public_ok=""
+for _ in $(seq 1 20); do
+  if public_healthy; then public_ok=1; break; fi
+  sleep 1
+done
+if [[ -z "$public_ok" ]]; then
+  echo "deploy: public HTTPS smoke checks failed for the requested revision" >&2
+  rollback_live
+  exit 1
+fi
+
+docker tag "$IMAGE_TAG" "$IMAGE:latest"
+if [[ "$HAD_ROLLBACK" == 1 ]]; then
+  docker rm -f "$ROLLBACK" >/dev/null
+fi
+
+echo "SUCCESS - CiteFleet revision $REVISION at https://$DOMAIN"
+echo "Sign in at https://$DOMAIN/login - account creation is open; token fallback: cat $OP_FILE"

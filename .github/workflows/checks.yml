@@ -1,53 +1,34 @@
-# Typecheck, lint and the unit suites, on every push and every pull request.
-#
-# Until this existed nothing ran them: `.github/workflows/` held only the
-# Supabase migration workflow, so 562 tests could go red and merge anyway. Every
-# gate was somebody remembering to run it locally.
-#
-# No secrets, and none are needed: the unit suites touch no database and no
-# network. Every outbound call is injected or stubbed (`proof.ts` takes
-# `resolveTxt`, `smtp.ts` takes `SmtpIO`, the auditor swaps `globalThis.fetch`),
-# so this runs in a clean container.
+# Reusable application quality gate. Pull requests call it directly; releases
+# call the same workflow before any schema or production action.
 name: Checks
 
 on:
-  push:
-    branches: [main]
+  workflow_call:
   pull_request:
 
-# Cancel superseded runs. This differs from supabase-migrations.yml, which sets
-# cancel-in-progress: false because interrupting a migration mid-apply is how a
-# database ends up half-migrated. Nothing here writes anything, so the newest
-# commit is the only one worth checking.
+permissions:
+  contents: read
+
 concurrency:
-  group: checks-${{ github.ref }}
+  group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      # Node 22, not 20: `npm test` runs with --experimental-strip-types, which
-      # landed in 22.6 and which Node 20 rejects outright. `engines` in
-      # package.json and both Dockerfile stages say 22 as well.
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
-      # NOT `npm ci`. The lockfile is out of sync with package.json and npm ci
-      # refuses it — Dockerfile:13-15 hit the same wall and documents it. Using
-      # the same command the production image uses keeps CI honest about what
-      # actually installs.
-      - name: Install dependencies
-        run: npm install --ignore-scripts
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
         run: npm run lint
-      # Reads src/, docs/ and public/og.png from disk, so it needs the full
-      # checkout above rather than a sparse one. The 8 tests that pin the
-      # gitignored .grok/ template files skip cleanly when it is absent, which
-      # is exactly the state of a fresh checkout.
       - name: Unit suites
         run: npm test
+      - name: Production build
+        run: npm run build

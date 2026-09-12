@@ -116,9 +116,10 @@ line 2 secret; redirect URIs `/api/oauth/google-callback`,
 `/api/oauth/github-callback`).
 
 `deploy/deploy-vps.sh` generates `/root/citefleet-operator.token` once and
-injects it as `CITEFLEET_OPERATOR_TOKEN`. Open `https://citefleet.app/login`
-and paste `cat /root/citefleet-operator.token`. Rotate by replacing the file
-and redeploying; break-glass sessions bound to the old token stop working.
+injects it as `CITEFLEET_OPERATOR_TOKEN`. It is an API-only break-glass path,
+not a customer login field; the e2e setup exchanges it at `POST /api/login`.
+Rotate by replacing the file and redeploying; break-glass sessions bound to the
+old token stop working.
 Account and break-glass sessions are stored as token hashes in Supabase-hosted
 PostgreSQL, so a normal redeploy no longer signs everyone out. The script also
 generates `/root/citefleet-auth.secret`, used to HMAC client addresses before
@@ -129,7 +130,39 @@ resolve only through workspace membership. The e2e suite signs in with
 
 ## 3. Build & run
 
-One-shot (as root on the box):
+Every push to `main` runs `.github/workflows/release.yml` in one order: locked
+application checks and build, a clean replay of all Supabase migrations,
+`supabase db push`, then an exact-SHA VPS deploy. The deploy key is stored only
+in the GitHub `production` environment and its authorized-key entry forces
+`/usr/local/sbin/citefleet-ci-deploy`; it cannot open an interactive shell or
+request anything except `deploy <40-character-sha>` for current `origin/main`.
+
+One-time release setup requires these GitHub secrets:
+
+- Repository or `production` environment: `SUPABASE_ACCESS_TOKEN` and
+  `SUPABASE_DB_PASSWORD`.
+- `production` environment only: `CITEFLEET_DEPLOY_KEY` (the dedicated private
+  key) and `CITEFLEET_VPS_KNOWN_HOSTS` (the verified host-key record for
+  `144.91.66.158`).
+
+Install `deploy/ci-deploy-command.sh` as
+`/usr/local/sbin/citefleet-ci-deploy`, mode `755`, before authorizing that key.
+Its `authorized_keys` entry must use
+`restrict,command="/usr/local/sbin/citefleet-ci-deploy"`. Confirm the wrapper's
+checksum matches the repository and confirm an arbitrary command exits `64`
+with `citefleet deploy key: command refused` before saving the private key in
+GitHub. Never reuse an administrator key for Actions.
+
+The deploy builds a revision-tagged image and starts an unpublished candidate.
+That candidate must return a matching revision and complete `SELECT 1` against
+Supabase before the live container is stopped. The prior container remains as
+`citefleet-rollback` until the new process passes loopback readiness plus public
+revision, login, OAuth-provider, and security-header checks. A failed cutover
+restores the prior container, verifies that it answers `/health`, and exits
+nonzero. A failed restoration is reported as requiring operator action rather
+than being labeled a successful rollback.
+
+Manual recovery path (as root on the box):
 
 ```bash
 bash deploy/deploy-vps.sh
@@ -152,7 +185,10 @@ docker run -d \
   citefleet
 ```
 
-Verify: `curl -i http://127.0.0.1:3021/health` → `{"ok":true,"service":"citefleet",...}`.
+Verify: `curl -i http://127.0.0.1:3021/health` returns 200 with
+`{"ok":true,"service":"citefleet","revision":"<full-sha>","db":"postgres",...}`.
+The endpoint performs a bounded database query and returns 503 with
+`"db":"unavailable"` when Supabase cannot be reached.
 
 This does **not** stop or recreate any other container on the box.
 
@@ -166,6 +202,12 @@ sudo certbot --nginx -d citefleet.app -d www.citefleet.app
 ```
 
 Open https://citefleet.app
+
+The deployed vhost includes `deploy/nginx-security-headers.conf`: HSTS,
+nosniff, strict-origin referrers, a restrictive permissions policy, and an
+enforced CSP. The CSP retains the known Grok extension/embed origins and the
+BotCentral browser API origin. The release smoke verifies these headers at the
+public edge after every deploy.
 
 ## 5. Rollout of the BotCentral proof token (done 2026-09-02; kept for reference)
 

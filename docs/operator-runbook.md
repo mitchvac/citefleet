@@ -39,15 +39,29 @@ CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) npm run dev
 
 ## Deploy a change
 
+A push to `main` automatically runs the `Release` workflow: application gates,
+clean Supabase migration replay, migration apply, exact-SHA VPS rollout, and
+public health/auth/header smoke. `/health` reports that full SHA and runs a
+bounded `SELECT 1`, so HTTP 200 means both the process and Supabase are ready.
+The GitHub `production` environment holds the dedicated constrained deploy key
+and verified VPS host key; setup and rotation are documented in
+[`deploy/DEPLOY-VPS.md`](../deploy/DEPLOY-VPS.md).
+
+Manual recovery path:
+
 ```bash
 ssh root@144.91.66.158
 bash /opt/citefleet/deploy/deploy-vps.sh
 curl -s https://citefleet.app/health
 ```
 
-The script pulls `main`, rebuilds only the `citefleet` container, and leaves
-every other site on the box alone. It re-executes itself from a private copy so
-a change to the script itself takes effect on the same run.
+The script pulls `main`, builds and probes an unpublished candidate, then
+rebuilds only the `citefleet` container and leaves every other site on the box
+alone. It retains the prior container until public HTTPS serves the exact new
+revision and the public auth/header smoke passes. On failure it restores the
+prior container and verifies that `/health` answers before reporting rollback
+success. It re-executes itself from a private copy so a change to the script
+itself takes effect on the same run.
 
 ## Get a customer listed
 
@@ -163,9 +177,10 @@ signature can be verified.
 ## Tests
 
 ```bash
+npm ci --ignore-scripts                    # exact committed dependency graph
 npm test                                   # Node 22; scripts/ and src/ suites
 npx tsc --noEmit && npx eslint .
-E2E_OPERATOR_TOKEN=<token> E2E_CHANNEL=chrome npx playwright test tests/e2e/list-a-site.spec.ts --headed   # or E2E_USER_EMAIL + E2E_USER_PASSWORD (allow-listed)
+E2E_OPERATOR_TOKEN=<token> E2E_CHANNEL=chrome npx playwright test tests/e2e/list-a-site.spec.ts --headed   # or E2E_USER_EMAIL + E2E_USER_PASSWORD
 ```
 
 The e2e signs in once (global setup) and walks the Training order for one

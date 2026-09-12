@@ -45,19 +45,20 @@ TanStack Start + React 19 + Nitro. Docker on a shared VPS
 ## Local
 
 ```bash
-npm install --ignore-scripts   # not `npm ci`: the lockfile is out of sync and npm ci refuses it
+npm ci --ignore-scripts                # exact committed dependency graph
 npm run db:start                       # local Postgres 17, same major as production
 npm run db:reset                       # replay supabase/migrations/ into it
 export DATABASE_URL=$(supabase status -o env | sed -n 's/^DB_URL="\(.*\)"$/\1/p')
-CITEFLEET_OPERATOR_TOKEN=$(openssl rand -hex 32) npm run dev   # then sign in at http://localhost:8080/login with that value
+npm run dev                            # create an account at http://localhost:8080/login
 ```
 
 `DATABASE_URL` is required — there is no embedded fallback, so the first query
 throws with these instructions if it is unset. Schema lives in
 `supabase/migrations/` and is applied only by the Supabase CLI: locally with
-`npm run db:reset`, in production by
-[.github/workflows/supabase-migrations.yml](.github/workflows/supabase-migrations.yml)
-on merge to `main`. The app itself performs no DDL. After adding a migration
+`npm run db:reset`, in production by the ordered
+[release workflow](.github/workflows/release.yml) after a clean schema replay
+and before the exact application commit is deployed. The app itself performs
+no DDL. After adding a migration
 (`npm run db:new <name>`), regenerate types with `npm run db:types` in the same
 change.
 
@@ -79,7 +80,9 @@ certbot --nginx -d citefleet.app -d www.citefleet.app
 ```
 
 Does not touch any other container or nginx vhost on the box. The operator
-token is minted into `/root/citefleet-operator.token` on first deploy.
+token is minted into `/root/citefleet-operator.token` on first deploy. Pushes
+to `main` run quality, schema, migration, exact-SHA deploy, and live smoke gates
+in that order; the manual command is the recovery path.
 
 ## Tests
 
