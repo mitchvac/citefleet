@@ -122,7 +122,9 @@ and redeploying; break-glass sessions bound to the old token stop working.
 Account and break-glass sessions are stored as token hashes in Supabase-hosted
 PostgreSQL, so a normal redeploy no longer signs everyone out. The script also
 generates `/root/citefleet-auth.secret`, used to HMAC client addresses before
-the shared rate limiter stores them. The e2e suite signs in with
+the shared rate limiter stores them. The generated environment pins the shared
+token to `CITEFLEET_BREAK_GLASS_WORKSPACE=ws-citefleet`; account sessions still
+resolve only through workspace membership. The e2e suite signs in with
 `E2E_OPERATOR_TOKEN=<same value>`.
 
 ## 3. Build & run

@@ -175,6 +175,9 @@ fi
   printf 'BOTCENTRAL_SERVICE_TOKEN=%s\n' "$SERVICE_TOKEN"
   printf 'CITEFLEET_OPERATOR_TOKEN=%s\n' "$OPERATOR_TOKEN"
   printf 'CITEFLEET_AUTH_SECRET=%s\n' "$AUTH_SECRET"
+  # The shared token is deliberately scoped to one existing workspace. Account
+  # sessions still resolve through membership and never consult this value.
+  echo "CITEFLEET_BREAK_GLASS_WORKSPACE=ws-citefleet"
   # Optional comma-separated recipients for listing-renewal reminders.
   if [[ -s /root/citefleet-operator.emails ]]; then
     printf 'CITEFLEET_OPERATOR_EMAILS=%s\n' "$(tr -d '\n' < /root/citefleet-operator.emails)"

@@ -21,7 +21,8 @@ list for renewal reminders; it does not control account access.
   in `/root/citefleet-google.oauth` (line 1 client id, line 2 secret); GitHub
   likewise in `/root/citefleet-github.oauth`.
 - Ops fallback: the server token in `/root/citefleet-operator.token` still
-  signs in through the same form (paste it in the token field).
+  signs in through `/api/login` and is restricted to the root `ws-citefleet`
+  workspace by the generated production environment.
 - The cookie holds a random session id; only its SHA-256 digest is stored in
   Supabase-hosted PostgreSQL, so a normal restart or redeploy keeps sessions.
   Five wrong attempts from one address (token or password) lock that address
