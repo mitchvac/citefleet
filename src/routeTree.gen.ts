@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as HealthRouteImport } from './routes/health'
@@ -17,9 +18,11 @@ import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OpsRouteImport } from './routes/ops'
 import { Route as PlaybookRouteImport } from './routes/playbook'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetRouteImport } from './routes/reset'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as StartRouteImport } from './routes/start'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TopupRouteImport } from './routes/topup'
 import { Route as ApiForgotRouteImport } from './routes/api/forgot'
 import { Route as ApiLoginRouteImport } from './routes/api/login'
@@ -44,6 +47,11 @@ import { Route as ApiOauthProvidersRouteImport } from './routes/api/oauth/provid
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ActivityRoute = ActivityRouteImport.update({
@@ -81,6 +89,11 @@ const PlaybookRoute = PlaybookRouteImport.update({
   path: '/playbook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetRoute = ResetRouteImport.update({
   id: '/reset',
   path: '/reset',
@@ -94,6 +107,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const StartRoute = StartRouteImport.update({
   id: '/start',
   path: '/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TopupRoute = TopupRouteImport.update({
@@ -199,6 +217,7 @@ const ApiOauthProvidersRoute = ApiOauthProvidersRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/activity': typeof ActivityRoute
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
@@ -206,9 +225,11 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
+  '/privacy': typeof PrivacyRoute
   '/reset': typeof ResetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/start': typeof StartRoute
+  '/terms': typeof TermsRoute
   '/topup': typeof TopupRoute
   '/api/forgot': typeof ApiForgotRoute
   '/api/login': typeof ApiLoginRoute
@@ -232,6 +253,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/activity': typeof ActivityRoute
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
@@ -239,9 +261,11 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
+  '/privacy': typeof PrivacyRoute
   '/reset': typeof ResetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/start': typeof StartRoute
+  '/terms': typeof TermsRoute
   '/topup': typeof TopupRoute
   '/api/forgot': typeof ApiForgotRoute
   '/api/login': typeof ApiLoginRoute
@@ -266,6 +290,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/activity': typeof ActivityRoute
   '/fleet': typeof FleetRoute
   '/health': typeof HealthRoute
@@ -273,9 +298,11 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/ops': typeof OpsRoute
   '/playbook': typeof PlaybookRoute
+  '/privacy': typeof PrivacyRoute
   '/reset': typeof ResetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/start': typeof StartRoute
+  '/terms': typeof TermsRoute
   '/topup': typeof TopupRoute
   '/api/forgot': typeof ApiForgotRoute
   '/api/login': typeof ApiLoginRoute
@@ -301,6 +328,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/activity'
     | '/fleet'
     | '/health'
@@ -308,9 +336,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/ops'
     | '/playbook'
+    | '/privacy'
     | '/reset'
     | '/sitemap.xml'
     | '/start'
+    | '/terms'
     | '/topup'
     | '/api/forgot'
     | '/api/login'
@@ -334,6 +364,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/activity'
     | '/fleet'
     | '/health'
@@ -341,9 +372,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/ops'
     | '/playbook'
+    | '/privacy'
     | '/reset'
     | '/sitemap.xml'
     | '/start'
+    | '/terms'
     | '/topup'
     | '/api/forgot'
     | '/api/login'
@@ -367,6 +400,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/activity'
     | '/fleet'
     | '/health'
@@ -374,9 +408,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/ops'
     | '/playbook'
+    | '/privacy'
     | '/reset'
     | '/sitemap.xml'
     | '/start'
+    | '/terms'
     | '/topup'
     | '/api/forgot'
     | '/api/login'
@@ -401,6 +437,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   ActivityRoute: typeof ActivityRoute
   FleetRoute: typeof FleetRoute
   HealthRoute: typeof HealthRoute
@@ -408,9 +445,11 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OpsRoute: typeof OpsRoute
   PlaybookRoute: typeof PlaybookRoute
+  PrivacyRoute: typeof PrivacyRoute
   ResetRoute: typeof ResetRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StartRoute: typeof StartRoute
+  TermsRoute: typeof TermsRoute
   TopupRoute: typeof TopupRoute
   ApiForgotRoute: typeof ApiForgotRoute
   ApiLoginRoute: typeof ApiLoginRoute
@@ -440,6 +479,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/activity': {
@@ -491,6 +537,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlaybookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset': {
       id: '/reset'
       path: '/reset'
@@ -510,6 +563,13 @@ declare module '@tanstack/react-router' {
       path: '/start'
       fullPath: '/start'
       preLoaderRoute: typeof StartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/topup': {
@@ -657,6 +717,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   ActivityRoute: ActivityRoute,
   FleetRoute: FleetRoute,
   HealthRoute: HealthRoute,
@@ -664,9 +725,11 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OpsRoute: OpsRoute,
   PlaybookRoute: PlaybookRoute,
+  PrivacyRoute: PrivacyRoute,
   ResetRoute: ResetRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StartRoute: StartRoute,
+  TermsRoute: TermsRoute,
   TopupRoute: TopupRoute,
   ApiForgotRoute: ApiForgotRoute,
   ApiLoginRoute: ApiLoginRoute,

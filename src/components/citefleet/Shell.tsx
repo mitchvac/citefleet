@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "./BrandLogo";
+import { PublicFooter } from "./PublicFooter";
 import { ShareApp } from "./ShareApp";
 
 type Me = { email: string; name: string; imageUrl?: string | null } | null;
@@ -86,7 +87,7 @@ export function Shell({
 }) {
   const me = useMe();
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07060f]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:gap-6 sm:px-6">
           <Link to="/" className="flex items-center gap-3">
@@ -153,7 +154,7 @@ export function Shell({
           </a>
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {(eyebrow || title) && (
           <div className="mb-8">
             {eyebrow && (
@@ -170,6 +171,7 @@ export function Shell({
         )}
         {children}
       </main>
+      <PublicFooter />
     </div>
   );
 }
