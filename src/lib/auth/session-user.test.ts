@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
+  createAccountSession,
   createSession,
   hasSession,
   resetOperatorState,
@@ -23,7 +24,7 @@ test("a session created without an account is anonymous, not empty-stringed", ()
 
 test("a session created with an account carries it back", () => {
   resetOperatorState();
-  const id = createSession(Date.now(), {
+  const id = createAccountSession({
     id: "u_9f2c1a",
     email: "ops@citefleet.app",
     name: "Ops",
@@ -35,6 +36,22 @@ test("a session created with an account carries it back", () => {
     name: "Ops",
     imageUrl: "https://lh3.googleusercontent.com/a/abc",
   });
+});
+
+test("an account session cannot silently omit the recovered user", () => {
+  resetOperatorState();
+  const recovered = {
+    id: "u_recovered",
+    email: "recovered@example.com",
+    name: "Recovered",
+    imageUrl: null,
+  };
+  const id = createAccountSession(recovered, 1_000);
+  assert.deepEqual(sessionUser(id, 1_001), recovered);
+
+  const resetSource = readFileSync(new URL("./reset.server.ts", import.meta.url), "utf8");
+  assert.match(resetSource, /createAccountSession\(result\.user\)/);
+  assert.doesNotMatch(resetSource, /sessionCookie\(createSession\(\)/);
 });
 
 test("an expired session surfaces no identity", () => {

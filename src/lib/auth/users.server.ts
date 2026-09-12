@@ -59,7 +59,7 @@ export async function createUser(input: {
 }
 
 /**
- * Set a new password hash and return the account's email, or null if the user
+ * Set a new password hash and return the account identity, or null if the user
  * is gone. Used only by the reset flow, which has already spent a single-use
  * token before calling this — there is no current-password check here because
  * the token IS the proof.
@@ -70,15 +70,19 @@ export async function createUser(input: {
 export async function setPassword(
   userId: string,
   password: string,
-): Promise<string | null> {
+): Promise<CiteFleetUser | null> {
   if (password.length < 8) return null;
   const sql = await getSql();
   const password_hash = await hashPassword(password);
-  const rows = await sql.query<{ email: string }>(
-    "UPDATE citefleet_users SET password_hash = $1 WHERE id = $2 RETURNING email",
+  const rows = await sql.query<{ id: string; email: string; name: string; image_url: string | null }>(
+    `UPDATE citefleet_users SET password_hash = $1 WHERE id = $2
+      RETURNING id, email, name, image_url`,
     [password_hash, userId],
   );
-  return rows[0]?.email ?? null;
+  const user = rows[0];
+  return user
+    ? { id: user.id, email: user.email, name: user.name, imageUrl: user.image_url }
+    : null;
 }
 
 export async function verifyUser(

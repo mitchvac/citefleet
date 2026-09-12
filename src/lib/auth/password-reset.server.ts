@@ -10,6 +10,7 @@ import {
   type ResetRejection,
 } from "./password-reset.ts";
 import { sendMail, mailConfigured } from "@/lib/mail/smtp";
+import type { CiteFleetUser } from "./users.server.ts";
 
 /**
  * Request and consume password resets.
@@ -96,7 +97,7 @@ export async function requestReset(emailRaw: string, ip: string | null): Promise
   return { sent: true };
 }
 
-export type ConsumeResult = { ok: true; email: string } | { ok: false; reason: ResetRejection };
+export type ConsumeResult = { ok: true; user: CiteFleetUser } | { ok: false; reason: ResetRejection };
 
 /**
  * Spend a token and set the new password. The UPDATE that marks it spent is
@@ -131,9 +132,9 @@ export async function consumeReset(token: string, password: string): Promise<Con
   if (!claimed[0]) return { ok: false, reason: "used" };
 
   const { setPassword } = await import("./users.server");
-  const email = await setPassword(row.user_id, password);
-  if (!email) return { ok: false, reason: "not-found" };
-  return { ok: true, email };
+  const user = await setPassword(row.user_id, password);
+  if (!user) return { ok: false, reason: "not-found" };
+  return { ok: true, user };
 }
 
 /** Housekeeping: spent and expired rows have no further use. */

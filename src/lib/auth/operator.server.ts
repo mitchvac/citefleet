@@ -6,7 +6,7 @@ import {
   attemptLogin,
   clearFailures,
   clearedCookie,
-  createSession,
+  createAccountSession,
   isLocked,
   noteFailure,
   hasSession,
@@ -140,7 +140,7 @@ export async function handleLogin(request: Request): Promise<Response> {
     clearFailures(key);
     return signedInResponse(
       request,
-      createSession(Date.now(), {
+      createAccountSession({
         id: user.id,
         email: user.email,
         name: user.name,
@@ -185,7 +185,7 @@ export async function handleSignup(request: Request): Promise<Response> {
   // knew who they were. `createUser` returns the row — use it.
   return signedInResponse(
     request,
-    createSession(Date.now(), {
+    createAccountSession({
       id: created.user.id,
       email: created.user.email,
       name: created.user.name,

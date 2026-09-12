@@ -69,8 +69,8 @@ function LoginPage() {
             {mode === "forgot" ? (
               <>
                 Enter the email on your account and we will send a link to set a new password.
-                Signed up with Google or GitHub? Use that button instead — those accounts have no
-                password to reset.
+                Signed up with Google or GitHub? You can keep using that button, or set a password
+                here as another way to sign in.
               </>
             ) : (
               <>

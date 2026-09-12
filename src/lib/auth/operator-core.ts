@@ -115,6 +115,11 @@ export function createSession(now = Date.now(), user?: SessionUser): string {
   return id;
 }
 
+/** Account sessions must always carry the identity used for tenant resolution. */
+export function createAccountSession(user: SessionUser, now = Date.now()): string {
+  return createSession(now, user);
+}
+
 /**
  * The account behind a session, or null for the token path and for anything
  * expired. Read through the same expiry check as `hasSession` so a stale

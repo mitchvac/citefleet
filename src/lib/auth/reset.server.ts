@@ -2,7 +2,7 @@ import {
   clearFailures,
   isLocked,
   noteFailure,
-  createSession,
+  createAccountSession,
   sessionCookie,
 } from "./operator-core.ts";
 import { consumeReset, requestReset } from "./password-reset.server.ts";
@@ -123,7 +123,9 @@ export async function handleReset(request: Request): Promise<Response> {
     status: 303,
     headers: {
       Location: "/",
-      "Set-Cookie": sessionCookie(createSession(), { secure: isSecure(request) }),
+      "Set-Cookie": sessionCookie(createAccountSession(result.user), {
+        secure: isSecure(request),
+      }),
     },
   });
 }

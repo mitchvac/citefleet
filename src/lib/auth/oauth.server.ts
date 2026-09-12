@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { SessionUser } from "./operator-core.ts";
-import { createSession, readCookie, sessionCookie } from "./operator-core.ts";
+import { createAccountSession, readCookie, sessionCookie } from "./operator-core.ts";
 
 const STATE_COOKIE = "citefleet_oauth";
 const STATE_TTL = 10 * 60;
@@ -65,8 +65,8 @@ function loginError(reason: string): Response {
   return redirect(`/login?error=${reason}`);
 }
 
-function signedIn(request: Request, user?: SessionUser, extraCookies: string[] = []): Response {
-  const session = sessionCookie(createSession(Date.now(), user ?? undefined), {
+function signedIn(request: Request, user: SessionUser, extraCookies: string[] = []): Response {
+  const session = sessionCookie(createAccountSession(user), {
     secure: isSecure(request),
   });
   const cookies = [session, stateCookie("", request, 0), ...extraCookies];
