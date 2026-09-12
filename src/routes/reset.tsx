@@ -27,10 +27,10 @@ function ResetPage() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-12">
-        <div className="glass rounded-3xl p-8">
-          <Link to="/" className="mb-6 flex items-center gap-3 no-underline">
+    <div className="flex min-h-dvh flex-col">
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-3 py-6 sm:px-6 sm:py-12">
+        <div className="glass rounded-2xl p-5 sm:rounded-3xl sm:p-8">
+          <Link to="/" className="mb-5 flex items-center gap-3 no-underline sm:mb-6">
             <BrandLogo className="h-10 w-10" />
             <span>
               <span className="block text-lg font-semibold text-white">CiteFleet</span>
@@ -66,12 +66,12 @@ function ResetPage() {
                   minLength={MIN_PASSWORD_LENGTH}
                   autoComplete="new-password"
                   autoFocus
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case tracking-normal text-white"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case tracking-normal text-white"
                   placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                 />
               </label>
               <button
-                className="w-full rounded-xl bg-gradient-to-r from-[#6d4aff] to-[#4ee0c3] px-4 py-2.5 text-sm font-semibold text-[#07060f]"
+                className="min-h-11 w-full rounded-xl bg-gradient-to-r from-[#6d4aff] to-[#4ee0c3] px-4 py-2.5 text-sm font-semibold text-[#07060f]"
                 data-testid="reset-submit"
               >
                 Set password and sign in
@@ -87,8 +87,11 @@ function ResetPage() {
             </p>
           )}
 
-          <p className="mt-5 text-center text-sm text-[#9b95b3]">
-            <Link to="/login" className="text-[#4ee0c3] underline-offset-4 hover:underline">
+          <p className="mt-3 flex min-h-11 items-center justify-center text-center text-sm text-[#9b95b3]">
+            <Link
+              to="/login"
+              className="inline-flex min-h-11 items-center text-[#4ee0c3] underline-offset-4 hover:underline"
+            >
               Back to sign in
             </Link>
           </p>

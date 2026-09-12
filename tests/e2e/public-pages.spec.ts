@@ -55,6 +55,52 @@ test("account creation exposes the terms and privacy notice", async ({ page }) =
   );
 });
 
+test("mobile auth keeps primary controls touch-sized and puts recovery first", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/login");
+
+  for (const control of [
+    page.getByTestId("share-app"),
+    page.getByRole("link", { name: "Continue with Google" }),
+    page.getByRole("link", { name: "Continue with GitHub" }),
+    page.getByLabel("Email"),
+    page.getByLabel("Password"),
+    page.getByRole("button", { name: "Sign in", exact: true }),
+    page.getByTestId("forgot-password"),
+    page.getByRole("button", { name: "Create an account" }),
+    page.getByRole("contentinfo").getByRole("link", { name: "About" }),
+    page.getByRole("contentinfo").getByRole("link", { name: "Privacy" }),
+    page.getByRole("contentinfo").getByRole("link", { name: "Terms" }),
+  ]) {
+    const box = await control.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+
+  await page.getByTestId("forgot-password").click();
+  const emailBox = await page.getByLabel("Email").boundingBox();
+  const googleBox = await page.getByRole("link", { name: "Continue with Google" }).boundingBox();
+  expect(emailBox?.y).toBeLessThan(googleBox?.y ?? 0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+
+  await page.screenshot({ path: testInfo.outputPath("login-recovery-mobile.png"), fullPage: true });
+
+  await page.goto("/login?sent=1");
+  const resendBox = await page.getByRole("button", { name: /Request another link in/ }).boundingBox();
+  expect(resendBox?.height).toBeGreaterThanOrEqual(44);
+
+  await page.goto("/reset?token=mobile-layout-check");
+  for (const control of [
+    page.getByLabel("New password"),
+    page.getByTestId("reset-submit"),
+    page.getByRole("link", { name: "Back to sign in" }),
+  ]) {
+    const box = await control.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
 test("public sitemap contains public content and omits workspace screens", async ({ request }) => {
   const response = await request.get("/sitemap.xml");
   expect(response.status()).toBe(200);

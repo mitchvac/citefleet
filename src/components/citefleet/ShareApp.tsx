@@ -9,7 +9,7 @@ import { shareApp, shareTarget, type ShareOutcome } from "@/lib/citefleet/share-
  * person able to pass CiteFleet on. The payload and the branching live in
  * `share-app.ts`; this file only opens the browser doors.
  */
-export function ShareApp() {
+export function ShareApp({ compact = false }: { compact?: boolean } = {}) {
   const [state, setState] = useState<"idle" | "busy" | ShareOutcome>("idle");
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -52,13 +52,15 @@ export function ShareApp() {
       onClick={() => void onClick()}
       title="Share CiteFleet"
       data-testid="share-app"
-      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 px-3 py-1 text-xs text-[#cfc8e8] hover:bg-white/5"
+      className={`inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-white/10 text-xs text-[#cfc8e8] hover:bg-white/5 ${compact ? "w-11" : "gap-1.5 px-3"}`}
     >
       <Share2 className="h-3.5 w-3.5" aria-hidden />
       <span className="sr-only">{label}</span>
-      <span aria-hidden className="hidden min-[360px]:inline lg:hidden xl:inline">
-        {label}
-      </span>
+      {!compact && (
+        <span aria-hidden className="hidden min-[360px]:inline lg:hidden xl:inline">
+          {label}
+        </span>
+      )}
     </button>
   );
 }

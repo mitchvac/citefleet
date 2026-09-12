@@ -1,15 +1,9 @@
-import logoUrl from "@/assets/citefleet-logo.png";
-
-export function BrandLogo({
-  size = 36,
-  className = "",
-}: {
-  size?: number;
-  className?: string;
-}) {
+export function BrandLogo({ size = 36, className = "" }: { size?: number; className?: string }) {
   return (
     <img
-      src={logoUrl}
+      src="/favicon.png"
+      srcSet="/favicon.png 64w, /apple-touch-icon.png 180w"
+      sizes={`${size}px`}
       alt=""
       width={size}
       height={size}

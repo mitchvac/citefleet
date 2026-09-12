@@ -40,7 +40,10 @@ function pngSize(bytes) {
 }
 
 test("the repo ships its own OG card", () => {
-  assert.ok(existsSync(CARD), "public/og.png is missing — og:image falls back to the blank og.grok.me placeholder");
+  assert.ok(
+    existsSync(CARD),
+    "public/og.png is missing — og:image falls back to the blank og.grok.me placeholder",
+  );
 });
 
 test("the card is a real 1200x630 image, not the 187-byte blank", () => {
@@ -87,9 +90,16 @@ test("every public page can share the app, /login included", () => {
   // The e2e suite drives the button; this pins that the login page HAS one.
   const login = readFileSync(join(ROOT, "src/routes/login.tsx"), "utf8");
   assert.match(login, /import \{ ShareApp \}/, "login.tsx does not import ShareApp");
-  assert.match(login, /<ShareApp \/>/, "login.tsx does not render ShareApp");
+  assert.match(login, /<ShareApp compact \/>/, "login.tsx does not render compact ShareApp");
 
   // Control: the component it is meant to sit beside is really there, so a
   // renamed file cannot make the assertions above vacuously true.
   assert.match(login, /BrandLogo/);
+});
+
+test("the UI logo uses responsive public icons, not a full-size bundle import", () => {
+  const logo = readFileSync(join(ROOT, "src/components/citefleet/BrandLogo.tsx"), "utf8");
+  assert.doesNotMatch(logo, /@\/assets\/citefleet-logo\.png/);
+  assert.match(logo, /src="\/favicon\.png"/);
+  assert.match(logo, /srcSet="\/favicon\.png 64w, \/apple-touch-icon\.png 180w"/);
 });

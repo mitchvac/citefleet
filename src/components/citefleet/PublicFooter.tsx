@@ -11,9 +11,13 @@ export function PublicFooter() {
     <footer className="border-t border-white/10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-6 text-xs text-[#9b95b3] sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p>CiteFleet indexing operations</p>
-        <nav aria-label="Company and legal" className="flex flex-wrap gap-x-5 gap-y-2">
+        <nav aria-label="Company and legal" className="flex flex-wrap items-center gap-x-5">
           {LINKS.map((item) => (
-            <Link key={item.to} to={item.to} className="hover:text-white hover:underline">
+            <Link
+              key={item.to}
+              to={item.to}
+              className="inline-flex min-h-11 items-center hover:text-white hover:underline"
+            >
               {item.label}
             </Link>
           ))}
