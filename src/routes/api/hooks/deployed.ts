@@ -7,12 +7,20 @@ export const Route = createFileRoute("/api/hooks/deployed")({
     handlers: {
       GET: async () =>
         Response.json(
-          { ok: true, hint: 'POST {"domain":"<your-domain>"} with X-CiteFleet-Signature: sha256=<HMAC-SHA256 of the body using your CiteFleet webhook secret>.' },
+          {
+            ok: true,
+            hint: 'POST {"domain":"<your-domain>"} with X-CiteFleet-Signature: sha256=<HMAC-SHA256 of the body using your CiteFleet webhook secret>.',
+          },
           { status: 405 },
         ),
       POST: async ({ request }) => {
-        const rawBody = await request.text();
-        const { handleDeployedHook, runWebhookListing } = await import("@/lib/citefleet/ops.server");
+        const { readWebhookBody } = await import("@/lib/citefleet/webhook-body.server.ts");
+        const body = await readWebhookBody(request);
+        if (!body.ok)
+          return Response.json({ ok: false, error: body.error }, { status: body.status });
+        const { rawBody } = body;
+        const { handleDeployedHook, runWebhookListing } =
+          await import("@/lib/citefleet/ops.server");
         const { hookDeps } = await import("@/lib/citefleet/hook-tenant.server.ts");
         // The tenant is found from the domain in the body, never defaulted. An
         // unknown domain yields an empty store, so the handler burns the decoy

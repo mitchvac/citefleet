@@ -45,3 +45,21 @@ test("the deploy verifies public entry points before discarding rollback", () =>
     /if \[\[ "\$HAD_ROLLBACK" == 1 \]\]; then\s+docker rm -f "\$ROLLBACK"/,
   );
 });
+
+test("Entri credentials survive deploys only through the durable root file", () => {
+  assert.match(deploy, /ENTRI_FILE="\/root\/citefleet-entri\.connect"/);
+  assert.match(deploy, /mapfile -t _entri < "\$ENTRI_FILE"/);
+  assert.match(
+    deploy,
+    /if \[\[ -z "\$ENTRI_APPLICATION_ID" \|\| -z "\$ENTRI_SECRET" \]\]; then[\s\S]*?exit 1/,
+  );
+  assert.match(deploy, /CITEFLEET_ENTRI_APPLICATION_ID=%s/);
+  assert.match(deploy, /CITEFLEET_ENTRI_SECRET=%s/);
+  assert.match(deploy, /ENTRI_SHARE_HOST="\$\{_entri\[2\]-\}"/);
+  assert.match(deploy, /CITEFLEET_ENTRI_SHARE_HOST=%s/);
+  assert.doesNotMatch(deploy, /echo[^\n]*\$ENTRI_SECRET/);
+
+  const validation = deploy.indexOf('if [[ -e "$ENTRI_FILE" ]]');
+  const envRewrite = deploy.indexOf("} > .env");
+  assert.ok(validation >= 0 && validation < envRewrite);
+});

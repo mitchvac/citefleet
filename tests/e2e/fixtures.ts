@@ -65,11 +65,14 @@ export function exactCard(page: Page, name: string) {
  * A positive control, and not optional: `count() === 0` on a board that has not
  * rendered is indistinguishable from "the property is gone", and an earlier
  * teardown reported success on exactly that basis while the property was still
- * live. Never conclude absence from a board that has drawn nothing.
+ * live. The onboard heading appears only after the workspace has loaded, and it
+ * remains present when the workspace legitimately has zero property cards.
  */
 export async function boardDrawn(page: Page): Promise<void> {
   await page.goto("/");
-  await expect(page.locator("article").first()).toBeVisible({ timeout: 45_000 });
+  await expect(
+    page.getByRole("heading", { name: "Onboard a property", exact: true }),
+  ).toBeVisible({ timeout: 45_000 });
   await page.waitForTimeout(1500);
 }
 

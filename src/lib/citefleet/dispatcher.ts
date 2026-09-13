@@ -6,36 +6,31 @@ import { cleanPrefix } from "./topup.ts";
 import { chooseProvider, providerGuidance } from "./provider-choice.ts";
 import { INDEXNOW_KEY_HELP, cleanIndexNowKey, resolveIndexNowKey } from "./indexnow.ts";
 import { PROVIDER_FLOWS } from "./provider-flows.ts";
-import {
-  logActivity,
-  recalcScores,
-  touchBot,
-} from "./store";
+import { logActivity, recalcScores, touchBot } from "./store";
 import type { WorkspaceHandle } from "./workspace-handle.ts";
 import { assertCanAct, doorForPlaybook, freezeReason, isFrozen } from "./control";
 import type { AuditResult, PlaybookId, Site, Task } from "./types";
 import { siteVerifyToken } from "./verify-token.ts";
 import { checklistTransition, toggleEvidenceLabel } from "./task-state.ts";
-import { checkOriginProof, waitForProof } from "./proof.ts";
-import {
-  normalizeOwner,
-  normalizeRepo,
-  normalizeRoot,
-  originRepoConflict,
-} from "./origin-repo.ts";
+import { checkOriginProof, waitForDnsProof, waitForProof } from "./proof.ts";
+import { normalizeOwner, normalizeRepo, normalizeRoot, originRepoConflict } from "./origin-repo.ts";
 import { deployedUrl, endCheck, newWebhookSecret, payloadUrl } from "./webhook.ts";
+import { applyWebhookProof, recordWebhookResult } from "./webhook-proof-state.ts";
 
 function botForPlaybook(playbookId: PlaybookId) {
   return FLEET_TEMPLATE.find((b) => b.playbookIds.includes(playbookId));
 }
 
-export async function onboardSite(ws: WorkspaceHandle, input: {
-  name: string;
-  url: string;
-  routes?: string[];
-  indexNowKey?: string;
-  github?: { owner: string; repo: string; branch?: string; root?: string };
-}): Promise<Site> {
+export async function onboardSite(
+  ws: WorkspaceHandle,
+  input: {
+    name: string;
+    url: string;
+    routes?: string[];
+    indexNowKey?: string;
+    github?: { owner: string; repo: string; branch?: string; root?: string };
+  },
+): Promise<Site> {
   const url = input.url.replace(/\/$/, "");
   const domain = new URL(url).hostname;
   if (input.indexNowKey && !cleanIndexNowKey(input.indexNowKey)) {
@@ -56,9 +51,7 @@ export async function onboardSite(ws: WorkspaceHandle, input: {
     // path the GitHub push writes to.
     indexNowKey: resolveIndexNowKey(undefined, input.indexNowKey),
     verifyToken: siteVerifyToken({ domain }),
-    routes: input.routes?.length
-      ? input.routes
-      : ["/", "/privacy", "/terms", "/about"],
+    routes: input.routes?.length ? input.routes : ["/", "/privacy", "/terms", "/about"],
     createdAt: new Date().toISOString(),
     scores: { technical: 0, submissions: 0, mentions: 0, overall: 0 },
     summary: "Onboarded. Awaiting Grok Dispatcher assignment.",
@@ -108,9 +101,7 @@ export async function dispatchSite(ws: WorkspaceHandle, siteId: string) {
   await ws.mutate((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
-    const open = store.tasks.filter(
-      (t) => t.siteId === siteId && t.status !== "done",
-    );
+    const open = store.tasks.filter((t) => t.siteId === siteId && t.status !== "done");
     open.sort((a, b) => a.priority - b.priority);
 
     const usedBots = new Set(
@@ -204,9 +195,7 @@ export async function runAuditAndApply(ws: WorkspaceHandle, siteId: string): Pro
     if (audit.proof) current.proof = audit.proof;
 
     const apply = (playbookId: PlaybookId, findingOk: boolean, label: string) => {
-      const task = s.tasks.find(
-        (t) => t.siteId === siteId && t.playbookId === playbookId,
-      );
+      const task = s.tasks.find((t) => t.siteId === siteId && t.playbookId === playbookId);
       if (!task) return;
       task.evidence.unshift({
         id: crypto.randomUUID(),
@@ -216,19 +205,10 @@ export async function runAuditAndApply(ws: WorkspaceHandle, siteId: string): Pro
         ok: findingOk,
       });
       if (findingOk && task.status !== "done") {
-        const autoClosable: PlaybookId[] = [
-          "spa_fallback",
-          "robots_ai",
-          "sitemap",
-          "indexnow",
-        ];
+        const autoClosable: PlaybookId[] = ["spa_fallback", "robots_ai", "sitemap", "indexnow"];
         if (autoClosable.includes(playbookId)) {
-          const related = audit.findings.filter(
-            (f) => f.playbookId === playbookId,
-          );
-          const anyBad = related.some(
-            (f) => f.severity === "critical" || f.severity === "warn",
-          );
+          const related = audit.findings.filter((f) => f.playbookId === playbookId);
+          const anyBad = related.some((f) => f.severity === "critical" || f.severity === "warn");
           if (!anyBad) {
             task.status = "done";
             task.completedAt = audit.at;
@@ -243,16 +223,12 @@ export async function runAuditAndApply(ws: WorkspaceHandle, siteId: string): Pro
     apply(
       "spa_fallback",
       !spaBad,
-      spaBad
-        ? "Live audit: SPA fallback still failing"
-        : "Live audit: public routes fetchable",
+      spaBad ? "Live audit: SPA fallback still failing" : "Live audit: public routes fetchable",
     );
     apply(
       "robots_ai",
       !!audit.robots?.ok,
-      audit.robots?.ok
-        ? "Live audit: robots.txt reachable"
-        : "Live audit: robots.txt missing",
+      audit.robots?.ok ? "Live audit: robots.txt reachable" : "Live audit: robots.txt missing",
     );
     apply(
       "sitemap",
@@ -318,17 +294,11 @@ export async function runTask(ws: WorkspaceHandle, taskId: string) {
   if (!snapshot) throw new Error("Task not found");
 
   if (
-    ["spa_fallback", "robots_ai", "sitemap", "indexnow", "monitor"].includes(
-      snapshot.playbookId,
-    )
+    ["spa_fallback", "robots_ai", "sitemap", "indexnow", "monitor"].includes(snapshot.playbookId)
   ) {
     const audit = await runAuditAndApply(ws, snapshot.siteId);
-    const relevant = audit.findings.filter(
-      (f) => f.playbookId === snapshot!.playbookId,
-    );
-    const blocked = relevant.some(
-      (f) => f.severity === "critical" || f.severity === "warn",
-    );
+    const relevant = audit.findings.filter((f) => f.playbookId === snapshot!.playbookId);
+    const blocked = relevant.some((f) => f.severity === "critical" || f.severity === "warn");
 
     await ws.mutate((store) => {
       const task = store.tasks.find((t) => t.id === taskId);
@@ -494,9 +464,7 @@ export async function publishSiteToBotCentral(ws: WorkspaceHandle, siteId: strin
       if (payment) current.payment = { ...payment, at };
       else if (catalog.listed) current.payment = undefined;
     }
-    const task = s.tasks.find(
-      (t) => t.siteId === siteId && t.playbookId === "botcentral_list",
-    );
+    const task = s.tasks.find((t) => t.siteId === siteId && t.playbookId === "botcentral_list");
     if (task) {
       task.evidence.unshift({
         id: crypto.randomUUID(),
@@ -718,7 +686,12 @@ export async function rotateWebhookSecret(ws: WorkspaceHandle, siteId: string) {
       message: `${had ? "Rotated" : "Created"} the webhook secret for ${site.domain}. The previous one no longer works.`,
     });
   });
-  return { secret, payloadUrl: payloadUrl(), deployedUrl: deployedUrl(), events: ["push", "deployment_status"] as const };
+  return {
+    secret,
+    payloadUrl: payloadUrl(),
+    deployedUrl: deployedUrl(),
+    events: ["push", "deployment_status"] as const,
+  };
 }
 
 /**
@@ -729,16 +702,31 @@ export async function runWebhookListing(
   ws: WorkspaceHandle,
   siteId: string,
   reason: string,
-  opts: { attempts?: number; delayMs?: number } = {},
+  opts: {
+    attempts?: number;
+    delayMs?: number;
+    dnsSetupJobId?: string;
+    inFlightKey?: string;
+  } = {},
 ) {
   // Runs detached from the request (void). Every exit path records
   // webhook.lastResult and an audit line; the in-flight guard is released in
   // finally so a later delivery can start a fresh check.
-  const record = async (result: string, message: string, kind: "audit" | "index" = "audit") => {
+  const record = async (
+    result: string,
+    message: string,
+    kind: "audit" | "index" = "audit",
+    dnsStatus?: "verified" | "failed",
+  ) => {
     try {
       await ws.mutate((s) => {
         const current = s.sites.find((x) => x.id === siteId);
-        if (current?.webhook) current.webhook.lastResult = result;
+        if (current) {
+          recordWebhookResult(current, result, new Date().toISOString(), {
+            dnsSetupJobId: opts.dnsSetupJobId,
+            dnsStatus,
+          });
+        }
         logActivity(s, { actor: "Sentinel", kind, siteId, message });
       });
     } catch (err) {
@@ -749,15 +737,22 @@ export async function runWebhookListing(
     const store = await ws.get();
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) return { ok: false, error: "Site not found" };
-    const proof = await waitForProof(site, { attempts: opts.attempts ?? 10, delayMs: opts.delayMs ?? 30_000 });
+    const wait = opts.dnsSetupJobId ? waitForDnsProof : waitForProof;
+    const proof = await wait(site, {
+      attempts: opts.attempts ?? 10,
+      delayMs: opts.delayMs ?? 30_000,
+    });
     await ws.mutate((s) => {
       const current = s.sites.find((x) => x.id === siteId);
-      if (current) current.proof = proof;
+      if (current) applyWebhookProof(current, proof, opts.dnsSetupJobId, new Date().toISOString());
     });
     if (!proof.proven) {
+      const proofLabel = opts.dnsSetupJobId ? "DNS proof" : "origin proof";
       await record(
         `proof not live after ${proof.attempts} check(s)`,
-        `Hook (${reason}): origin proof for ${site.domain} did not appear after ${proof.attempts} checks. ${proof.note}`,
+        `Hook (${reason}): ${proofLabel} for ${site.domain} did not appear after ${proof.attempts} checks. ${proof.note}`,
+        "audit",
+        "failed",
       );
       return { ok: false, error: proof.note };
     }
@@ -771,16 +766,24 @@ export async function runWebhookListing(
       return { ok: true, listed: listing.listed, href: listing.href };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "publish failed";
-      await record(`proof ${proof.method} · publish refused`, `Hook (${reason}): ${site.domain} proof ok but publish refused — ${msg}`);
+      await record(
+        `proof ${proof.method} · publish refused`,
+        `Hook (${reason}): ${site.domain} proof ok but publish refused — ${msg}`,
+      );
       return { ok: false, error: msg };
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "unexpected failure";
     console.error("[citefleet] webhook listing failed", err);
-    await record(`failed: ${msg}`, `Hook (${reason}): listing run failed — ${msg}`);
+    await record(
+      `failed: ${msg}`,
+      `Hook (${reason}): listing run failed — ${msg}`,
+      "audit",
+      "failed",
+    );
     return { ok: false, error: msg };
   } finally {
-    endCheck(siteId);
+    endCheck(opts.inFlightKey ?? siteId);
   }
 }
 

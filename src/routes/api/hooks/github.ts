@@ -7,12 +7,21 @@ export const Route = createFileRoute("/api/hooks/github")({
     handlers: {
       GET: async () =>
         Response.json(
-          { ok: true, hint: "Point a GitHub repository webhook (content type JSON, events: push, deployment_status) at this URL with the secret from your CiteFleet campaign page." },
+          {
+            ok: true,
+            hint: "Point a GitHub repository webhook (content type JSON, events: push, deployment_status) at this URL with the secret from your CiteFleet campaign page.",
+          },
           { status: 405 },
         ),
       POST: async ({ request }) => {
-        const rawBody = await request.text();
-        const { handleGithubWebhook, runWebhookListing } = await import("@/lib/citefleet/ops.server");
+        const { MAX_GITHUB_WEBHOOK_BODY_BYTES, readWebhookBody } =
+          await import("@/lib/citefleet/webhook-body.server.ts");
+        const body = await readWebhookBody(request, MAX_GITHUB_WEBHOOK_BODY_BYTES);
+        if (!body.ok)
+          return Response.json({ ok: false, error: body.error }, { status: body.status });
+        const { rawBody } = body;
+        const { handleGithubWebhook, runWebhookListing } =
+          await import("@/lib/citefleet/ops.server");
         const { repoFullName } = await import("@/lib/citefleet/webhook.ts");
         const { hookDeps } = await import("@/lib/citefleet/hook-tenant.server.ts");
         // Which tenant owns this repo, found by searching — never defaulted.

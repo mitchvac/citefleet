@@ -9,12 +9,20 @@ export const Route = createFileRoute("/api/hooks/botcentral")({
     handlers: {
       GET: async () =>
         Response.json(
-          { ok: true, hint: "BotCentral posts site.listed / site.reverified / site.lapsed / site.unpublished here, signed with x-botcentral-signature." },
+          {
+            ok: true,
+            hint: "BotCentral posts site.listed / site.reverified / site.lapsed / site.unpublished here, signed with x-botcentral-signature.",
+          },
           { status: 405 },
         ),
       POST: async ({ request }) => {
-        const rawBody = await request.text();
-        const { handleBotcentralWebhook, applyCatalogState } = await import("@/lib/citefleet/ops.server");
+        const { readWebhookBody } = await import("@/lib/citefleet/webhook-body.server.ts");
+        const body = await readWebhookBody(request);
+        if (!body.ok)
+          return Response.json({ ok: false, error: body.error }, { status: body.status });
+        const { rawBody } = body;
+        const { handleBotcentralWebhook, applyCatalogState } =
+          await import("@/lib/citefleet/ops.server");
         const { hookDeps } = await import("@/lib/citefleet/hook-tenant.server.ts");
         // BotCentral names the host its event is about; that host decides the
         // tenant. An unknown host resolves to an empty store, which is how the

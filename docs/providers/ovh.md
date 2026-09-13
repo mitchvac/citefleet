@@ -43,7 +43,11 @@ The apex DNS TXT record is still the better option where OVH also hosts the doma
 
 Use the **apex DNS TXT record** for the BotCentral proof. OVHcloud runs the DNS for any domain pointed at its nameservers, and the zone editor is at **Web Cloud → Domain names → `<domain>` → DNS zone** → **Add an entry** → **TXT**; leave the Subdomain field empty for an apex record. OVH warns changes take up to 24 hours to propagate fully.
 
-This can be fully automated: **lego has a first-class `ovh` provider.** Three credential styles, and they are mutually exclusive:
+This can be automated through OVHcloud's DNS API directly or through Entri
+Connect. lego has an `ovh` ACME DNS-01 provider that corroborates three API
+credential styles, but it only creates and removes `_acme-challenge` records;
+it must not be used to write CiteFleet's permanent apex proof. The credential
+styles are mutually exclusive:
 
 - Application key: `OVH_APPLICATION_KEY`, `OVH_APPLICATION_SECRET`, `OVH_CONSUMER_KEY`, `OVH_ENDPOINT` (`ovh-eu` or `ovh-ca`). Generate the AK/AS/CK triple at https://api.ovh.com/createToken/ (or `https://eu.api.ovh.com/createToken/`).
 - OAuth2: `OVH_CLIENT_ID`, `OVH_CLIENT_SECRET`, `OVH_ENDPOINT`.

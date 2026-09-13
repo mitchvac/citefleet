@@ -233,11 +233,14 @@ response (https://vercel.com/kb/guide/using_vercel_as_a_cdn). If CiteFleet serve
 origin pack, set a short `CDN-Cache-Control` (e.g. `s-maxage=300`) so an updated sitemap
 propagates without the customer redeploying.
 
-## `lego` DNS plugin (for the DNS TXT route)
+## DNS API and ACME provider evidence
 
-Yes — `lego` ships a Vercel DNS provider, which matters here because the recommended proof
-on this host is a DNS TXT record, and CiteFleet can write it automatically for any customer
-whose domain uses **Vercel DNS / Vercel nameservers**.
+Vercel's REST DNS API can create the persistent proof record, and Entri Connect
+supports Vercel. `lego` also ships a Vercel DNS-01 provider, but it cannot be
+CiteFleet's executor: lego creates a temporary `_acme-challenge` record for
+certificate validation and removes it afterward. CiteFleet must call Vercel's
+DNS API directly or use Entri for a customer whose domain uses **Vercel DNS /
+Vercel nameservers**.
 
 | | |
 |---|---|
@@ -258,8 +261,8 @@ Vercel with an A record has its DNS elsewhere and needs that registrar's provide
 ## If files cannot be placed
 
 1. **Apex DNS TXT record** — `botcentral-verify=citefleet-app`. The recommended primary on
-   Vercel: no redeploy, no reserved-path problem, and it survives every rebuild. Scriptable
-   with `lego`'s `vercel` provider when the domain uses Vercel DNS.
+   Vercel: no redeploy, no reserved-path problem, and it survives every rebuild.
+   Scriptable through Vercel's REST DNS API or Entri when the domain uses Vercel DNS.
 2. **`vercel.json` rewrites** (route B) for the four non-`.well-known` files, if the
    customer will accept a config commit but not generated content in their repo.
 3. **A route handler** — on Next.js, `app/robots.ts` / `app/sitemap.ts` / an

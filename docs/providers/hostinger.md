@@ -182,8 +182,11 @@ verification string in the **TXT value** field; Hostinger's documented
 default TTL is **14400 seconds (4 hours)**, with propagation "up to 24
 hours."
 
-For automation, lego (the ACME client) already ships a first-class
-**`hostinger`** DNS provider (https://go-acme.github.io/lego/dns/hostinger/):
+For persistent automation, use Entri Connect or call Hostinger's DNS Zone API
+directly. lego (the ACME client) ships a **`hostinger`** DNS-01 provider
+(https://go-acme.github.io/lego/dns/hostinger/), which corroborates the API
+credential and tuning surface but only creates and removes temporary
+`_acme-challenge` records:
 
 - Required: `HOSTINGER_API_TOKEN`
 - Optional: `HOSTINGER_HTTP_TIMEOUT` (default 30s), `HOSTINGER_POLLING_INTERVAL`
@@ -194,14 +197,15 @@ For automation, lego (the ACME client) already ships a first-class
   **https://developers.hostinger.com/#tag/dns-zone** (DNS Zone tag)
 
 No fetched hPanel-facing support article mentions this API directly — the DNS
-Zone Editor articles describe only the manual hPanel flow. The API's
-existence is confirmed via Hostinger's own developer portal
-(`developers.hostinger.com`, referenced by lego's provider page) and the
+Zone Editor articles describe only the manual hPanel flow. The API's existence
+is confirmed by Hostinger's own developer portal (`developers.hostinger.com`)
+and the
 public `hostinger/api-php-sdk` GitHub repository, whose `DNSZoneApi.md`
 states "All URIs are relative to https://developers.hostinger.com." This is
 the recommended unattended route for proof-of-control on Hostinger — it works
 on every plan tier including Single and AI Builder, where file-level access
-does not exist or does not qualify for SFTP.
+does not exist or does not qualify for SFTP. The implementation must call that
+API, not run lego.
 
 ## Sources
 

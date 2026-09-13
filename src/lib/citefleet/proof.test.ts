@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checkOriginProof, looksLikeHtml, proofHint, tokenPresent, waitForProof } from "./proof.ts";
+import { checkDnsProof, checkOriginProof, looksLikeHtml, proofHint, tokenPresent, waitForDnsProof, waitForProof } from "./proof.ts";
 import { BOTCENTRAL_VERIFY_TOKEN } from "./verify-token.ts";
 
 const site = { domain: "acme-dating.com" };
@@ -33,6 +33,24 @@ test("an HTML shell with 200 is not proof; DNS TXT is checked next", async () =>
   const r = await checkOriginProof(site, { fetchText: shell, resolveTxt: dns, now });
   assert.equal(r.proven, true);
   assert.equal(r.method, "dns-txt");
+});
+
+test("DNS setup verification cannot pass through an existing proof file", async () => {
+  let fileReads = 0;
+  const r = await checkDnsProof(site, {
+    fetchText: async () => {
+      fileReads += 1;
+      return { status: 200, text: "botcentral-verify=citefleet-app", contentType: "text/plain" };
+    },
+    resolveTxt: noTxt,
+    now,
+  });
+  assert.equal(r.proven, false);
+  assert.equal(r.method, "none");
+  assert.equal(fileReads, 0);
+  assert.match(r.note, /No TXT records/);
+  assert.match(r.note, /Type TXT, Name @, Value botcentral-verify=citefleet-app/);
+  assert.doesNotMatch(r.note, /well-known/);
 });
 
 test("no file and no record: not proven, note names both and carries the hint", async () => {
@@ -74,6 +92,29 @@ test("waitForProof gives up after the attempt budget", async () => {
   const r = await waitForProof(site, { attempts: 2, delayMs: 1, deps: { fetchText: async () => ({ status: 404, text: "", contentType: "" }), resolveTxt: noTxt, now }, sleep: async () => {} });
   assert.equal(r.proven, false);
   assert.equal(r.attempts, 2);
+});
+
+test("waitForDnsProof retries the TXT lookup until the exact record appears", async () => {
+  let calls = 0;
+  const slept: number[] = [];
+  const r = await waitForDnsProof(site, {
+    attempts: 3,
+    delayMs: 9,
+    deps: {
+      resolveTxt: async () => {
+        calls += 1;
+        return calls === 3 ? [["botcentral-verify=citefleet-app"]] : [];
+      },
+      now,
+    },
+    sleep: async (ms) => {
+      slept.push(ms);
+    },
+  });
+  assert.equal(r.proven, true);
+  assert.equal(r.method, "dns-txt");
+  assert.equal(r.attempts, 3);
+  assert.deepEqual(slept, [9, 9]);
 });
 
 test("DNS ENODATA/ENOTFOUND read as 'no TXT records', other resolver errors as failures", async () => {

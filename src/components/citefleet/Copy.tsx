@@ -12,7 +12,15 @@ import { browserCopyDoors, copyText } from "@/lib/citefleet/clipboard";
  * file's contents it is the difference between finishing and being stuck. It now
  * falls through to a prompt (`copyText`), which every browser still has.
  */
-export function Copy({ label, value }: { label: string; value: string }) {
+export function Copy({
+  label,
+  value,
+  size = "compact",
+}: {
+  label: string;
+  value: string;
+  size?: "compact" | "control";
+}) {
   const [state, setState] = useState<"idle" | "copied" | "prompted">("idle");
   return (
     <button
@@ -23,7 +31,9 @@ export function Copy({ label, value }: { label: string; value: string }) {
         setState(outcome === "copied" ? "copied" : "prompted");
         setTimeout(() => setState("idle"), 1800);
       }}
-      className="shrink-0 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[#cfc8e8] hover:bg-white/5"
+      className={`shrink-0 rounded-full border border-white/10 text-[#cfc8e8] hover:bg-white/5 ${
+        size === "control" ? "min-h-11 px-4 py-2 text-sm" : "px-2.5 py-1 text-[11px]"
+      }`}
       aria-label={`Copy ${label}`}
       data-testid="copy-button"
     >

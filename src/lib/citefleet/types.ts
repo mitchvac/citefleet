@@ -97,6 +97,20 @@ export interface Site {
   provider?: import("./provider-choice").ProviderChoice;
   /** Last pre-flight proof check (same rules BotCentral applies). */
   proof?: { proven: boolean; method: "well-known-file" | "dns-txt" | "none"; note: string; checkedAt: string };
+  /** Entri shared-link handoff and its latest signed propagation event. */
+  dnsSetup?: {
+    providerSlug: string;
+    jobId: string;
+    status: "link-created" | "flow-completed" | "propagating" | "propagated" | "verified" | "failed";
+    createdAt: string;
+    updatedAt: string;
+    lastEvent?: string;
+    lastEventId?: string;
+    /** Bounded replay protection; one Entri id can carry successive status updates. */
+    recentEvents?: string[];
+    provider?: string;
+    lastResult?: string;
+  };
   /** GitHub webhook intake for automatic listing (secret is shown to the operator). */
   webhook?: {
     secret: string;

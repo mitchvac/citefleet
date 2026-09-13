@@ -40,6 +40,35 @@ Playwright for e2e. **Node 22** (`engines: >=22`, both Dockerfile stages are `no
 
 ## Folders
 
+### DNS automation additions (2026-09-13)
+
+- `src/lib/citefleet/dns-provider.ts`, `dns-providers/*.ts`, and
+  `dns-provider-detection.server.ts` own the browser-safe provider contract, the
+  29-group/72.3% W3Techs snapshot, exact authoritative-NS matching, and bounded
+  live detection. An unmatched domain may use the explicit `entri-auto` path;
+  that does not create a guessed provider or change the measured-share claim.
+- `dns-setup.server.ts` creates an Entri Shared Link bound to the stored domain,
+  signed-in principal, and exact apex proof TXT record. `entri-webhook.ts`,
+  `webhook-body.server.ts`, and `webhook-proof-state.ts` verify V3 callbacks,
+  resolve the tenant by domain plus exact UUID job, bound request bodies/replays,
+  combine Entri's documented root-domain/subdomain envelope, and prevent stale
+  proof polls from overwriting newer state. `fleet-api.ts`,
+  `dispatcher.ts`, `hook-tenant.server.ts`, `proof.ts`, and `types.ts` connect
+  that flow to the tenant-scoped snapshot and an independent DNS-only verification.
+- `webhook-body.server.ts` bounds every signed raw-body read while preserving
+  exact UTF-8 bytes; GitHub alone receives its documented 25 MB delivery ceiling,
+  while the other public hooks retain the tighter 8 MB default.
+- `DnsProviderPanel.tsx` and `DnsProviderPicker.tsx` expose provider detection,
+  official account/TXT/API/MCP evidence, manual fallback, and open/copy controls
+  for the customer handoff. `routes/api/hooks/entri.ts` is the callback route;
+  `health.ts` reports only deployment-level guided-DNS readiness.
+- `deploy/deploy-vps.sh` optionally reads `/root/citefleet-entri.connect`
+  (application id, the shared application/webhook secret, and an optional
+  custom share hostname). `docs/providers/README.md`, the provider research files, and
+  `tests/e2e/dns-provider-setup.spec.ts` record and verify the customer path.
+- Local Supabase disables Auth, Storage, Realtime, and the optional Studio UI;
+  CiteFleet browser tests need PostgreSQL and the migration ledger only.
+
 | Folder | Purpose |
 | --- | --- |
 | `src/assets/` | Source artwork. `citefleet-logo.png` is the 675 px master and is deliberately not imported by the UI; `BrandLogo.tsx` serves the existing 64/180 px public icons with `srcset`, avoiding a 238 KB transfer for a 36–48 px mark. |

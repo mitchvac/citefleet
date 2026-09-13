@@ -189,16 +189,18 @@ documented guarantee, and remains unverified against official IONOS docs.
   https://developer.hosting.ionos.com/docs (customers create their own API
   key per https://developer.hosting.ionos.com/docs/getstarted, referenced from
   https://www.ionos.com/help/hosting/ionos-apis/ionos-developer-apis/), with a
-  dedicated DNS API at https://developer.hosting.ionos.com/docs/dns. This is
-  independently confirmed by the ACME ecosystem: lego
+  dedicated DNS API at https://developer.hosting.ionos.com/docs/dns. CiteFleet
+  can call that API directly or use Entri Connect. The API surface is also
+  independently corroborated by the ACME ecosystem: lego
   (github.com/go-acme/lego) ships an `ionos` DNS provider
   (https://go-acme.github.io/lego/dns/ionos/) driven by a single
   `IONOS_API_KEY` environment variable (format `<prefix>.<secret>`, optional
   `_FILE` suffix variants, plus `IONOS_TTL`/`IONOS_POLLING_INTERVAL`/
   `IONOS_PROPAGATION_TIMEOUT`/`IONOS_HTTP_TIMEOUT`), which references the same
-  getstarted/dns docs URLs — meaning the TXT-record fallback can be scripted
-  end-to-end without the customer touching the panel each time, on any IONOS
-  plan tier including MyWebsite (DNS is managed separately from hosting).
+  getstarted/dns docs URLs. lego itself only creates and removes temporary
+  `_acme-challenge` records; it must not be invoked for CiteFleet's permanent
+  apex TXT record. The direct API or Entri path works independently of the
+  hosting plan because DNS is managed separately from hosting.
 
 ## Sources
 

@@ -119,6 +119,27 @@ if [[ ! -s "$AUTH_FILE" ]]; then
 fi
 AUTH_SECRET="$(tr -d '\n' < "$AUTH_FILE")"
 
+# Optional Entri Connect credentials for guided DNS setup. Keep these outside
+# .env because this deploy rewrites that file on every release. A present but
+# incomplete durable file is a deployment error, checked before .env is opened.
+ENTRI_FILE="/root/citefleet-entri.connect"
+ENTRI_APPLICATION_ID=""
+ENTRI_SECRET=""
+ENTRI_SHARE_HOST=""
+if [[ -e "$ENTRI_FILE" ]]; then
+  mapfile -t _entri < "$ENTRI_FILE"
+  ENTRI_APPLICATION_ID="${_entri[0]-}"
+  ENTRI_SECRET="${_entri[1]-}"
+  ENTRI_SHARE_HOST="${_entri[2]-}"
+  ENTRI_APPLICATION_ID="${ENTRI_APPLICATION_ID//$'\r'/}"
+  ENTRI_SECRET="${ENTRI_SECRET//$'\r'/}"
+  ENTRI_SHARE_HOST="${ENTRI_SHARE_HOST//$'\r'/}"
+  if [[ -z "$ENTRI_APPLICATION_ID" || -z "$ENTRI_SECRET" ]]; then
+    echo "deploy: $ENTRI_FILE must contain application ID on line 1 and secret on line 2" >&2
+    exit 1
+  fi
+fi
+
 NET="citefleet-net"
 PG_NAME="citefleet-postgres"
 PASS_FILE="/root/citefleet-postgres.pass"
@@ -247,6 +268,13 @@ fi
     mapfile -t _h < /root/citefleet-github.oauth
     printf 'GITHUB_OAUTH_CLIENT_ID=%s\n' "${_h[0]//$'\r'/}"
     printf 'GITHUB_OAUTH_CLIENT_SECRET=%s\n' "${_h[1]//$'\r'/}"
+  fi
+  if [[ -n "$ENTRI_APPLICATION_ID" ]]; then
+    printf 'CITEFLEET_ENTRI_APPLICATION_ID=%s\n' "$ENTRI_APPLICATION_ID"
+    printf 'CITEFLEET_ENTRI_SECRET=%s\n' "$ENTRI_SECRET"
+    if [[ -n "$ENTRI_SHARE_HOST" ]]; then
+      printf 'CITEFLEET_ENTRI_SHARE_HOST=%s\n' "$ENTRI_SHARE_HOST"
+    fi
   fi
   # Listing-year billing (BotCentral brief, 2026-09-06). OFF until a key has
   # been funded end to end — a publish with an unfunded key is a 402. Turn it

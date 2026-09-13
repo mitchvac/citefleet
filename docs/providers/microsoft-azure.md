@@ -314,7 +314,10 @@ For Static Web Apps customers — and for App Service apps pinned to
 `WEBSITE_RUN_FROM_PACKAGE` — fall back to the apex DNS TXT record, which
 BotCentral scores higher anyway.
 
-Azure runs its own DNS — **Azure DNS** — and lego has a first-class plugin:
+Azure runs its own DNS — **Azure DNS**. Persistent automation must call the
+Azure DNS Record Sets API directly. lego's ACME DNS-01 provider corroborates
+the authentication options below, but it only creates and removes
+`_acme-challenge` records and must not be used as CiteFleet's apex-record writer:
 
 - Provider code: **`azuredns`**
 - Client-secret auth: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`
@@ -333,9 +336,9 @@ Azure runs its own DNS — **Azure DNS** — and lego has a first-class plugin:
 
 Whether Azure DNS permits a TXT record at the zone apex is **UNVERIFIED** from a
 direct quote in this pass (I did not fetch an Azure DNS record-types page; the
-session's web-search budget was exhausted). It is what lego's `azuredns` plugin
-writes challenges into, and CiteFleet's own TXT is a plain apex record — verify
-with `dig TXT example.com` after writing.
+session's web-search budget was exhausted). lego's `azuredns` provider writing
+an `_acme-challenge` record does not prove apex support. Verify the direct API
+write with `dig TXT example.com` before treating it as complete.
 
 The other four files on Static Web Apps have no fallback other than the repo:
 there is no admin-panel robots.txt editor and no plugin mechanism.

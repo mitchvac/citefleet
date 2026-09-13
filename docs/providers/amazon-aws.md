@@ -311,7 +311,11 @@ out of reach** (customer has no repo access, or the build pipeline is owned by
 someone else). Fall back to the apex DNS TXT record, which BotCentral scores
 higher anyway.
 
-AWS runs its own DNS — **Amazon Route 53** — and lego has a first-class plugin:
+AWS runs its own DNS — **Amazon Route 53**. Persistent automation must call the
+Route 53 `ChangeResourceRecordSets` API directly or use Entri Connect. lego has
+an ACME DNS-01 provider that corroborates the credential surface below, but it
+only creates and removes `_acme-challenge` records; CiteFleet must not invoke it
+for the permanent apex proof record:
 
 - Provider code: **`route53`**
 - Required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`,

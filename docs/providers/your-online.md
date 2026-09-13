@@ -76,7 +76,7 @@ Use the **apex DNS TXT record**. All three brands run their customers' DNS:
 - **Gandi** — **LiveDNS**, with a real public API at `https://api.gandi.net/v5/livedns`, authenticated by `Authorization: Bearer pat_…` (a Personal Access Token created in the Organization tab) or the deprecated `Apikey` header.
 - **Yourhosting** — zones are managed in the customer environment ("Hiermee kan je ook via je klantomgeving de DNS zone van de domeinnaam beheren"), but nameservers are not self-editable and **no DNS API exists** — no `api` or `developer` URL appears anywhere in Yourhosting's sitemap.
 
-**Automation — what lego covers.** Verified against the lego repository's `providers/dns` directory on `main` (v5.4.1) and each provider's `.toml`:
+**ACME API evidence — what lego covers.** Verified against the lego repository's `providers/dns` directory on `main` (v5.4.1) and each provider's `.toml`:
 
 | Brand | lego provider | Credentials |
 |---|---|---|
@@ -92,9 +92,16 @@ Use the **apex DNS TXT record**. All three brands run their customers' DNS:
 
 Any lego variable may be suffixed `_FILE` to read its value from a file.
 
+These lego entries create and remove temporary ACME `_acme-challenge` records.
+For CiteFleet's persistent apex proof, call the verified provider API directly
+or use Entri; do not invoke lego as the record writer.
+
 **On o2switch, `cpanel` is the right shape but not confirmed to work.** o2switch documents cPanel **API tokens** (cPanel → *Manage API Tokens*; "il faudra bien conserver le jeton" since it is shown once), but the listed use cases are email addresses, databases and FTP accounts — **DNS-over-API is not mentioned on that page, UNVERIFIED for o2switch specifically**. The token plus `CPANEL_BASE_URL` is the thing to try.
 
-So: Gandi is fully automatable end to end (`gandiv5`), o2switch is probably automatable via the generic cPanel provider, and Yourhosting needs a human in the panel for the TXT record and panel-supplied credentials for the files.
+So: Gandi is automatable through LiveDNS directly or Entri, and O2switch is on
+Entri's current automatic list. A direct cPanel API path on O2switch remains
+unverified. Yourhosting still needs a human in the panel for the TXT record and
+panel-supplied credentials for the files.
 
 ## Sources
 
@@ -133,3 +140,4 @@ So: Gandi is fully automatable end to end (`gandiv5`), o2switch is probably auto
 - https://www.yourhosting.nl/kennisbank/domeinnamen-dns/dns-records-van-een-domeinnaam-beheren/ — DNS zone management in the customer environment; nameservers not self-editable
 - https://go-acme.github.io/lego/dns/gandiv5/, https://go-acme.github.io/lego/dns/zoneee/, https://go-acme.github.io/lego/dns/shellrent/, https://go-acme.github.io/lego/dns/cpanel/, https://go-acme.github.io/lego/dns/directadmin/, https://go-acme.github.io/lego/dns/openprovider/, https://go-acme.github.io/lego/dns/versio/ — the exact environment variables for each
 - https://github.com/go-acme/lego/tree/main/providers/dns — the authoritative 225-package provider list on `main` (v5.4.1); no `o2switch`, no `yourhosting`
+- https://developers.entri.com/connect/provider-list — Gandi and O2switch are listed for automatic DNS configuration (checked 2026-09-12)

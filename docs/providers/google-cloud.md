@@ -312,7 +312,10 @@ For App Engine and Firebase Hosting customers who cannot get a build change
 merged, fall back to the apex DNS TXT record — which BotCentral scores higher
 anyway.
 
-Google runs its own DNS — **Cloud DNS** — and lego has a first-class plugin:
+Google runs its own DNS — **Cloud DNS**. Persistent automation must call the
+Cloud DNS Changes API directly. lego's ACME DNS-01 provider corroborates the
+credential options below, but it only creates and removes `_acme-challenge`
+records and must not be used as CiteFleet's apex-record writer:
 
 - Provider code: **`gcloud`**
 - Required: `GCE_PROJECT` — "Project name (by default, the project name is
@@ -338,9 +341,9 @@ escaped, e.g. `"rrdatas": ["\"v=spf1 include:_spf.google.com ~all\""]`.
 Whether Cloud DNS permits TXT at the zone apex is **UNVERIFIED** from a direct
 quote (the records overview only states that Cloud DNS auto-creates NS and SOA
 at the apex and that they "can't be deleted by using the Cloud DNS API"); it
-does not say TXT is excluded, and lego's `gcloud` plugin writes
-`_acme-challenge.<domain>` records into the same zone. Verify with a `dig TXT
-example.com` after writing.
+does not say TXT is excluded. lego's `gcloud` provider writing a subdomain
+`_acme-challenge` record does not establish apex support. Verify the direct API
+write with `dig TXT example.com` before treating it as complete.
 
 For `robots.txt` / `llms.txt` / sitemap on App Engine or Firebase there is no
 admin-panel editor and no plugin — they must go through the repo and a redeploy.

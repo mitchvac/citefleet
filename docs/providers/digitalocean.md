@@ -277,19 +277,22 @@ DigitalOcean runs its own DNS, and apex records are explicitly supported: the
 "A TXT record is used to associate a string of text with a hostname. These are
 primarily used to verify that you own a domain" — which is exactly this use case.
 
-lego has a first-class plugin, and it is the simplest of the five in this set:
+Persistent automation must call DigitalOcean's DNS API directly or use Entri
+Connect. lego's ACME DNS-01 provider corroborates that one API token reaches the
+zone, but lego itself only creates and removes `_acme-challenge` records:
 
 - Provider code: **`digitalocean`**
 - Required: **`DO_AUTH_TOKEN`** — a single DigitalOcean API token, nothing else
 - Optional: `DO_API_URL` ("The URL of the API"), `DO_HTTP_TIMEOUT` (default 30s),
   `DO_POLLING_INTERVAL` (default 5s), `DO_PROPAGATION_TIMEOUT` (default 60s),
   `DO_TTL` (default 30s)
-- Documented usage:
+- ACME-only usage example (not a CiteFleet command):
   `DO_AUTH_TOKEN=xxxxxx lego run --dns digitalocean -d '*.example.com' -d example.com`
 
 The same `DO_AUTH_TOKEN` works against the DigitalOcean API for writing
 CiteFleet's own apex TXT record directly, and for `doctl compute cdn flush` —
-one credential covers DNS and cache invalidation on this provider.
+one credential covers DNS and cache invalidation on this provider. The direct
+API call, not lego, is the persistent-record executor.
 
 For `robots.txt` / `llms.txt` / sitemap on App Platform there is no admin-panel
 editor and no plugin: they must go through the repo and a redeploy.

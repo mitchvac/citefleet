@@ -126,8 +126,9 @@ export function siteForRepo(store: Pick<StoreShape, "sites">, fullName: string):
 export interface HookDeps {
   getStore: () => Promise<StoreShape>;
   mutateStore: (fn: (store: StoreShape) => void) => Promise<unknown>;
+  checkKey?: (siteId: string) => string;
   /** Fire-and-forget: proof check with retries, then publish. */
-  onCheck: (siteId: string, reason: string) => void;
+  onCheck: (siteId: string, reason: string, context: { inFlightKey: string }) => void;
   now?: () => Date;
 }
 
@@ -166,9 +167,10 @@ async function finishDelivery(
   site: Site,
   d: { event: string; delivery?: string; actor: string; action: HookAction; reason: string },
 ): Promise<HookResponse> {
+  const inFlightKey = deps.checkKey ? deps.checkKey(site.id) : site.id;
   // Decide before writing, hold the in-flight slot only after the write
   // succeeded: a failed persist must not leave the site "checking" forever.
-  let action: HookAction = d.action === "check" && isChecking(site.id) ? "in-progress" : d.action;
+  let action: HookAction = d.action === "check" && isChecking(inFlightKey) ? "in-progress" : d.action;
   const at = (deps.now ?? (() => new Date()))().toISOString();
   await deps.mutateStore((s) => {
     const current = s.sites.find((x) => x.id === site.id);
@@ -192,7 +194,7 @@ async function finishDelivery(
     });
   });
   if (action === "check") {
-    if (beginCheck(site.id)) deps.onCheck(site.id, d.reason);
+    if (beginCheck(inFlightKey)) deps.onCheck(site.id, d.reason, { inFlightKey });
     else action = "in-progress"; // lost a race with a concurrent delivery
   }
   return { status: action === "ping" ? 200 : 202, body: { ok: true, action, reason: d.reason, site: site.domain } };

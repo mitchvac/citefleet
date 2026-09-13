@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { billingEnabled, publisherReady } from "@/lib/citefleet/botcentral";
 import { BOTCENTRAL_HOOK_PATH, MIN_HOOK_SECRET, botcentralHookSecret } from "@/lib/citefleet/webhook";
+import { ENTRI_HOOK_PATH } from "@/lib/citefleet/entri-webhook";
+import { dnsSetupSettings } from "@/lib/citefleet/dns-setup.server";
 import { dbConfigured } from "@/lib/db";
 import { checkDatabase, deploymentRevision } from "@/lib/health";
 
@@ -28,6 +30,8 @@ export const Route = createFileRoute("/health")({
             billing: billingEnabled() ? "on" : "off",
             catalogHook: BOTCENTRAL_HOOK_PATH,
             catalogHookSecret: botcentralHookSecret().length >= MIN_HOOK_SECRET,
+            dnsSetup: dnsSetupSettings().state,
+            dnsHook: ENTRI_HOOK_PATH,
           },
           {
             status: databaseReady ? 200 : 503,

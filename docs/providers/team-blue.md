@@ -77,7 +77,7 @@ Use the **apex DNS TXT record**. All three brands run their customers' DNS and e
 - **TransIP:** adding Web Hosting means "the default 'TransIP Settings' in your Control Panel will be used", which "make[s] sure that your domain automatically uses the TransIP name servers." Records live under **Domain → your domain → Advanced domain settings**.
 - **Register.it:** DNS for domains registered with it; for externally-registered domains you point an A record at the hosting IP instead.
 
-**Automation — what lego actually covers.** Verified against the lego repository's `providers/dns` directory on the `main` branch (v5.4.1) and each provider's `.toml`:
+**ACME API evidence — what lego covers.** Verified against the lego repository's `providers/dns` directory on the `main` branch (v5.4.1) and each provider's `.toml`:
 
 | team.blue brand | lego provider | Credentials |
 |---|---|---|
@@ -91,11 +91,18 @@ Use the **apex DNS TXT record**. All three brands run their customers' DNS and e
 
 Panel-level providers apply only where the customer controls the panel — a TransIP or Register.it VPS, or a cPanel account with an API token: `cpanel` needs `CPANEL_BASE_URL`, `CPANEL_TOKEN`, `CPANEL_USERNAME` (plus `CPANEL_MODE`, default `cpanel`); `directadmin` needs `DIRECTADMIN_API_URL`, `DIRECTADMIN_USERNAME`, `DIRECTADMIN_PASSWORD` and `DIRECTADMIN_ZONE_NAME`; `plesk` needs `PLESK_SERVER_BASE_URL` (e.g. `https://plesk.myserver.com:8443`), `PLESK_USERNAME`, `PLESK_PASSWORD`. Any lego variable may be suffixed `_FILE` to read its value from a file.
 
+Every lego provider above is scoped to temporary ACME `_acme-challenge`
+records. CiteFleet must use Entri or a provider API directly for its persistent
+apex proof; the table is not an executor inventory.
+
 Note the operational asymmetry: `transip`, `simply`, `loopia`, `websupport` and `active24` talk to a **vendor-hosted API** and therefore work on shared hosting. `cpanel`, `directadmin` and `plesk` need a per-server base URL and panel credentials, so they do not.
 
 **Combell has an API, but it is reseller-gated.** The documentation portal is at https://api.combell.com/v2/documentation; Combell's own announcement describes it as "intended for Combell Resellers" and "any Combell customer who purchased **Reseller Hosting**", covering DNS records among other things. The portal renders as a JavaScript SPA, so endpoint paths and the authentication scheme could not be read from an official source — **UNVERIFIED**. **Register.it: no public DNS API found — UNVERIFIED.** (Register.com's US reseller API is a different company.)
 
-So: TransIP is fully automatable end to end. Combell needs one human toggle (SSH) and, for DNS, reseller-tier API access. Register.it needs a human in the panel for the TXT record, and plain FTP for the files.
+So: TransIP can use its direct API or Entri, and Register.it is on Entri's
+current automatic list. Combell needs reseller-tier API access or a human in
+the panel because it is not on that list. File-transfer requirements remain
+separate from the DNS proof.
 
 ## Sources
 
@@ -124,3 +131,4 @@ So: TransIP is fully automatable end to end. Combell needs one human toggle (SSH
 - https://www.register.it/hosting/web-hosting/cpanel-webhosting/ — "I nostri piani di web hosting non includono cPanel, Plesk, Atomia o altri pannelli di controllo standard"; VPS "supportano sia cPanel che Plesk"
 - https://go-acme.github.io/lego/dns/ and https://github.com/go-acme/lego/tree/main/providers/dns — the authoritative provider list (225 entries on `main`, v5.4.1): `transip`, `simply`, `loopia`, `websupport`, `active24`, `cpanel`, `directadmin`, `plesk` exist; `combell` and `register.it` do not
 - https://go-acme.github.io/lego/dns/transip/ — `TRANSIP_ACCOUNT_NAME`, `TRANSIP_PRIVATE_KEY_PATH`, and the optional timeout/TTL variables
+- https://developers.entri.com/connect/provider-list — TransIP, Register.it, Simply, Loopia, Websupport, Active24 and Papaki coverage checked 2026-09-12

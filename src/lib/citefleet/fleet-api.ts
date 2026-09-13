@@ -20,24 +20,26 @@ async function wsFor(context: { principal: Principal }): Promise<WorkspaceHandle
 }
 
 export const loadState = createServerFn({ method: "GET" })
-  .middleware([operatorMiddleware]).handler(async ({ context }) => {
-  const { hydrateListings } = await import("./ops.server");
-  return hydrateListings(await wsFor(context));
-});
+  .middleware([operatorMiddleware])
+  .handler(async ({ context }) => {
+    const { hydrateListings } = await import("./ops.server");
+    return hydrateListings(await wsFor(context));
+  });
 
 export const resetState = createServerFn({ method: "POST" })
-  .middleware([operatorMiddleware]).handler(async ({ context }) => {
-  const { maskStoreSecrets } = await import("./secrets.ts");
-  const { seedStore } = await import("./seed.ts");
-  const ws = await wsFor(context);
-  // Reset THIS workspace, never "the" workspace. Seeded with the handle's own
-  // id so a reset cannot re-stamp the tenant with a different identity.
-  const fresh = seedStore(ws.id);
-  await ws.mutate((store) => {
-    Object.assign(store, fresh);
+  .middleware([operatorMiddleware])
+  .handler(async ({ context }) => {
+    const { maskStoreSecrets } = await import("./secrets.ts");
+    const { seedStore } = await import("./seed.ts");
+    const ws = await wsFor(context);
+    // Reset THIS workspace, never "the" workspace. Seeded with the handle's own
+    // id so a reset cannot re-stamp the tenant with a different identity.
+    const fresh = seedStore(ws.id);
+    await ws.mutate((store) => {
+      Object.assign(store, fresh);
+    });
+    return maskStoreSecrets(await ws.get());
   });
-  return maskStoreSecrets(await ws.get());
-});
 
 export const onboardProperty = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
@@ -132,13 +134,10 @@ export const setAutopilotFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator((d: { enabled: boolean; grok?: boolean }) => d)
   .handler(async ({ data, context }) => {
-    const { setAutopilot, runAutopilotTick, grokConfigured } =
-      await import("./ops.server");
+    const { setAutopilot, runAutopilotTick, grokConfigured } = await import("./ops.server");
     const ws = await wsFor(context);
     await setAutopilot(ws, data.enabled);
-    const result = data.enabled
-      ? await runAutopilotTick(ws, { grok: Boolean(data.grok) })
-      : null;
+    const result = data.enabled ? await runAutopilotTick(ws, { grok: Boolean(data.grok) }) : null;
     const store = await ws.get();
     return {
       enabled: Boolean(store.workspace.autopilot),
@@ -165,12 +164,11 @@ export const publishListingFn = createServerFn({ method: "POST" })
   });
 
 export const runControlCycleFn = createServerFn({ method: "POST" })
-  .middleware([operatorMiddleware]).handler(
-  async ({ context }) => {
+  .middleware([operatorMiddleware])
+  .handler(async ({ context }) => {
     const { runMonitorCycle } = await import("./ops.server");
     return runMonitorCycle(await wsFor(context));
-  },
-);
+  });
 
 export const setKillFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
@@ -194,13 +192,7 @@ export const setKillFn = createServerFn({ method: "POST" })
 export const attachGithubFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
   .validator(
-    (d: {
-      siteId: string;
-      owner: string;
-      repo: string;
-      branch?: string;
-      root?: string;
-    }) => d,
+    (d: { siteId: string; owner: string; repo: string; branch?: string; root?: string }) => d,
   )
   .handler(async ({ data, context }) => {
     const { attachGithub } = await import("./ops.server");
@@ -262,6 +254,76 @@ export const setProviderFn = createServerFn({ method: "POST" })
     return setProvider(await wsFor(context), data.siteId, data.slug);
   });
 
+/** Resolve the authoritative provider for a stored property domain. Never accepts an arbitrary host. */
+export const detectDnsProviderFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((d: { siteId: string }) => d)
+  .handler(async ({ data, context }) => {
+    const ws = await wsFor(context);
+    const { getSite } = await import("./store.ts");
+    const site = getSite(await ws.get(), data.siteId);
+    if (!site) throw new Error("property not found");
+    const { detectDnsProvider } = await import("./dns-provider-detection.server.ts");
+    return detectDnsProvider(site.domain);
+  });
+
+/** Deployment-level availability only. No credential or workspace data is returned. */
+export const dnsSetupSettingsFn = createServerFn({ method: "GET" })
+  .middleware([operatorMiddleware])
+  .handler(async () => {
+    const { dnsSetupSettings } = await import("./dns-setup.server.ts");
+    return dnsSetupSettings();
+  });
+
+/** Create a domain-and-record-bound Entri sharing link. */
+export const createDnsSetupLinkFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((d: { siteId: string; providerSlug: string }) => d)
+  .handler(async ({ data, context }) => {
+    const ws = await wsFor(context);
+    const { assertCanAct } = await import("./control.ts");
+    const { getSite, logActivity } = await import("./store.ts");
+    const store = await ws.get();
+    const site = getSite(store, data.siteId);
+    if (!site) throw new Error("property not found");
+    assertCanAct(store, "spend");
+
+    const { ENTRI_AUTO_PROVIDER_SLUG } = await import("./dns-provider.ts");
+    const { dnsProviderBySlug } = await import("./dns-providers/index.ts");
+    const automatic = data.providerSlug === ENTRI_AUTO_PROVIDER_SLUG;
+    const provider = automatic ? undefined : dnsProviderBySlug(data.providerSlug);
+    if (!provider && !automatic) {
+      throw new Error("DNS provider is not in the researched registry.");
+    }
+    if (provider?.entri === "not-listed") {
+      throw new Error(`${provider.name} is not on Entri's current automatic-provider list.`);
+    }
+
+    const { createDnsSetupLink } = await import("./dns-setup.server.ts");
+    const userId = context.principal.kind === "user" ? context.principal.userId : ws.id;
+    const result = await createDnsSetupLink(site, userId);
+    const createdAt = new Date().toISOString();
+    await ws.mutate((next) => {
+      const current = getSite(next, data.siteId);
+      if (!current) throw new Error("property not found");
+      current.dnsSetup = {
+        providerSlug: provider?.slug ?? ENTRI_AUTO_PROVIDER_SLUG,
+        jobId: result.jobId,
+        status: "link-created",
+        createdAt,
+        updatedAt: createdAt,
+        lastResult: "Secure DNS setup link created; waiting for the customer to complete it.",
+      };
+      logActivity(next, {
+        actor: context.principal.kind === "user" ? context.principal.email : "Break-glass operator",
+        kind: "system",
+        siteId: data.siteId,
+        message: `Created a guided DNS setup link for ${site.domain} with ${provider?.name ?? "Entri provider detection"} (${result.jobId}).`,
+      });
+    });
+    return result;
+  });
+
 /**
  * What the billing side of this install is set to — the switch, the BotCentral
  * hook URL, whether its secret is configured.
@@ -271,15 +333,17 @@ export const setProviderFn = createServerFn({ method: "POST" })
  * would imply these answers differ per customer, and they do not.
  */
 export const billingSettingsFn = createServerFn({ method: "GET" })
-  .middleware([operatorMiddleware]).handler(async () => {
-  const { billingEnabled, botcentralHookSecret, botcentralHookUrl } = await import("./ops.server");
-  const { MIN_HOOK_SECRET } = await import("./webhook.ts");
-  return {
-    billing: billingEnabled(),
-    hookUrl: botcentralHookUrl(),
-    hookSecret: botcentralHookSecret().length >= MIN_HOOK_SECRET,
-  };
-});
+  .middleware([operatorMiddleware])
+  .handler(async () => {
+    const { billingEnabled, botcentralHookSecret, botcentralHookUrl } =
+      await import("./ops.server");
+    const { MIN_HOOK_SECRET } = await import("./webhook.ts");
+    return {
+      billing: billingEnabled(),
+      hookUrl: botcentralHookUrl(),
+      hookSecret: botcentralHookSecret().length >= MIN_HOOK_SECRET,
+    };
+  });
 
 /** Operator confirms a BotCentral top-up payment; BotCentral credits the prefix. Behind the spend kill door. */
 export const settleTopupFn = createServerFn({ method: "POST" })

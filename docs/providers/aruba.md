@@ -72,9 +72,22 @@ Aruba runs the DNS by default: "Quando un dominio viene attivato gli vengono **a
 
 To add the apex TXT record: DNS panel → **Aggiungi record** → type **TXT (Text)** → **leave "Nome host" empty** (Aruba states this explicitly for apex-level records such as SPF or a Google/Microsoft verification string) → put the string in **Valore** → set TTL → **Aggiungi**. Records can also be imported/exported, and operations can be scheduled.
 
-**lego cannot automate this. There is no `aruba` provider.** Confirmed two ways: a case-insensitive search of the lego provider index returns zero occurrences of `aruba`, and the repository's `providers/dns` directory on `main` (v5.4.1, 225 entries) contains no `aruba` package. **Nor is there any public Aruba DNS API** — `api.aruba.it`, `developers.aruba.it`, `apidocs.aruba.it` and `apidoc.cloud.it` all fail to resolve, and no Aruba DNS guide mentions a token, an API or programmatic record management. Every documented DNS operation is manual clicking. **UNVERIFIED that any Aruba DNS API exists at all.**
+**No public Aruba DNS API was verified.** `api.aruba.it`,
+`developers.aruba.it`, `apidocs.aruba.it` and `apidoc.cloud.it` all fail to
+resolve, and no Aruba DNS guide mentions a token, an API or programmatic record
+management. lego also has no `aruba` provider, but that only rules out lego's
+ACME DNS-01 path. Entri's current official provider list names Aruba as
+automatic, so CiteFleet can offer its domain-bound Entri shared-link flow when
+the deployment is configured; otherwise the documented Aruba panel flow is
+manual.
 
-Practical consequences for automated ACME/DNS-01 on Aruba DNS: it is not possible with lego directly. The workable routes are (a) a manual TXT entry per renewal, (b) `acme-dns` or another delegation target reached by a **CNAME** on `_acme-challenge` — Aruba does support CNAME records — or (c) HTTP-01 under `.well-known/acme-challenge/`, which runs straight back into the dot-directory caveat above.
+For automated ACME/DNS-01 on Aruba DNS, lego still cannot drive it directly.
+The workable certificate routes are (a) a manual challenge TXT entry per
+renewal, (b) `acme-dns` or another delegation target reached by a **CNAME** on
+`_acme-challenge` — Aruba does support CNAME records — or (c) HTTP-01 under
+`.well-known/acme-challenge/`, which runs straight back into the dot-directory
+caveat above. That certificate workflow is separate from CiteFleet's permanent
+apex proof.
 
 For the CiteFleet pack specifically: put `robots.txt`, `sitemap.xml`, `llms.txt` and `<indexnow-key>.txt` in place over FTP or the File Manager, prove BotCentral with the apex TXT record, and skip `.well-known/botcentral.txt` entirely.
 
@@ -96,3 +109,4 @@ For the CiteFleet pack specifically: put `robots.txt`, `sitemap.xml`, `llms.txt`
 - https://guide.aruba.it/hosting-e-domini/gestione-dns/gestione-name-server-e-record/gestire-record-cname — CNAME records are supported (the `_acme-challenge` delegation route)
 - https://guide.arubabusiness.it/hosting/hosting-windows/pannello-plesk-windows/gestorefile — the separate Aruba Business line does use Plesk/cPanel; its Plesk Windows root is `httpdocs`
 - https://go-acme.github.io/lego/dns/ and https://github.com/go-acme/lego/tree/main/providers/dns — no `aruba` provider among the 225 packages on `main` (v5.4.1)
+- https://developers.entri.com/connect/provider-list — Aruba is listed for automatic DNS configuration (checked 2026-09-12)

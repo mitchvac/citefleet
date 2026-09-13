@@ -37,6 +37,7 @@ import { Route as LearnQuizRouteImport } from './routes/learn/quiz'
 import { Route as SitesIdRouteImport } from './routes/sites/$id'
 import { Route as ApiHooksBotcentralRouteImport } from './routes/api/hooks/botcentral'
 import { Route as ApiHooksDeployedRouteImport } from './routes/api/hooks/deployed'
+import { Route as ApiHooksEntriRouteImport } from './routes/api/hooks/entri'
 import { Route as ApiHooksGithubRouteImport } from './routes/api/hooks/github'
 import { Route as ApiOauthGithubRouteImport } from './routes/api/oauth/github'
 import { Route as ApiOauthGithubCallbackRouteImport } from './routes/api/oauth/github-callback'
@@ -184,6 +185,11 @@ const ApiHooksDeployedRoute = ApiHooksDeployedRouteImport.update({
   path: '/api/hooks/deployed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHooksEntriRoute = ApiHooksEntriRouteImport.update({
+  id: '/api/hooks/entri',
+  path: '/api/hooks/entri',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHooksGithubRoute = ApiHooksGithubRouteImport.update({
   id: '/api/hooks/github',
   path: '/api/hooks/github',
@@ -244,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/learn/': typeof LearnIndexRoute
   '/api/hooks/botcentral': typeof ApiHooksBotcentralRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
+  '/api/hooks/entri': typeof ApiHooksEntriRoute
   '/api/hooks/github': typeof ApiHooksGithubRoute
   '/api/oauth/github': typeof ApiOauthGithubRoute
   '/api/oauth/github-callback': typeof ApiOauthGithubCallbackRoute
@@ -280,6 +287,7 @@ export interface FileRoutesByTo {
   '/learn': typeof LearnIndexRoute
   '/api/hooks/botcentral': typeof ApiHooksBotcentralRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
+  '/api/hooks/entri': typeof ApiHooksEntriRoute
   '/api/hooks/github': typeof ApiHooksGithubRoute
   '/api/oauth/github': typeof ApiOauthGithubRoute
   '/api/oauth/github-callback': typeof ApiOauthGithubCallbackRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/learn/': typeof LearnIndexRoute
   '/api/hooks/botcentral': typeof ApiHooksBotcentralRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
+  '/api/hooks/entri': typeof ApiHooksEntriRoute
   '/api/hooks/github': typeof ApiHooksGithubRoute
   '/api/oauth/github': typeof ApiOauthGithubRoute
   '/api/oauth/github-callback': typeof ApiOauthGithubCallbackRoute
@@ -355,6 +364,7 @@ export interface FileRouteTypes {
     | '/learn/'
     | '/api/hooks/botcentral'
     | '/api/hooks/deployed'
+    | '/api/hooks/entri'
     | '/api/hooks/github'
     | '/api/oauth/github'
     | '/api/oauth/github-callback'
@@ -391,6 +401,7 @@ export interface FileRouteTypes {
     | '/learn'
     | '/api/hooks/botcentral'
     | '/api/hooks/deployed'
+    | '/api/hooks/entri'
     | '/api/hooks/github'
     | '/api/oauth/github'
     | '/api/oauth/github-callback'
@@ -427,6 +438,7 @@ export interface FileRouteTypes {
     | '/learn/'
     | '/api/hooks/botcentral'
     | '/api/hooks/deployed'
+    | '/api/hooks/entri'
     | '/api/hooks/github'
     | '/api/oauth/github'
     | '/api/oauth/github-callback'
@@ -464,6 +476,7 @@ export interface RootRouteChildren {
   LearnIndexRoute: typeof LearnIndexRoute
   ApiHooksBotcentralRoute: typeof ApiHooksBotcentralRoute
   ApiHooksDeployedRoute: typeof ApiHooksDeployedRoute
+  ApiHooksEntriRoute: typeof ApiHooksEntriRoute
   ApiHooksGithubRoute: typeof ApiHooksGithubRoute
   ApiOauthGithubRoute: typeof ApiOauthGithubRoute
   ApiOauthGithubCallbackRoute: typeof ApiOauthGithubCallbackRoute
@@ -670,6 +683,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHooksDeployedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hooks/entri': {
+      id: '/api/hooks/entri'
+      path: '/api/hooks/entri'
+      fullPath: '/api/hooks/entri'
+      preLoaderRoute: typeof ApiHooksEntriRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hooks/github': {
       id: '/api/hooks/github'
       path: '/api/hooks/github'
@@ -744,6 +764,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnIndexRoute: LearnIndexRoute,
   ApiHooksBotcentralRoute: ApiHooksBotcentralRoute,
   ApiHooksDeployedRoute: ApiHooksDeployedRoute,
+  ApiHooksEntriRoute: ApiHooksEntriRoute,
   ApiHooksGithubRoute: ApiHooksGithubRoute,
   ApiOauthGithubRoute: ApiOauthGithubRoute,
   ApiOauthGithubCallbackRoute: ApiOauthGithubCallbackRoute,

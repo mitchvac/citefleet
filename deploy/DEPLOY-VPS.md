@@ -105,6 +105,34 @@ The `citefleet-pg` volume is deliberately kept. Do not `docker rm -v` or
 
 Optional: `XAI_API_KEY` for live Grok briefs. Never commit it.
 
+## 2a. Guided DNS setup (optional)
+
+CiteFleet can create a domain-bound [Entri Connect Shared Link](https://developers.entri.com/connect/shared-links)
+for supported DNS providers. Store the Entri application ID and secret in the
+durable root-owned file, one value per line:
+
+```bash
+printf '%s\n%s\n' '<application-id>' '<secret>' > /root/citefleet-entri.connect
+chmod 600 /root/citefleet-entri.connect
+```
+
+Enterprise accounts using Entri's branded sharing-link domain may put its
+hostname only on line 3, for example `domains.citefleet.app`. Leave that line
+absent for Entri's default `app.goentri.com` host.
+
+`deploy-vps.sh` validates both lines before rewriting `.env`, then injects
+`CITEFLEET_ENTRI_APPLICATION_ID`, `CITEFLEET_ENTRI_SECRET`, and the optional
+`CITEFLEET_ENTRI_SHARE_HOST` without printing their values. If the file is absent, guided setup stays off and customers still
+receive the detected provider's sign-in and official TXT-record guide links.
+Remove the file and redeploy to turn the integration off.
+
+In the Entri dashboard, set the Connect webhook URL to
+`https://citefleet.app/api/hooks/entri`. CiteFleet accepts only the recommended
+V3 HMAC with a timestamp no more than five minutes old. A signed
+`domain.added` event with `propagation_status: success` starts CiteFleet's own
+DNS-only live proof check; an existing well-known file cannot satisfy that
+check, and the webhook alone never marks a property verified.
+
 ## 2b. Sign-in (accounts + operator token)
 
 Anyone may create an account with email/password or a verified Google/GitHub

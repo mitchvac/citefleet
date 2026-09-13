@@ -150,8 +150,10 @@ proof rather than the primary one.
   domain".
 - **This can be automated.** GoDaddy publishes a Domains API
   (developer.godaddy.com) with `POST /v3/domains/zones/{zone}/dns-records` to
-  create a record, and lego ships a `godaddy` DNS plugin driven by
-  `GODADDY_API_KEY` + `GODADDY_API_SECRET`.
+  create a persistent record. CiteFleet must call that API directly or use Entri
+  Connect. lego also ships a `godaddy` ACME provider driven by
+  `GODADDY_API_KEY` + `GODADDY_API_SECRET`, but it only manages temporary
+  `_acme-challenge` records and is not the executor for this apex proof.
   **Watch the eligibility gate, and note the sources disagree.** GoDaddy's own
   help page states "Customers with at least one active domain in their account
   get access to the Domains API with a monthly usage limit of 20,000 API calls",

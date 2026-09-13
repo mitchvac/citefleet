@@ -17,6 +17,8 @@ import { saveSnapshot } from "./persist.ts";
 import { seedStore } from "./seed.ts";
 import { handleFor, type WorkspaceHandle } from "./workspace-handle.ts";
 import { asWorkspaceId, newWorkspaceId, type WorkspaceId } from "./workspace-id.ts";
+import { readEntriJobId } from "./dns-provider.ts";
+import { normalizeDomain } from "./verify-token.ts";
 import type { Principal } from "../auth/operator.server.ts";
 
 /** Raised when a caller is signed in but no workspace can be resolved for them. */
@@ -138,7 +140,7 @@ export async function createWorkspace(
  * follow-up. That index is a PERFORMANCE fix; this is already correct.
  */
 export async function workspaceForDomain(domain: string): Promise<WorkspaceHandle | null> {
-  const bare = domain.trim().toLowerCase().replace(/^www\./, "");
+  const bare = normalizeDomain(domain);
   if (!bare) return null;
   const sql = await getSql();
   const rows = await sql.query<{ id: string }>(
@@ -153,6 +155,36 @@ export async function workspaceForDomain(domain: string): Promise<WorkspaceHandl
   );
   // Two tenants claiming one domain is not a routing question to resolve by
   // picking one — at most one of them controls the origin. Refuse and say so.
+  if (rows.length !== 1) return null;
+  return handleFor(asWorkspaceId(rows[0].id));
+}
+
+/**
+ * Resolve Entri's globally signed callback by both customer domain and the
+ * exact Shared Link job. A domain alone deliberately becomes ambiguous when
+ * two workspaces claim it; Entri's UUID lets its callback remain routable
+ * without picking a tenant or exposing either workspace.
+ */
+export async function workspaceForDnsSetup(
+  domain: string,
+  jobId: string,
+  sql?: Sql,
+): Promise<WorkspaceHandle | null> {
+  const bare = normalizeDomain(domain);
+  const canonicalJobId = readEntriJobId(jobId);
+  if (!bare || !canonicalJobId) return null;
+  const db = sql ?? (await getSql());
+  const rows = await db.query<{ id: string }>(
+    `SELECT s.id
+       FROM citefleet_snapshot s
+      WHERE EXISTS (
+        SELECT 1 FROM jsonb_array_elements(s.payload->'sites') AS site
+         WHERE regexp_replace(lower(site->>'domain'), '^www\\.', '') = $1
+           AND lower(site->'dnsSetup'->>'jobId') = $2
+      )
+      LIMIT 2`,
+    [bare, canonicalJobId],
+  );
   if (rows.length !== 1) return null;
   return handleFor(asWorkspaceId(rows[0].id));
 }

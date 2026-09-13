@@ -256,7 +256,9 @@ Formatting rules: "The value has to be quoted." A value may consist of multiple
 substrings each capped at 255 characters, written as adjacent quoted strings —
 Hetzner's example is `"hello " "world"`.
 
-lego has a first-class plugin, and like DigitalOcean it needs exactly one secret:
+Persistent automation must call Hetzner's DNS API directly or use Entri
+Connect. lego's ACME DNS-01 provider corroborates the one-token credential
+surface below, but it only creates and removes `_acme-challenge` records:
 
 - Provider code: **`hetzner`**
 - Required: **`HETZNER_API_TOKEN`** — an API token
@@ -264,20 +266,17 @@ lego has a first-class plugin, and like DigitalOcean it needs exactly one secret
   (default 2s), `HETZNER_PROPAGATION_TIMEOUT` (default 60s), `HETZNER_TTL`
   (default 120s)
 
-One nuance on the token, worth getting right before wiring this up: lego's
-current provider page points at `https://docs.hetzner.cloud/reference/cloud#dns`,
-i.e. **Hetzner Cloud's API**, which matches Hetzner having folded DNS into the
-Hetzner Console under Network & Security. Hetzner's Cloud API-token page
+One nuance on the token, worth getting right before wiring this up: Hetzner's
+current DNS reference is `https://docs.hetzner.cloud/reference/cloud#dns`,
+which matches Hetzner having folded DNS into the Hetzner Console under Network
+& Security. Hetzner's Cloud API-token page
 documents the token as created under **Security → API tokens → Generate API
 token** (Read or Read & Write), used as `Authorization: Bearer $API_TOKEN`, and
 warns "it is not possible to view the token again once the window has been
 closed." Historically the lego `hetzner` provider used the separate Hetzner DNS
-API with an `Auth-API-Token` header; which of the two a given lego build expects
-is **UNVERIFIED** here — I could not retrieve a Hetzner page describing a
-DNS-specific token (`docs.hetzner.com/dns-console/dns/general/dns-overview/` and
-`.../api-access-token/` both returned Cloud-API content or navigation only).
-Generate a Cloud API token with Read & Write first; if lego rejects it, the
-legacy DNS-console token is the fallback.
+API with an `Auth-API-Token` header. Do not infer the direct API's current auth
+contract from lego; follow the current Hetzner API reference and verify a test
+record before enabling the integration.
 
 For `robots.txt` / `llms.txt` / sitemap there is no fallback needed on either
 Hetzner product — both give real file access, so these always land.

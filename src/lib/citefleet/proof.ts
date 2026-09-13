@@ -1,8 +1,8 @@
 import { resolveTxt } from "node:dns/promises";
 import type { Site } from "./types";
-import { siteVerifyToken } from "./verify-token.ts";
+import { normalizeDomain, siteVerifyToken } from "./verify-token.ts";
 import { looksLikeHtml, tokenPresent } from "./origin-file-check.ts";
-import { proofHint, wellKnownUrl } from "./proof-record.ts";
+import { proofHint, proofRecord, wellKnownUrl } from "./proof-record.ts";
 
 // `proofHint`, `wellKnownUrl`, `looksLikeHtml` and `tokenPresent` moved into
 // browser-safe modules so a component can render the record without dragging
@@ -56,7 +56,7 @@ export async function checkOriginProof(
   const resolve = deps.resolveTxt ?? ((d: string) => resolveTxt(d));
   const checkedAt = (deps.now ?? (() => new Date()))().toISOString();
   const token = siteVerifyToken(site);
-  const host = site.domain.replace(/^www\./, "").toLowerCase();
+  const host = normalizeDomain(site.domain);
 
   let fileNote = "";
   try {
@@ -95,19 +95,83 @@ export async function checkOriginProof(
   return { proven: false, method: "none", note: `${fileNote}; ${dnsNote}. ${proofHint(site)}`, checkedAt };
 }
 
-/** Poll the proof until it appears; deploys lag pushes by seconds to minutes. */
-export async function waitForProof(
+/** DNS-only verification for a provider flow that claims it wrote the TXT record. */
+export async function checkDnsProof(
   site: Pick<Site, "domain" | "verifyToken">,
-  opts: { attempts?: number; delayMs?: number; deps?: ProofDeps; sleep?: (ms: number) => Promise<void> } = {},
+  deps: ProofDeps = {},
+): Promise<ProofResult> {
+  const resolve = deps.resolveTxt ?? ((domain: string) => resolveTxt(domain));
+  const checkedAt = (deps.now ?? (() => new Date()))().toISOString();
+  const token = siteVerifyToken(site);
+  const host = normalizeDomain(site.domain);
+  const record = proofRecord(site);
+  const expected = `Expected Type ${record.type}, Name ${record.name}, Value ${record.value} for ${record.apex}.`;
+
+  try {
+    const records = await resolve(host);
+    const haystack = records.map((record) => record.join("")).join(" ");
+    if (tokenPresent(haystack, token)) {
+      return {
+        proven: true,
+        method: "dns-txt",
+        note: `Token found in a DNS TXT record on ${host}.`,
+        checkedAt,
+      };
+    }
+    return {
+      proven: false,
+      method: "none",
+      note: records.length
+        ? `No matching TXT record among ${records.length} on ${host}. ${expected}`
+        : `No TXT records on ${host}. ${expected}`,
+      checkedAt,
+    };
+  } catch (error) {
+    const code = (error as { code?: string })?.code;
+    const note =
+      code === "ENODATA" || code === "ENOTFOUND"
+        ? `No TXT records on ${host}.`
+        : `DNS TXT lookup failed for ${host} (${error instanceof Error ? error.message : "dns error"}).`;
+    return { proven: false, method: "none", note: `${note} ${expected}`, checkedAt };
+  }
+}
+
+type WaitForProofOptions = {
+  attempts?: number;
+  delayMs?: number;
+  deps?: ProofDeps;
+  sleep?: (ms: number) => Promise<void>;
+};
+
+async function waitForCheck(
+  site: Pick<Site, "domain" | "verifyToken">,
+  check: typeof checkOriginProof,
+  opts: WaitForProofOptions,
 ): Promise<ProofResult & { attempts: number }> {
   const attempts = Math.max(1, opts.attempts ?? 10);
   const delayMs = opts.delayMs ?? 30_000;
-  const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const sleep = opts.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
   let last: ProofResult | undefined;
-  for (let i = 1; i <= attempts; i++) {
-    last = await checkOriginProof(site, opts.deps);
-    if (last.proven) return { ...last, attempts: i };
-    if (i < attempts) await sleep(delayMs);
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    last = await check(site, opts.deps);
+    if (last.proven) return { ...last, attempts: attempt };
+    if (attempt < attempts) await sleep(delayMs);
   }
   return { ...(last as ProofResult), attempts };
+}
+
+/** Poll either accepted proof method until it appears; deploys lag pushes. */
+export async function waitForProof(
+  site: Pick<Site, "domain" | "verifyToken">,
+  opts: WaitForProofOptions = {},
+): Promise<ProofResult & { attempts: number }> {
+  return waitForCheck(site, checkOriginProof, opts);
+}
+
+/** Poll only the TXT record; an existing proof file cannot satisfy a DNS install. */
+export async function waitForDnsProof(
+  site: Pick<Site, "domain" | "verifyToken">,
+  opts: WaitForProofOptions = {},
+): Promise<ProofResult & { attempts: number }> {
+  return waitForCheck(site, checkDnsProof, opts);
 }

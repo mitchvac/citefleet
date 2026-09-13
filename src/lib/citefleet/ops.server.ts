@@ -25,6 +25,7 @@ export {
   botcentralHookSecret,
   botcentralHookUrl,
 } from "./webhook.ts";
+export { entriHookSecret, entriHookUrl, handleEntriWebhook } from "./entri-webhook.ts";
 export { checkOriginProof } from "./proof.ts";
 export { runAutopilotTick, setAutopilot } from "./autopilot";
 export { grokConfigured } from "./grokApi";

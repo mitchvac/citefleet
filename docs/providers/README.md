@@ -21,7 +21,7 @@ marked **UNVERIFIED** in the file rather than guessed. See [TEMPLATE.md](TEMPLAT
 **1. The web root cannot be guessed.** Fifteen distinct conventions across 25
 providers, and several hosts refuse to name one at all. IONOS has no fixed root —
 the customer picks a destination folder per domain, and the absolute path changed
-with contract age (2026-07-21). Lolipop!'s root is a folder the customer *invents*;
+with contract age (2026-07-21). Lolipop!'s root is a folder the customer _invents_;
 writing to the FTP root publishes to the wrong domain. Aruba's own FAQ says "/web
 or /htdocs, depending on the configuration". one.com is `httpd.www` on old servers
 and a hash-named `/webroots/<hex>` on new ones. Any installer must **discover** the
@@ -47,7 +47,7 @@ the audit should too.
 ## Silent failures worth knowing
 
 - **XServer `AIクローラー遮断設定`** blocks ClaudeBot, GPTBot, PerplexityBot and 18
-  others *by User-Agent at the server*. The pack uploads, returns 200 to curl, and
+  others _by User-Agent at the server_. The pack uploads, returns 200 to curl, and
   serves to nobody. CiteFleet probes only as `CiteFleet*` and cannot see this.
 - **Firebase Hosting** — `firebase init` writes `"ignore": ["**/.*"]`, which matches
   `.well-known`. The proof file is never deployed and `firebase deploy` reports success.
@@ -57,7 +57,7 @@ the audit should too.
   an FTPS upload silently has no effect.
 - **Google Cloud Storage** defaults unset objects to `application/octet-stream` — a
   download, not `text/plain`, which fails BotCentral's plain-text rule.
-- **Aruba** makes dot-entries invisible *and undeletable* over FTP — a support ticket
+- **Aruba** makes dot-entries invisible _and undeletable_ over FTP — a support ticket
   is required to remove one. Skip `.well-known/` there entirely.
 - **WordPress sitemaps are not at `/sitemap.xml`** — core serves `/wp-sitemap.xml`,
   Yoast serves `/sitemap_index.xml`, roughly 40% of the web. **Fixed:**
@@ -66,25 +66,25 @@ the audit should too.
 
 ## Providers by how much of the pack they can serve
 
-| Provider | Share | Achievable | Notes |
-|---|---|---|---|
-| [hetzner](hetzner.md) | 2.1% | all | root SSH, no CDN — easiest in the set |
-| o2switch ([your-online](your-online.md)) | — | all | cPanel, `public_html/`, dotfiles trivial |
-| Most VPS / shared hosting | — | all | see each file for root + port |
-| [webflow](webflow.md) | 0.8% | **4 of 5** | only SaaS host serving a real `.well-known/` |
-| [wp-engine](wp-engine.md) | 1.3% | 4 of 5 | physical robots.txt overwrites the dynamic one |
-| [vercel](vercel.md) | 2.1% | 4 of 5 | `vercel.json` rewrites to external URLs; not `.well-known` |
-| [shopify](shopify.md) | 5.4% | 2 of 5 | `robots.txt.liquid` + native `llms.txt.liquid` (2026-05-28) |
-| [wix](wix.md) | 4.2% | 2 of 5 | best API of any provider; runs IndexNow natively |
-| [squarespace](squarespace.md) | 2.4% | **1 of 5** | robots.txt completely closed — no Sitemap: fallback |
-| [tilda](tilda.md) | 0.8% | **0 of 5** | cannot serve the pack; DNS TXT only |
-| GoDaddy Websites + Marketing | — | 0 of 5 | no file access |
-| IONOS MyWebsite | — | 0 of 5 | no file access |
+| Provider                                 | Share | Achievable | Notes                                                       |
+| ---------------------------------------- | ----- | ---------- | ----------------------------------------------------------- |
+| [hetzner](hetzner.md)                    | 2.1%  | all        | root SSH, no CDN — easiest in the set                       |
+| o2switch ([your-online](your-online.md)) | —     | all        | cPanel, `public_html/`, dotfiles trivial                    |
+| Most VPS / shared hosting                | —     | all        | see each file for root + port                               |
+| [webflow](webflow.md)                    | 0.8%  | **4 of 5** | only SaaS host serving a real `.well-known/`                |
+| [wp-engine](wp-engine.md)                | 1.3%  | 4 of 5     | physical robots.txt overwrites the dynamic one              |
+| [vercel](vercel.md)                      | 2.1%  | 4 of 5     | `vercel.json` rewrites to external URLs; not `.well-known`  |
+| [shopify](shopify.md)                    | 5.4%  | 2 of 5     | `robots.txt.liquid` + native `llms.txt.liquid` (2026-05-28) |
+| [wix](wix.md)                            | 4.2%  | 2 of 5     | best API of any provider; runs IndexNow natively            |
+| [squarespace](squarespace.md)            | 2.4%  | **1 of 5** | robots.txt completely closed — no Sitemap: fallback         |
+| [tilda](tilda.md)                        | 0.8%  | **0 of 5** | cannot serve the pack; DNS TXT only                         |
+| GoDaddy Websites + Marketing             | —     | 0 of 5     | no file access                                              |
+| IONOS MyWebsite                          | —     | 0 of 5     | no file access                                              |
 
 ## Dropped from the installer list: no web root
 
 **The rule: a provider is dropped when the customer never gets a writable web
-root.** Not "serves fewer files" — *no directory at all*. `flowOptions` filters
+root.** Not "serves fewer files" — _no directory at all_. `flowOptions` filters
 these out, so nobody can pick their host from the list, log in, and only then
 find out the installer was never going to work there.
 
@@ -94,22 +94,22 @@ in `provider-flows.ts` holding the provider's own words, what it still serves at
 it. "This platform serves nothing at the root" is a dated fact, not a verdict —
 Shopify shipped `templates/llms.txt.liquid` on 2026-05-28.
 
-| Dropped | Share | Still serves | Reopen when |
-|---|---|---|---|
-| [shopify](shopify.md) | 5.4% | `/robots.txt`, `/llms.txt` via theme templates | a theme template exists for an arbitrary root path, or Files serves at `/` rather than `/cdn/shop/files/` |
-| [wix](wix.md) | 4.2% | `/robots.txt`, `/llms.txt` via the TXT File server REST API | the TXT File server accepts a fourth path — the API to drive it already exists, so this is the cheapest to reopen |
-| [squarespace](squarespace.md) | 2.4% | `/llms.txt` (7.1 only) | robots.txt becomes per-site editable, or any site-settings API ships (the public APIs are commerce-only) |
-| [tilda](tilda.md) | 0.8% | nothing | a root-file upload or any write endpoint appears — the public API is read-only, so there is no automation surface at all |
-| [webflow](webflow.md) | 0.8% | `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/.well-known/` | the Assets panel publishes at the root, or the Data API gains a generic root-file endpoint — it already serves `.well-known/`, so one more path makes it installable |
+| Dropped                       | Share | Still serves                                                | Reopen when                                                                                                                                                          |
+| ----------------------------- | ----- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [shopify](shopify.md)         | 5.4%  | `/robots.txt`, `/llms.txt` via theme templates              | a theme template exists for an arbitrary root path, or Files serves at `/` rather than `/cdn/shop/files/`                                                            |
+| [wix](wix.md)                 | 4.2%  | `/robots.txt`, `/llms.txt` via the TXT File server REST API | the TXT File server accepts a fourth path — the API to drive it already exists, so this is the cheapest to reopen                                                    |
+| [squarespace](squarespace.md) | 2.4%  | `/llms.txt` (7.1 only)                                      | robots.txt becomes per-site editable, or any site-settings API ships (the public APIs are commerce-only)                                                             |
+| [tilda](tilda.md)             | 0.8%  | nothing                                                     | a root-file upload or any write endpoint appears — the public API is read-only, so there is no automation surface at all                                             |
+| [webflow](webflow.md)         | 0.8%  | `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/.well-known/` | the Assets panel publishes at the root, or the Data API gains a generic root-file endpoint — it already serves `.well-known/`, so one more path makes it installable |
 
 **13.6% of the web** sits behind these five. That is the cost of the rule, and it
 is why they are archived rather than forgotten.
 
 **Why Vercel is NOT dropped**, despite `vercel.md` opening "There is no web root
 on a disk anyone can reach": its root is `public/` in the connected git repo, and
-CiteFleet's existing *Push origin files* already writes there — `vercel.md` calls
+CiteFleet's existing _Push origin files_ already writes there — `vercel.md` calls
 `public/.well-known/botcentral.txt` "the only file-based option", and it works.
-The reserved-path restriction applies to *rewrites*, not to committed files. Same
+The reserved-path restriction applies to _rewrites_, not to committed files. Same
 reasoning keeps AWS, Google Cloud, Azure and DigitalOcean: each has products with
 no root (Amplify, App Engine, Static Web Apps, App Platform) alongside compute
 with a real filesystem, and the provider is judged on whether a root is reachable
@@ -119,47 +119,68 @@ Each quote is pinned verbatim to the provider's file by a test in
 `provider-flows.test.ts`. **Update a file below because the provider changed its
 process, and that test fails** — which is the re-check trigger, not a nuisance.
 
+## DNS setup automation coverage
 
-## DNS automation (lego) coverage
+The runtime path is an [Entri Connect Shared Link](https://developers.entri.com/connect/shared-links):
+CiteFleet binds the customer's exact domain and apex TXT record server-side,
+then hands the customer to Entri to authenticate with the DNS provider. CiteFleet
+never receives the provider password. A successful callback still has to pass
+CiteFleet's DNS-only TXT lookup; an existing proof file cannot stand in for the
+record. The current automatic-provider list is
+Entri's [official live list](https://developers.entri.com/connect/provider-list),
+checked 2026-09-12; absence from that list falls back to the provider's official
+sign-in and TXT-record guide.
 
-**Covered:** OVH, Hostinger, GoDaddy, IONOS, Route53, Google Cloud, Azure,
-DigitalOcean, Hetzner, Vercel, TransIP, Gandi (`gandiv5`), Checkdomain, plus the
-generic `cpanel`, `plesk` and `directadmin` providers.
+The separate DNS inventory in `src/lib/citefleet/dns-providers/` has one source
+file for each of the 29 largest W3Techs DNS provider groups, with official
+account, TXT-guide, public API and official MCP links where verified. Those
+groups total **72.3% measured market share**, not 90%. CiteFleet does not claim
+90% until the same source data supports it. When nameservers do not match one
+of those 29 groups, CiteFleet can still hand the domain to Entri for live
+provider detection. That path neither invents provider metadata nor adds the
+domain to the measured 72.3% claim.
 
-**Not covered — apex TXT is a manual customer step:** SiteGround, all Newfold
-brands (Bluehost, HostGator, Network Solutions), Aruba, Combell, Register.it,
-Yourhosting.
+`lego` is **not** CiteFleet's DNS executor. It is an ACME client whose DNS
+providers create a temporary `_acme-challenge` TXT record and remove it after
+certificate validation. A provider entry can corroborate that an underlying
+DNS API and credential shape exist, but it cannot write or retain CiteFleet's
+permanent apex `botcentral-verify` record. Persistent setup must use Entri, the
+provider's DNS API directly, or a documented manual flow.
 
-Note the inversion: on SiteGround the DNS record is manual but files are fully
-scriptable; on the SaaS builders files are impossible but DNS is the only route.
-No single mechanism covers the market.
+Entri also publishes an [official MCP server](https://developers.entri.com/entri-mcp)
+whose `connect-domain` tool returns a customer handoff link and whose
+`check-connection-status` tool polls the resulting job. CiteFleet's web runtime
+uses the documented Shared Links REST endpoint instead: it can bind each
+property's exact TXT record in the request without operating an MCP host or a
+separate dynamic-configuration endpoint. MCP remains a verified agent-facing
+option, not an unimplemented claim about an individual provider.
 
 ## The index
 
-| File | Provider | Share | Category |
-|---|---|---|---|
-| [shopify](shopify.md) | Shopify | 5.4% | SaaS builder — **dropped: no web root** |
-| [hostinger](hostinger.md) | Hostinger | 5.2% | shared hosting |
-| [amazon-aws](amazon-aws.md) | Amazon AWS | 4.5% | cloud |
-| [wix](wix.md) | Wix | 4.2% | SaaS builder — **dropped: no web root** |
-| [ionos](ionos.md) | IONOS / United Internet | 2.5% | shared hosting |
-| [godaddy](godaddy.md) | GoDaddy | 2.5% | shared hosting |
-| [squarespace](squarespace.md) | Squarespace | 2.4% | SaaS builder — **dropped: no web root** |
-| [newfold](newfold.md) | Bluehost, HostGator, Network Solutions | 2.4% | shared hosting |
-| [ovh](ovh.md) | OVHcloud | 2.4% | shared / VPS |
-| [team-blue](team-blue.md) | Combell, TransIP, Register.it | 2.2% | shared hosting |
-| [hetzner](hetzner.md) | Hetzner | 2.1% | cloud / shared |
-| [vercel](vercel.md) | Vercel | 2.1% | git-deploy platform |
-| [siteground](siteground.md) | SiteGround | 2.0% | shared hosting |
-| [google-cloud](google-cloud.md) | Google Cloud, Firebase | 1.6% | cloud |
-| [digitalocean](digitalocean.md) | DigitalOcean | 1.5% | cloud |
-| [xserver](xserver.md) | XServer | 1.4% | shared hosting (JP) |
-| [wp-engine](wp-engine.md) | WP Engine | 1.3% | managed WordPress |
-| [gmo-internet](gmo-internet.md) | Lolipop!, ConoHa, Heteml | 1.2% | shared hosting (JP) |
-| [aruba](aruba.md) | Aruba S.p.A. | 0.9% | shared hosting (IT) |
-| [sakura](sakura.md) | Sakura Internet | 0.9% | shared hosting (JP) |
-| [group-one](group-one.md) | one.com, Hostnet, dogado | 0.8% | shared hosting |
-| [microsoft-azure](microsoft-azure.md) | Microsoft Azure | 0.8% | cloud |
-| [tilda](tilda.md) | Tilda | 0.8% | SaaS builder — **dropped: no web root** |
-| [your-online](your-online.md) | o2switch, Gandi, Yourhosting | 0.8% | shared hosting |
-| [webflow](webflow.md) | Webflow | 0.8% | SaaS builder — **dropped: no web root** |
+| File                                  | Provider                               | Share | Category                                |
+| ------------------------------------- | -------------------------------------- | ----- | --------------------------------------- |
+| [shopify](shopify.md)                 | Shopify                                | 5.4%  | SaaS builder — **dropped: no web root** |
+| [hostinger](hostinger.md)             | Hostinger                              | 5.2%  | shared hosting                          |
+| [amazon-aws](amazon-aws.md)           | Amazon AWS                             | 4.5%  | cloud                                   |
+| [wix](wix.md)                         | Wix                                    | 4.2%  | SaaS builder — **dropped: no web root** |
+| [ionos](ionos.md)                     | IONOS / United Internet                | 2.5%  | shared hosting                          |
+| [godaddy](godaddy.md)                 | GoDaddy                                | 2.5%  | shared hosting                          |
+| [squarespace](squarespace.md)         | Squarespace                            | 2.4%  | SaaS builder — **dropped: no web root** |
+| [newfold](newfold.md)                 | Bluehost, HostGator, Network Solutions | 2.4%  | shared hosting                          |
+| [ovh](ovh.md)                         | OVHcloud                               | 2.4%  | shared / VPS                            |
+| [team-blue](team-blue.md)             | Combell, TransIP, Register.it          | 2.2%  | shared hosting                          |
+| [hetzner](hetzner.md)                 | Hetzner                                | 2.1%  | cloud / shared                          |
+| [vercel](vercel.md)                   | Vercel                                 | 2.1%  | git-deploy platform                     |
+| [siteground](siteground.md)           | SiteGround                             | 2.0%  | shared hosting                          |
+| [google-cloud](google-cloud.md)       | Google Cloud, Firebase                 | 1.6%  | cloud                                   |
+| [digitalocean](digitalocean.md)       | DigitalOcean                           | 1.5%  | cloud                                   |
+| [xserver](xserver.md)                 | XServer                                | 1.4%  | shared hosting (JP)                     |
+| [wp-engine](wp-engine.md)             | WP Engine                              | 1.3%  | managed WordPress                       |
+| [gmo-internet](gmo-internet.md)       | Lolipop!, ConoHa, Heteml               | 1.2%  | shared hosting (JP)                     |
+| [aruba](aruba.md)                     | Aruba S.p.A.                           | 0.9%  | shared hosting (IT)                     |
+| [sakura](sakura.md)                   | Sakura Internet                        | 0.9%  | shared hosting (JP)                     |
+| [group-one](group-one.md)             | one.com, Hostnet, dogado               | 0.8%  | shared hosting                          |
+| [microsoft-azure](microsoft-azure.md) | Microsoft Azure                        | 0.8%  | cloud                                   |
+| [tilda](tilda.md)                     | Tilda                                  | 0.8%  | SaaS builder — **dropped: no web root** |
+| [your-online](your-online.md)         | o2switch, Gandi, Yourhosting           | 0.8%  | shared hosting                          |
+| [webflow](webflow.md)                 | Webflow                                | 0.8%  | SaaS builder — **dropped: no web root** |

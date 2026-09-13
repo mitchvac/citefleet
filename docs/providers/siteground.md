@@ -181,22 +181,19 @@ BotCentral scores it higher.
   nameservers. **Site Tools** → **Domain** → **DNS Zone Editor** → the
   **Create New Record** section → the **TXT** tab → fill in the value →
   **Create**.
-- **This cannot be automated on SiteGround, and that is a firm finding.** lego
-  (github.com/go-acme/lego) has **no `siteground` DNS provider** — the full list
-  at https://go-acme.github.io/lego/dns/ carries `hostinger`, `godaddy`, `ionos`,
-  `cpanel`, `plesk` and `directadmin`, but nothing for SiteGround. Nor is there a
-  public SiteGround API to write one against: **UNVERIFIED / no public DNS API
-  found** — searched siteground.com for "API", "REST API", "developer
-  documentation" and "Site Tools API". SiteGround's own engineering blog describes
-  Site Tools as internally API-driven and says opening those APIs publicly is
-  planned but not shipped, with no published documentation. The only SiteGround
-  "API key" article in the KB is about the unrelated Akismet/WordPress.com key.
-  **So on SiteGround the apex TXT record is a manual, customer-performed step.**
-- **Therefore, prefer the file route on SiteGround** — the inverse of the advice
-  for most hosts in this set. SFTP is scriptable here and DNS is not, so
-  `.well-known/botcentral.txt` placed over SFTP is the path CiteFleet can actually
-  automate end to end. Ask the customer for the TXT record as the sturdier second
-  proof, not as the first resort.
+- **No public SiteGround DNS API was verified.** lego has no `siteground` DNS
+  provider either, but lego only covers ACME DNS-01 and is not a general
+  persistent-record writer. SiteGround's own engineering blog describes Site
+  Tools as internally API-driven and says public API access is intended but not
+  shipped, with no published reference. The only SiteGround "API key" article
+  in the KB is about the unrelated Akismet/WordPress.com key.
+- **Guided setup is available through Entri.** Entri's current official provider
+  list names SiteGround as automatic. When CiteFleet's Entri integration is
+  configured, use that domain-bound shared-link flow; otherwise the customer
+  must use the SiteGround panel path above.
+- **The file route remains a strong independent fallback.** SFTP is scriptable
+  on every SiteGround hosting plan, so `.well-known/botcentral.txt` can prove
+  control even when guided DNS setup is unavailable.
 
 ## Sources
 
@@ -214,6 +211,7 @@ BotCentral scores it higher.
 - https://www.siteground.com/kb/seo-general-guide — SiteGround's SEO guidance routes WordPress sitemap generation through Yoast SEO → General → Features → XML Sitemaps
 - https://www.siteground.com/blog/technology-behind-new-client-area-and-site-tools — Site Tools is internally API-driven; SiteGround states public API access is intended but not yet released, and no public documentation exists
 - https://go-acme.github.io/lego/dns/ — the full lego provider list contains no `siteground` entry, confirming the apex TXT record cannot be automated through lego
+- https://developers.entri.com/connect/provider-list — SiteGround is listed for automatic DNS configuration (checked 2026-09-12)
 - https://www.siteground.com/tutorials/sg-git/clone-git-repository — confirmed the literal absolute web-root path `/home/customer/www/yourdomain.com/public_html/` and that port 18765 is used for SSH-based access
 - https://www.siteground.com/kb/increase-wp-memory-limit — second independent confirmation of the same `/home/customer/www/yourdomain.com/public_html` path
 - https://www.siteground.com/kb/which_ports_are_open_on_siteground_shared_servers — confirmed port 21 ("the default FTP port") and port 18765 ("SSH/SFTP") are both currently listed as open, page last updated 2024-11-13

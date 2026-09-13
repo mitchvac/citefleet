@@ -18,6 +18,7 @@ import {
 import { PROVIDER_FLOWS } from "@/lib/citefleet/provider-flows";
 import { siteVerifyToken, verifyLine } from "@/lib/citefleet/verify-token";
 import { proofRecord } from "@/lib/citefleet/proof-record";
+import { DnsProviderPanel } from "./DnsProviderPanel";
 
 function tone(status: string) {
   if (status === "done") return "good" as const;
@@ -385,6 +386,7 @@ function AutoListingPanel({
           thing; either one alone is enough.
         </p>
       </div>
+      <DnsProviderPanel site={site} />
       {proof && (
         <p className="mt-3 text-xs text-[#9b95b3]" data-testid="proof-note">
           {proof.note} · checked {new Date(proof.checkedAt).toLocaleString()}

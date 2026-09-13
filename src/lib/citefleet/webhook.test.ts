@@ -186,6 +186,46 @@ test("only one proof check runs per site at a time; a second delivery is recorde
   endCheck("site-acme");
 });
 
+test("identical site ids in different workspaces do not share an in-flight slot", async () => {
+  const first = storeWith([site({ workspaceId: "ws-alpha" })]);
+  const second = storeWith([site({ workspaceId: "ws-bravo" })]);
+  const started: string[] = [];
+  const depsFor = (workspaceId: string, deps: typeof first.deps) => ({
+    ...deps,
+    checkKey: (siteId: string) => `${workspaceId}:${siteId}`,
+    onCheck: (_siteId: string, _reason: string, context: { inFlightKey: string }) => {
+      started.push(context.inFlightKey);
+    },
+  });
+  const firstKey = "ws-alpha:site-acme";
+  const secondKey = "ws-bravo:site-acme";
+  endCheck("site-acme");
+  endCheck(firstKey);
+  endCheck(secondKey);
+  const raw = push("refs/heads/main");
+  const a = await handleGithubWebhook(
+    {
+      rawBody: raw,
+      header: headersFor(raw, "s3cret", "push", { "x-github-delivery": "tenant-a" }),
+    },
+    depsFor("ws-alpha", first.deps),
+  );
+  const b = await handleGithubWebhook(
+    {
+      rawBody: raw,
+      header: headersFor(raw, "s3cret", "push", { "x-github-delivery": "tenant-b" }),
+    },
+    depsFor("ws-bravo", second.deps),
+  );
+  endCheck("site-acme");
+  endCheck(firstKey);
+  endCheck(secondKey);
+
+  assert.equal(a.body.action, "check");
+  assert.equal(b.body.action, "check");
+  assert.deepEqual(started, [firstKey, secondKey]);
+});
+
 test("a failing store write leaves no in-flight slot behind", async () => {
   const { deps } = storeWith([site()]);
   endCheck("site-acme");

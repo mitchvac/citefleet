@@ -23,7 +23,11 @@ ownership, and publishes the card. BotCentral is the neutral registry bots query
 1. Onboard the origin on Command (a customer is only a URL; nothing customer-specific is in code).
 2. Live audit; prove control. Quickest is one apex DNS TXT record
    (`botcentral-verify=citefleet-app` on `@`, no deploy) — the campaign panel and
-   `/start` both show the record with a copy button. Otherwise get the five origin
+   `/start` both show the record with a copy button. The campaign detects the
+   authoritative DNS provider and creates a record-bound Entri handoff link when
+   configured; open it directly or copy it for the customer. The provider's
+   official account and TXT guide remain available as the fallback.
+   Otherwise get the five origin
    files to the web root: attach the website repo and push the pack (robots,
    sitemap, llms.txt, `.well-known/botcentral.txt`, the IndexNow key file), or
    copy/download each file from **The files bots read** and place them by hand.

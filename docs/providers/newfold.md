@@ -240,18 +240,20 @@ TXT record is the recommended primary route rather than a fallback.
     **Text (TXT Records)** → **Edit TXT Records** → Host `@`, TXT value, TTL
     3600 → **Continue** → **Save Changes**. Network Solutions' own doc warns
     changes can take **up to 48 hours** to propagate.
-- **No automation API was found for any of the three brands**, consistent with
-  the task's premise: lego (github.com/go-acme/lego) has no `bluehost`,
+- **No direct public automation API was found for any of the three brands.**
+  lego (github.com/go-acme/lego) has no `bluehost`,
   `hostgator`, `networksolutions`, or `newfold` DNS provider
   (https://go-acme.github.io/lego/dns/ lists providers alphabetically and none
   of those names appear), only `cpanel`, `plesk`, and `directadmin` among
-  panel-style entries. The lego `cpanel` plugin needs three inputs —
+  panel-style entries. That is ACME DNS-01 capability evidence, not proof that
+  a permanent record cannot be automated. The lego `cpanel` provider needs
+  three inputs —
   `CPANEL_USERNAME`, `CPANEL_TOKEN` (an API token), and `CPANEL_BASE_URL` (e.g.
   `https://example.com:2083`) — per https://go-acme.github.io/lego/dns/cpanel/.
   - **HostGator is plausible but UNVERIFIED for this route.** HostGator shared
     hosting is confirmed stock cPanel reachable directly at
-    `https://<server-hostname>:2083`, which is the shape the lego `cpanel`
-    plugin expects. Generic cPanel (not HostGator-specific) documentation shows
+    `https://<server-hostname>:2083`, which is the shape cPanel's API expects.
+    Generic cPanel (not HostGator-specific) documentation shows
     a **Security → Manage API Tokens** screen for issuing `CPANEL_TOKEN` values.
     However, no HostGator-branded help article was found confirming that
     "Manage API Tokens" is present/enabled on their shared-hosting cPanel
@@ -262,13 +264,14 @@ TXT record is the recommended primary route rather than a fallback.
     Tokens before relying on it.
   - **Bluehost and Network Solutions are not on stock cPanel for most
     customers** (Bluehost's primary surface is its own Account Manager; Network
-    Solutions' panel identity is itself unconfirmed — see above), so the lego
-    `cpanel` plugin is not expected to apply there even where legacy cPanel
-    access exists underneath.
-  - **Conclusion: for all three brands, the TXT record must be added by hand in
-    the panel** using the click-paths above; do not build an automated DNS path
-    for this integration without first manually confirming cPanel API-token
-    access on the specific HostGator account in question.
+    Solutions' panel identity is itself unconfirmed — see above), so a direct
+    cPanel API integration is not expected to apply there even where legacy
+    cPanel access exists underneath.
+  - **Entri is the verified guided path.** Entri's current official provider
+    list names Bluehost US, Hostgator and Network Solutions as automatic. Use
+    CiteFleet's domain-bound Entri shared link when configured; otherwise use
+    the manual click-paths above. Do not collect a customer's panel password in
+    CiteFleet.
 - **If neither file placement nor DNS is possible** (e.g., the customer refuses
   panel access entirely), fall back to whatever proof mechanism BotCentral
   accepts short of file/DNS verification, per the main CiteFleet integration
@@ -299,3 +302,4 @@ TXT record is the recommended primary route rather than a fallback.
 - https://www.networksolutions.com/help/article/manage-dns-adns-records — Network Solutions runs its own Advanced DNS Manager; click-path to add a TXT record (Domains → Advanced Tools → Manage Advanced DNS Records → +Add Record → Text (TXT Records) → Host `@`, value, TTL 3600 → Save Changes); notes propagation up to 48 hours
 - https://go-acme.github.io/lego/dns/ — confirms the full lego DNS provider list has no `bluehost`, `hostgator`, `networksolutions`, or `newfold` entry, but does list `cpanel`, `plesk`, and `directadmin`
 - https://go-acme.github.io/lego/dns/cpanel/ — lego's `cpanel` provider requires `CPANEL_USERNAME`, `CPANEL_TOKEN`, and `CPANEL_BASE_URL` (e.g. `https://example.com:2083`), i.e. a cPanel API token, not just a control-panel password
+- https://developers.entri.com/connect/provider-list — Bluehost US, Hostgator and Network Solutions are listed for automatic DNS configuration (checked 2026-09-12)

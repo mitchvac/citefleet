@@ -85,7 +85,7 @@ Use the **apex DNS TXT record**. All four brands run their customers' DNS by def
 - **dogado** — nameservers `cns1.cloudpit.de` / `cns2.cloudpit.com` / `cns3.cloudpit.io`, self-service. "oneHome ergänzt den Namen Ihrer Domain **automatisch**. Wenn ein Eintrag **direkt für die Hauptdomain** gelten soll, **lassen Sie das Feld `Name` leer**" — otherwise the domain is appended twice.
 - **Alfahosting** — same oneHome apex rule ("Für einen Eintrag der Hauptdomain lassen Sie das Feld leer"), but see the template gate above for the legacy generation. Default nameserver *hostnames* are **UNVERIFIED**; only IPs are published (`109.237.142.8`, `148.251.254.105`, `109.237.143.8`).
 
-**Automation: exactly one group.one brand has a lego provider.**
+**ACME API evidence: exactly one group.one brand has a lego provider.**
 
 | Brand | lego provider | Credentials |
 |---|---|---|
@@ -98,11 +98,22 @@ Use the **apex DNS TXT record**. All four brands run their customers' DNS by def
 
 Verified against the lego repository's `providers/dns` directory on `main` (v5.4.1, 225 packages) as well as the docs index. `hostingde` exists but Hosting.de GmbH is not a group.one brand. Webglobe rolled up Czech hosters, but its own about pages say only "2024 … We became part of group.one" and never claim Active24 or Websupport, so lego's `active24` and `websupport` providers cannot be assumed to reach a group.one customer's zone.
 
+These lego entries only create and remove ACME `_acme-challenge` records. They
+are useful evidence about an underlying API and credential shape, but CiteFleet
+must not use lego to write its permanent apex proof.
+
 **No brand here publishes a customer-facing DNS API.** one.com's help center has none (searches return only the Online Shop API); Hostnet's only REST API is the **reseller** one at partners.one, with no endpoints, auth scheme or DNS detail published; dogado has an API-token UI in oneHome but the reference is behind login and DNS coverage is **UNVERIFIED**; Alfahosting documents no API at all for shared hosting.
 
-**The one clean automation path on one.com is secondary DNS with a hidden primary:** "Our DNS service supports secondary DNS, often used for a hidden primary. You must allow AXFR requests from **`axfr.one.com` (46.30.211.18)**, which is also the server you should NOTIFY when you update your zones." That moves zone authorship somewhere lego *can* drive, and sidesteps the `_acme-challenge` collision.
+**The verified guided path for one.com is Entri Connect.** Entri's current
+official list names One.com as automatic. one.com also supports secondary DNS
+with a hidden primary: "Our DNS service supports secondary DNS, often used for
+a hidden primary. You must allow AXFR requests from **`axfr.one.com`
+(46.30.211.18)**, which is also the server you should NOTIFY when you update
+your zones." That moves zone authorship to the customer's primary DNS system;
+it does not turn lego into a persistent-record writer.
 
-Otherwise: place the four plain files over SFTP, and have the customer add the apex TXT record by hand once.
+Otherwise: place the four plain files over SFTP and use the documented manual
+TXT flow.
 
 ## Sources
 
@@ -152,3 +163,4 @@ Otherwise: place the four plain files over SFTP, and have the customer add the a
 - https://go-acme.github.io/lego/dns/checkdomain/ — `CHECKDOMAIN_TOKEN` and optional variables
 - https://go-acme.github.io/lego/dns/ and https://github.com/go-acme/lego/tree/main/providers/dns — the 225-package provider list on `main` (v5.4.1); no `onecom`, `gratisdns`, `hostnet`, `dogado`, `alfahosting`, `easyname`, `zoner` or `webglobe`
 - https://go-acme.github.io/lego/dns/metaname/ — `metaname` is metaname.net (New Zealand), not group.one's Metanet
+- https://developers.entri.com/connect/provider-list — One.com is listed for automatic DNS configuration (checked 2026-09-12)
