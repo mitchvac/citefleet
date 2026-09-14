@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/hooks/entri")({
                 void runWebhookListing(ws, siteId, reason, {
                   attempts: 12,
                   delayMs: 30_000,
-                  dnsSetupJobId: context.jobId,
+                  dnsSetupOperationId: context.jobId,
                   inFlightKey: context.inFlightKey,
                 });
               }),

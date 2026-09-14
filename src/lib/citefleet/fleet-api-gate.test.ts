@@ -70,13 +70,16 @@ test("DNS automation is bound to a stored property and the spend kill door", () 
   );
 });
 
-test("Entri callbacks verify DNS itself beyond the negative-cache window", () => {
+test("provider callbacks verify DNS itself beyond the negative-cache window", () => {
   const dispatcher = readFileSync(path.resolve(import.meta.dirname, "dispatcher.ts"), "utf8");
-  assert.match(dispatcher, /const wait = opts\.dnsSetupJobId \? waitForDnsProof : waitForProof/);
   assert.match(
     dispatcher,
-    /applyWebhookProof\(current, proof, opts\.dnsSetupJobId/,
-    "the dispatcher must use the tested exact-job transition",
+    /const wait = opts\.dnsSetupOperationId \? waitForDnsProof : waitForProof/,
+  );
+  assert.match(
+    dispatcher,
+    /applyWebhookProof\(current, proof, opts\.dnsSetupOperationId/,
+    "the dispatcher must use the tested exact-operation transition",
   );
   assert.match(
     dispatcher,
@@ -90,8 +93,32 @@ test("Entri callbacks verify DNS itself beyond the negative-cache window", () =>
   );
   assert.match(route, /attempts: 12/);
   assert.match(route, /delayMs: 30_000/);
-  assert.match(route, /dnsSetupJobId: context\.jobId/);
+  assert.match(route, /dnsSetupOperationId: context\.jobId/);
   assert.match(route, /inFlightKey: context\.inFlightKey/);
   assert.match(route, /hookDeps\(\{ domain, dnsSetupJobId: jobId \}/);
   assert.ok((12 - 1) * 30_000 > 5 * 60_000);
+});
+
+test("Cloudflare DNS OAuth is property-bound and never accepts a browser-supplied domain", () => {
+  const route = readFileSync(path.resolve(import.meta.dirname, "dns-oauth.server.ts"), "utf8");
+  assert.match(route, /searchParams\.get\("siteId"\)/);
+  assert.doesNotMatch(route, /searchParams\.get\("domain"\)/);
+  assert.match(route, /const site = getSite\(store, siteId\)/);
+  assert.match(route, /detectDnsProvider\(site\.domain\)/);
+  assert.match(route, /consumeDnsOAuthState\(rawState, user\.id\)/);
+  assert.match(route, /normalizeDomain\(site\.domain\) !== transaction\.domain/);
+  assert.match(route, /dnsSetupOperationId\(site\.dnsSetup\) !== transaction\.operationId/);
+  assert.match(route, /ensureCloudflareTxt\(token, record\.apex, record\.value\)/);
+  assert.match(route, /revokeCloudflareToken\(token, config\)/);
+  assert.doesNotMatch(route, /accessToken\s*:/);
+});
+
+test("new onboarding persists a generated versioned proof token", () => {
+  const dispatcher = readFileSync(path.resolve(import.meta.dirname, "dispatcher.ts"), "utf8");
+  const onboard = dispatcher.slice(
+    dispatcher.indexOf("export async function onboardSite"),
+    dispatcher.indexOf("export async function dispatchSite"),
+  );
+  assert.match(onboard, /verifyToken: createSiteVerifyToken\(\)/);
+  assert.doesNotMatch(onboard, /verifyToken: siteVerifyToken/);
 });

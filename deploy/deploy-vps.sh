@@ -140,6 +140,26 @@ if [[ -e "$ENTRI_FILE" ]]; then
   fi
 fi
 
+# Optional direct Cloudflare OAuth connection. One public OAuth client serves
+# every customer; each customer approves access in their own Cloudflare account.
+CLOUDFLARE_FILE="/root/citefleet-cloudflare.oauth"
+CLOUDFLARE_CLIENT_ID=""
+CLOUDFLARE_CLIENT_SECRET=""
+CLOUDFLARE_SCOPES=""
+if [[ -e "$CLOUDFLARE_FILE" ]]; then
+  mapfile -t _cloudflare < "$CLOUDFLARE_FILE"
+  CLOUDFLARE_CLIENT_ID="${_cloudflare[0]-}"
+  CLOUDFLARE_CLIENT_SECRET="${_cloudflare[1]-}"
+  CLOUDFLARE_SCOPES="${_cloudflare[2]-}"
+  CLOUDFLARE_CLIENT_ID="${CLOUDFLARE_CLIENT_ID//$'\r'/}"
+  CLOUDFLARE_CLIENT_SECRET="${CLOUDFLARE_CLIENT_SECRET//$'\r'/}"
+  CLOUDFLARE_SCOPES="${CLOUDFLARE_SCOPES//$'\r'/}"
+  if [[ -z "$CLOUDFLARE_CLIENT_ID" || -z "$CLOUDFLARE_CLIENT_SECRET" || -z "$CLOUDFLARE_SCOPES" ]]; then
+    echo "deploy: $CLOUDFLARE_FILE must contain client ID, secret, and scopes on lines 1-3" >&2
+    exit 1
+  fi
+fi
+
 NET="citefleet-net"
 PG_NAME="citefleet-postgres"
 PASS_FILE="/root/citefleet-postgres.pass"
@@ -275,6 +295,11 @@ fi
     if [[ -n "$ENTRI_SHARE_HOST" ]]; then
       printf 'CITEFLEET_ENTRI_SHARE_HOST=%s\n' "$ENTRI_SHARE_HOST"
     fi
+  fi
+  if [[ -n "$CLOUDFLARE_CLIENT_ID" ]]; then
+    printf 'CITEFLEET_CLOUDFLARE_CLIENT_ID=%s\n' "$CLOUDFLARE_CLIENT_ID"
+    printf 'CITEFLEET_CLOUDFLARE_CLIENT_SECRET=%s\n' "$CLOUDFLARE_CLIENT_SECRET"
+    printf 'CITEFLEET_CLOUDFLARE_SCOPES=%s\n' "$CLOUDFLARE_SCOPES"
   fi
   # Listing-year billing (BotCentral brief, 2026-09-06). OFF until a key has
   # been funded end to end — a publish with an unfunded key is a 402. Turn it

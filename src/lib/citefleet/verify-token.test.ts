@@ -4,6 +4,7 @@ import { buildOriginPack } from "./originPack.ts";
 import type { Site } from "./types.ts";
 import {
   BOTCENTRAL_VERIFY_TOKEN,
+  createSiteVerifyToken,
   normalizeDomain,
   siteVerifyToken,
   verifyLine,
@@ -50,10 +51,17 @@ test("mirrored verifier helpers detect the failure cases (positive controls)", (
   assert.equal(tokenPresent("verify: something-else\n", BOTCENTRAL_VERIFY_TOKEN), false);
 });
 
-test("the card token is the shared publisher token for every site", () => {
-  for (const s of [site(), site({ id: "site-other", domain: "example.org" }), site({ verifyToken: "stale-hmac" })]) {
+test("legacy sites keep the shared token while versioned customer tokens are honored", () => {
+  for (const s of [
+    site(),
+    site({ id: "site-other", domain: "example.org" }),
+    site({ verifyToken: "stale-hmac" }),
+  ]) {
     assert.equal(siteVerifyToken(s), BOTCENTRAL_VERIFY_TOKEN);
   }
+  const unique = createSiteVerifyToken("12345678-1234-1234-1234-123456789abc");
+  assert.equal(unique, "cfv1_12345678123412341234123456789abc");
+  assert.equal(siteVerifyToken(site({ verifyToken: unique })), unique);
   assert.equal(verifyLine(), "botcentral-verify=citefleet-app");
 });
 
@@ -91,17 +99,16 @@ test("origin pack honours the GitHub root folder", () => {
 
 // --- the screen and the checker must name the SAME token --------------------
 //
-// `siteVerifyToken` ignores a site's stored `verifyToken` and returns the one
-// shared publisher token, and every server path — the card (botcentral.ts), the
-// origin pack (originPack.ts), the pre-flight proof (proof.ts), onboarding and
-// push (dispatcher.ts, github.ts) — goes through it. The UI printed the STORED
-// value instead, so a property carrying a per-site token from before the
-// shared-token decision (f842b9d) was told on screen to serve a line nothing
-// checks. Measured in production 2026-09-09: wflowprocess.app stored
+// `siteVerifyToken` ignores abandoned unversioned values but honors newly
+// versioned tokens. Every server path — the card, origin pack, proof check, and
+// DNS automation — goes through it. The old UI printed the STORED value
+// directly, so a property carrying a per-site token from before the shared-token
+// decision (f842b9d) was told to serve a line nothing checked. Measured in
+// production 2026-09-09: wflowprocess.app stored
 // `6ffa50ab224c2a593f43b89e7cf2d506`, and a proof file built from its campaign
 // page would never have verified.
 
-test("a stored per-site token never changes the token the checker wants", () => {
+test("an abandoned unversioned per-site token never changes the checker", () => {
   const legacy = site({
     domain: "wflowprocess.app",
     verifyToken: "6ffa50ab224c2a593f43b89e7cf2d506",

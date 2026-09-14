@@ -91,7 +91,7 @@ test("an older DNS poll cannot overwrite a replacement job", () => {
 test("Entri and repository hook results stay in their own fields", () => {
   const current = site();
   recordWebhookResult(current, "DNS verified.", at, {
-    dnsSetupJobId: "job-current",
+    dnsSetupOperationId: "job-current",
     dnsStatus: "verified",
   });
   assert.equal(current.dnsSetup?.lastResult, "DNS verified.");
@@ -103,7 +103,7 @@ test("Entri and repository hook results stay in their own fields", () => {
   assert.equal(current.dnsSetup?.lastResult, "DNS verified.");
 
   recordWebhookResult(current, "Stale job failed.", at, {
-    dnsSetupJobId: "job-old",
+    dnsSetupOperationId: "job-old",
     dnsStatus: "failed",
   });
   assert.equal(current.dnsSetup?.lastResult, "DNS verified.");

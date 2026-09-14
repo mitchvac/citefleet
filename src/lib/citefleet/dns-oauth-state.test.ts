@@ -1,0 +1,100 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+import type { Sql } from "../db.ts";
+import {
+  createDnsOAuthState,
+  consumeDnsOAuthState,
+  DNS_OAUTH_TTL_MS,
+} from "./dns-oauth-state.server.ts";
+import { asWorkspaceId } from "./workspace-id.ts";
+
+function fakeSql(run: (text: string, params: unknown[]) => unknown[]): Sql {
+  const sql = (() => Promise.resolve([])) as unknown as Sql;
+  sql.query = async <T>(text: string, params: unknown[] = []) => run(text, params) as T[];
+  return sql;
+}
+
+test("OAuth state stores only a digest and a ten-minute expiry", async () => {
+  const calls: Array<{ text: string; params: unknown[] }> = [];
+  const now = new Date("2026-09-13T18:30:00.000Z");
+  const state = "a".repeat(43);
+  const created = await createDnsOAuthState(
+    {
+      workspaceId: asWorkspaceId("ws-acme"),
+      userId: "user-1",
+      siteId: "site-1",
+      provider: "cloudflare",
+      domain: "example.com",
+    },
+    {
+      sql: fakeSql((text, params) => {
+        calls.push({ text, params });
+        return [];
+      }),
+      now: () => now,
+      randomState: () => state,
+      randomId: () => "operation-1",
+    },
+  );
+  assert.deepEqual(created, { state, operationId: "dns-operation-1" });
+  const insert = calls.find((call) => call.text.includes("INSERT INTO"))!;
+  assert.ok(insert, "positive control: insertion occurred");
+  assert.doesNotMatch(JSON.stringify(insert.params), new RegExp(state));
+  assert.match(String(insert.params[0]), /^[0-9a-f]{64}$/);
+  assert.equal((insert.params[7] as Date).getTime(), now.getTime() + DNS_OAUTH_TTL_MS);
+});
+
+test("OAuth state consumption is atomic, user-bound, unexpired, and membership-bound", async () => {
+  let query = "";
+  const result = await consumeDnsOAuthState("b".repeat(43), "user-1", {
+    sql: fakeSql((text) => {
+      query = text;
+      return [
+        {
+          operation_id: "dns-operation-1",
+          workspace_id: "ws-acme",
+          user_id: "user-1",
+          site_id: "site-1",
+          provider: "cloudflare",
+          domain: "example.com",
+        },
+      ];
+    }),
+  });
+  assert.equal(result?.workspaceId, "ws-acme");
+  assert.match(query, /consumed_at IS NULL/);
+  assert.match(query, /expires_at > \$3/);
+  assert.match(query, /citefleet_workspace_members/);
+  assert.match(query, /oauth\.user_id = \$2/);
+});
+
+test("malformed or replayed OAuth state resolves to nothing", async () => {
+  let called = false;
+  const sql = fakeSql(() => {
+    called = true;
+    return [];
+  });
+  assert.equal(await consumeDnsOAuthState("too-short", "user-1", { sql }), null);
+  assert.equal(called, false);
+  assert.equal(await consumeDnsOAuthState("c".repeat(43), "user-1", { sql }), null);
+  assert.equal(called, true);
+});
+
+test("the migration owns, constrains, indexes, and enables RLS on OAuth state", () => {
+  const migration = readFileSync(
+    new URL(
+      "../../../supabase/migrations/20260913183000_citefleet_dns_oauth_states.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS citefleet_dns_oauth_states/);
+  assert.match(migration, /state_hash\s+TEXT PRIMARY KEY/);
+  assert.match(migration, /workspace_id TEXT NOT NULL REFERENCES citefleet_workspaces/);
+  assert.match(migration, /user_id\s+TEXT NOT NULL REFERENCES citefleet_users/);
+  assert.match(migration, /operation_id TEXT NOT NULL UNIQUE/);
+  assert.match(migration, /CREATE INDEX[\s\S]*expires_at/);
+  assert.match(migration, /ALTER TABLE citefleet_dns_oauth_states OWNER TO citefleet/);
+  assert.match(migration, /ALTER TABLE citefleet_dns_oauth_states ENABLE ROW LEVEL SECURITY/);
+});

@@ -4,15 +4,14 @@
 // (`botcentral-verify=<token>` — BotCentral also accepts the bare token anywhere
 // in the file). The card and the origin pack must therefore carry the SAME value.
 //
-// Operator decision (commit f842b9d, 2026-09-02): one shared publisher token,
-// "citefleet-app". Every origin pack CiteFleet ever wrote contains
-// `verify: citefleet-app`, so files already deployed on customer sites pass
-// without a redeploy, and a new customer only needs this one line (or a DNS TXT
-// record with it). The proof is "this origin opted in to CiteFleet"; publishing
-// itself is still gated by BOTCENTRAL_SERVICE_TOKEN, which never leaves the server.
+// Existing properties keep the shared publisher token chosen in commit f842b9d.
+// New properties receive a versioned random token. The prefix matters: older
+// snapshots may contain abandoned unversioned random values that were never
+// deployed, so accepting every stored string would break their live proof.
 
 export const BOTCENTRAL_VERIFY_TOKEN = "citefleet-app";
 export const VERIFY_LINE_PREFIX = "botcentral-verify=";
+export const SITE_VERIFY_TOKEN_PREFIX = "cfv1_";
 
 export function normalizeDomain(domain: string): string {
   return domain
@@ -27,7 +26,14 @@ export function verifyLine(token: string = BOTCENTRAL_VERIFY_TOKEN): string {
   return `${VERIFY_LINE_PREFIX}${token}`;
 }
 
-/** The one place that decides a site's token. Card and origin pack both call this. */
-export function siteVerifyToken(_site: { domain: string; verifyToken?: string }): string {
-  return BOTCENTRAL_VERIFY_TOKEN;
+export function createSiteVerifyToken(uuid = crypto.randomUUID()): string {
+  const entropy = uuid.replaceAll("-", "").toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(entropy)) throw new Error("invalid proof-token entropy");
+  return `${SITE_VERIFY_TOKEN_PREFIX}${entropy}`;
+}
+
+/** The one place that decides a site's token. Card, DNS, and origin pack all call this. */
+export function siteVerifyToken(site: { domain: string; verifyToken?: string }): string {
+  const stored = site.verifyToken?.trim();
+  return stored && /^cfv1_[0-9a-f]{32}$/.test(stored) ? stored : BOTCENTRAL_VERIFY_TOKEN;
 }

@@ -47,6 +47,19 @@ Playwright for e2e. **Node 22** (`engines: >=22`, both Dockerfile stages are `no
   29-group/72.3% W3Techs snapshot, exact authoritative-NS matching, and bounded
   live detection. An unmatched domain may use the explicit `entri-auto` path;
   that does not create a guessed provider or change the measured-share claim.
+- `cloudflare-dns.server.ts`, `dns-oauth.server.ts`, and the
+  `routes/api/dns/cloudflare/*` routes own CiteFleet's first direct provider
+  adapter: a signed-in customer authorizes the one public CiteFleet OAuth
+  client, the callback re-detects Cloudflare, finds one exact active zone,
+  creates only the required apex TXT record, and requests token revocation
+  without persisting provider credentials. `dns-oauth-state.server.ts` and
+  migration `20260913183000_citefleet_dns_oauth_states.sql` bind a hashed,
+  ten-minute, single-use OAuth state to the user, workspace, site, provider,
+  and stored domain. New properties receive `cfv1_` proof tokens; unversioned
+  legacy snapshots still resolve to `citefleet-app`, preserving deployed proof.
+  `cloudflare-dns.test.ts`, `dns-oauth-state.test.ts`, and the fleet API source
+  gates pin exact-zone writes, token cleanup/state bounds, and unique token
+  creation without calling a live provider.
 - `dns-setup.server.ts` creates an Entri Shared Link bound to the stored domain,
   signed-in principal, and exact apex proof TXT record. `entri-webhook.ts`,
   `webhook-body.server.ts`, and `webhook-proof-state.ts` verify V3 callbacks,
@@ -64,7 +77,8 @@ Playwright for e2e. **Node 22** (`engines: >=22`, both Dockerfile stages are `no
   `health.ts` reports only deployment-level guided-DNS readiness.
 - `deploy/deploy-vps.sh` optionally reads `/root/citefleet-entri.connect`
   (application id, the shared application/webhook secret, and an optional
-  custom share hostname). `docs/providers/README.md`, the provider research files, and
+  custom share hostname) and `/root/citefleet-cloudflare.oauth` (public OAuth
+  client id, secret, and exact scope string). `docs/providers/README.md`, the provider research files, and
   `tests/e2e/dns-provider-setup.spec.ts` record and verify the customer path.
 - Local Supabase disables Auth, Storage, Realtime, and the optional Studio UI;
   CiteFleet browser tests need PostgreSQL and the migration ledger only.

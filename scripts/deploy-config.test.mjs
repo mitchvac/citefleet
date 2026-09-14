@@ -40,10 +40,7 @@ test("the deploy verifies public entry points before discarding rollback", () =>
   assert.match(deploy, /public_healthy\(\)[\s\S]*?\/login/);
   assert.match(deploy, /public_healthy\(\)[\s\S]*?\/api\/oauth\/providers/);
   assert.match(deploy, /public_healthy\(\)[\s\S]*?content-security-policy/i);
-  assert.match(
-    deploy,
-    /if \[\[ "\$HAD_ROLLBACK" == 1 \]\]; then\s+docker rm -f "\$ROLLBACK"/,
-  );
+  assert.match(deploy, /if \[\[ "\$HAD_ROLLBACK" == 1 \]\]; then\s+docker rm -f "\$ROLLBACK"/);
 });
 
 test("Entri credentials survive deploys only through the durable root file", () => {
@@ -60,6 +57,23 @@ test("Entri credentials survive deploys only through the durable root file", () 
   assert.doesNotMatch(deploy, /echo[^\n]*\$ENTRI_SECRET/);
 
   const validation = deploy.indexOf('if [[ -e "$ENTRI_FILE" ]]');
+  const envRewrite = deploy.indexOf("} > .env");
+  assert.ok(validation >= 0 && validation < envRewrite);
+});
+
+test("Cloudflare OAuth credentials survive deploys only through the durable root file", () => {
+  assert.match(deploy, /CLOUDFLARE_FILE="\/root\/citefleet-cloudflare\.oauth"/);
+  assert.match(deploy, /mapfile -t _cloudflare < "\$CLOUDFLARE_FILE"/);
+  assert.match(
+    deploy,
+    /if \[\[ -z "\$CLOUDFLARE_CLIENT_ID" \|\| -z "\$CLOUDFLARE_CLIENT_SECRET" \|\| -z "\$CLOUDFLARE_SCOPES" \]\]; then[\s\S]*?exit 1/,
+  );
+  assert.match(deploy, /CITEFLEET_CLOUDFLARE_CLIENT_ID=%s/);
+  assert.match(deploy, /CITEFLEET_CLOUDFLARE_CLIENT_SECRET=%s/);
+  assert.match(deploy, /CITEFLEET_CLOUDFLARE_SCOPES=%s/);
+  assert.doesNotMatch(deploy, /echo[^\n]*\$CLOUDFLARE_CLIENT_SECRET/);
+
+  const validation = deploy.indexOf('if [[ -e "$CLOUDFLARE_FILE" ]]');
   const envRewrite = deploy.indexOf("} > .env");
   assert.ok(validation >= 0 && validation < envRewrite);
 });

@@ -29,8 +29,8 @@ export function wellKnownUrl(site: Pick<Site, "domain">): string {
 /**
  * The record, field by field, exactly as a DNS panel asks for it.
  *
- * A pure function of the domain — no network, no stored state — so it renders
- * for a property that has never been checked, which is the whole point.
+ * A pure function of the stored domain and proof token — no network — so it
+ * renders for a property that has never been checked, which is the whole point.
  */
 export interface ProofRecord {
   /** Always TXT. */
@@ -49,7 +49,7 @@ export interface ProofRecord {
   fileUrl: string;
 }
 
-export function proofRecord(site: Pick<Site, "domain">): ProofRecord {
+export function proofRecord(site: Pick<Site, "domain" | "verifyToken">): ProofRecord {
   const apex = normalizeDomain(site.domain);
   return {
     type: "TXT",
@@ -76,7 +76,7 @@ export function proofRecord(site: Pick<Site, "domain">): ProofRecord {
  * redeploy drops the origin pack. The file is the same line over HTTP. Either
  * one alone is enough.
  */
-export function proofHint(site: Pick<Site, "domain">): string {
+export function proofHint(site: Pick<Site, "domain" | "verifyToken">): string {
   const apex = normalizeDomain(site.domain);
   return (
     `Add an apex DNS TXT record - Type TXT, Name @, Value ${verifyLine(siteVerifyToken(site))} ` +

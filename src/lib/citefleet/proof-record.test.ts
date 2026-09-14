@@ -55,22 +55,21 @@ test("wellKnownUrl and the DNS apex agree on the host, whatever was stored", () 
   for (const stored of ["acme.com", "www.acme.com", "WWW.Acme.com", "https://acme.com/x"]) {
     const r = proofRecord({ domain: stored });
     assert.equal(r.apex, "acme.com", stored);
-    assert.equal(wellKnownUrl({ domain: stored }), "https://acme.com/.well-known/botcentral.txt", stored);
+    assert.equal(
+      wellKnownUrl({ domain: stored }),
+      "https://acme.com/.well-known/botcentral.txt",
+      stored,
+    );
     assert.equal(r.fileUrl, wellKnownUrl({ domain: stored }));
   }
 });
 
-test("the customer doc still carries the same record — it is the offline copy", () => {
-  // docs/customer-setup.md is what an operator pastes to a customer. If the
-  // token or the record shape changes and the doc does not, the two disagree
-  // and whichever the customer follows is a coin flip.
+test("the customer doc requires the property's displayed token", () => {
   const doc = readFileSync(
     fileURLToPath(new URL("../../../docs/customer-setup.md", import.meta.url)),
     "utf8",
   );
   assert.ok(doc.length > 200, "positive control: the doc was read");
-  assert.ok(
-    doc.includes(proofRecord({ domain: "x" }).value),
-    "docs/customer-setup.md must carry botcentral-verify=citefleet-app",
-  );
+  assert.match(doc, /botcentral-verify=<the unique token shown on this property's campaign>/);
+  assert.match(doc, /Existing properties[\s\S]*botcentral-verify=citefleet-app/);
 });

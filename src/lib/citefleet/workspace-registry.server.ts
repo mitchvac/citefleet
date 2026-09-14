@@ -180,7 +180,10 @@ export async function workspaceForDnsSetup(
       WHERE EXISTS (
         SELECT 1 FROM jsonb_array_elements(s.payload->'sites') AS site
          WHERE regexp_replace(lower(site->>'domain'), '^www\\.', '') = $1
-           AND lower(site->'dnsSetup'->>'jobId') = $2
+           AND lower(COALESCE(
+             site->'dnsSetup'->>'operationId',
+             site->'dnsSetup'->>'jobId'
+           )) = $2
       )
       LIMIT 2`,
     [bare, canonicalJobId],

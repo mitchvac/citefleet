@@ -5,7 +5,7 @@ import {
   detectDnsProviderFn,
   dnsSetupSettingsFn,
 } from "@/lib/citefleet/fleet-api";
-import type { DnsProviderDetection, DnsSetupSettings } from "@/lib/citefleet/dns-provider";
+import type { DnsAutomationSettings, DnsProviderDetection } from "@/lib/citefleet/dns-provider";
 import {
   dnsProviderActions,
   DNS_MARKET_SOURCE,
@@ -27,7 +27,7 @@ function signedOut(error: unknown): boolean {
 
 export function DnsProviderPanel({ site }: { site: Site }) {
   const [detection, setDetection] = useState<DnsProviderDetection | null>(null);
-  const [settings, setSettings] = useState<DnsSetupSettings | null>(null);
+  const [settings, setSettings] = useState<DnsAutomationSettings | null>(null);
   const [selected, setSelected] = useState("");
   const [setupLink, setSetupLink] = useState<DnsSetupLink | null>(null);
   const [busy, setBusy] = useState<"detect" | "setup" | null>(null);
@@ -77,11 +77,15 @@ export function DnsProviderPanel({ site }: { site: Site }) {
   }, [detect]);
 
   const provider = dnsProviderBySlug(selected);
-  const actions = dnsProviderActions(provider, settings);
-  const guided = actions.guided;
+  const actions = dnsProviderActions(provider, settings?.entri ?? null);
+  const cloudflareGuided =
+    detection?.status === "matched" &&
+    detection.provider?.slug === "cloudflare" &&
+    settings?.cloudflare.state === "ready";
+  const entriGuided = actions.guided && !cloudflareGuided;
 
   async function startSetup() {
-    if (!guided) return;
+    if (!entriGuided) return;
     setBusy("setup");
     setError(null);
     try {
@@ -138,7 +142,7 @@ export function DnsProviderPanel({ site }: { site: Site }) {
         </p>
       ) : null}
 
-      {provider || guided ? (
+      {provider || entriGuided ? (
         <div className="mt-4">
           {provider ? (
             <>
@@ -155,7 +159,11 @@ export function DnsProviderPanel({ site }: { site: Site }) {
                     Official MCP
                   </span>
                 ) : null}
-                {settings?.state === "ready" && provider.entri !== "not-listed" ? (
+                {cloudflareGuided ? (
+                  <span className="rounded-full border border-[#4ee0c3]/30 bg-[#4ee0c3]/10 px-2.5 py-1 text-[#8ff0dc]">
+                    Automatic DNS connection
+                  </span>
+                ) : settings?.entri.state === "ready" && provider.entri !== "not-listed" ? (
                   <span className="rounded-full border border-[#9b7dff]/30 bg-[#9b7dff]/10 px-2.5 py-1 text-[#cbb8ff]">
                     {provider.entri === "automatic" ? "Guided setup" : "Guided by brand"}
                   </span>
@@ -174,7 +182,15 @@ export function DnsProviderPanel({ site }: { site: Site }) {
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {guided ? (
+            {cloudflareGuided ? (
+              <a
+                href={`${settings.cloudflare.startPath}?siteId=${encodeURIComponent(site.id)}`}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gradient-to-r from-[#6d4aff] to-[#4ee0c3] px-4 py-2 text-sm font-semibold text-[#07060f]"
+                data-testid="connect-cloudflare-dns"
+              >
+                <ExternalLink aria-hidden="true" className="h-4 w-4" /> Connect Cloudflare
+              </a>
+            ) : entriGuided ? (
               <button
                 type="button"
                 disabled={busy !== null}
@@ -253,10 +269,16 @@ export function DnsProviderPanel({ site }: { site: Site }) {
         </div>
       ) : null}
 
-      {settings?.state === "misconfigured" ? (
+      {settings?.entri.state === "misconfigured" ? (
         <p className="mt-3 text-xs text-rose-300">
           Guided DNS setup is disabled because its credentials or sharing host are incomplete or
           invalid.
+        </p>
+      ) : null}
+      {detection?.provider?.slug === "cloudflare" &&
+      settings?.cloudflare.state === "misconfigured" ? (
+        <p className="mt-3 text-xs text-rose-300">
+          Cloudflare connection is disabled because its OAuth client configuration is incomplete.
         </p>
       ) : null}
       {site.dnsSetup?.lastResult ? (

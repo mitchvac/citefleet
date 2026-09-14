@@ -121,7 +121,15 @@ process, and that test fails** — which is the re-check trigger, not a nuisance
 
 ## DNS setup automation coverage
 
-The runtime path is an [Entri Connect Shared Link](https://developers.entri.com/connect/shared-links):
+Cloudflare is the first direct provider adapter. CiteFleet detects Cloudflare
+from the stored domain's authoritative nameservers, sends the signed-in customer
+through Cloudflare OAuth, re-checks authority on callback, finds one exact active
+zone, and creates only the apex `botcentral-verify` TXT record. The OAuth state is
+hashed, tenant- and user-bound, single-use, and expires after ten minutes. The
+access token is never stored; CiteFleet requests revocation after the write and
+then verifies the value through public DNS.
+
+The broader runtime fallback is an [Entri Connect Shared Link](https://developers.entri.com/connect/shared-links):
 CiteFleet binds the customer's exact domain and apex TXT record server-side,
 then hands the customer to Entri to authenticate with the DNS provider. CiteFleet
 never receives the provider password. A successful callback still has to pass

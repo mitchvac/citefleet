@@ -10,7 +10,7 @@ import { logActivity, recalcScores, touchBot } from "./store";
 import type { WorkspaceHandle } from "./workspace-handle.ts";
 import { assertCanAct, doorForPlaybook, freezeReason, isFrozen } from "./control";
 import type { AuditResult, PlaybookId, Site, Task } from "./types";
-import { siteVerifyToken } from "./verify-token.ts";
+import { createSiteVerifyToken, siteVerifyToken } from "./verify-token.ts";
 import { checklistTransition, toggleEvidenceLabel } from "./task-state.ts";
 import { checkOriginProof, waitForDnsProof, waitForProof } from "./proof.ts";
 import { normalizeOwner, normalizeRepo, normalizeRoot, originRepoConflict } from "./origin-repo.ts";
@@ -50,7 +50,7 @@ export async function onboardSite(
     // invalid paste is REFUSED here, not quietly dropped — the value becomes a
     // path the GitHub push writes to.
     indexNowKey: resolveIndexNowKey(undefined, input.indexNowKey),
-    verifyToken: siteVerifyToken({ domain }),
+    verifyToken: createSiteVerifyToken(),
     routes: input.routes?.length ? input.routes : ["/", "/privacy", "/terms", "/about"],
     createdAt: new Date().toISOString(),
     scores: { technical: 0, submissions: 0, mentions: 0, overall: 0 },
@@ -705,7 +705,7 @@ export async function runWebhookListing(
   opts: {
     attempts?: number;
     delayMs?: number;
-    dnsSetupJobId?: string;
+    dnsSetupOperationId?: string;
     inFlightKey?: string;
   } = {},
 ) {
@@ -723,7 +723,7 @@ export async function runWebhookListing(
         const current = s.sites.find((x) => x.id === siteId);
         if (current) {
           recordWebhookResult(current, result, new Date().toISOString(), {
-            dnsSetupJobId: opts.dnsSetupJobId,
+            dnsSetupOperationId: opts.dnsSetupOperationId,
             dnsStatus,
           });
         }
@@ -737,17 +737,18 @@ export async function runWebhookListing(
     const store = await ws.get();
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) return { ok: false, error: "Site not found" };
-    const wait = opts.dnsSetupJobId ? waitForDnsProof : waitForProof;
+    const wait = opts.dnsSetupOperationId ? waitForDnsProof : waitForProof;
     const proof = await wait(site, {
       attempts: opts.attempts ?? 10,
       delayMs: opts.delayMs ?? 30_000,
     });
     await ws.mutate((s) => {
       const current = s.sites.find((x) => x.id === siteId);
-      if (current) applyWebhookProof(current, proof, opts.dnsSetupJobId, new Date().toISOString());
+      if (current)
+        applyWebhookProof(current, proof, opts.dnsSetupOperationId, new Date().toISOString());
     });
     if (!proof.proven) {
-      const proofLabel = opts.dnsSetupJobId ? "DNS proof" : "origin proof";
+      const proofLabel = opts.dnsSetupOperationId ? "DNS proof" : "origin proof";
       await record(
         `proof not live after ${proof.attempts} check(s)`,
         `Hook (${reason}): ${proofLabel} for ${site.domain} did not appear after ${proof.attempts} checks. ${proof.note}`,

@@ -44,6 +44,8 @@ import { Route as ApiOauthGithubCallbackRouteImport } from './routes/api/oauth/g
 import { Route as ApiOauthGoogleRouteImport } from './routes/api/oauth/google'
 import { Route as ApiOauthGoogleCallbackRouteImport } from './routes/api/oauth/google-callback'
 import { Route as ApiOauthProvidersRouteImport } from './routes/api/oauth/providers'
+import { Route as ApiDnsCloudflareCallbackRouteImport } from './routes/api/dns/cloudflare/callback'
+import { Route as ApiDnsCloudflareStartRouteImport } from './routes/api/dns/cloudflare/start'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -220,6 +222,17 @@ const ApiOauthProvidersRoute = ApiOauthProvidersRouteImport.update({
   path: '/api/oauth/providers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDnsCloudflareCallbackRoute =
+  ApiDnsCloudflareCallbackRouteImport.update({
+    id: '/api/dns/cloudflare/callback',
+    path: '/api/dns/cloudflare/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDnsCloudflareStartRoute = ApiDnsCloudflareStartRouteImport.update({
+  id: '/api/dns/cloudflare/start',
+  path: '/api/dns/cloudflare/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -257,6 +270,8 @@ export interface FileRoutesByFullPath {
   '/api/oauth/google': typeof ApiOauthGoogleRoute
   '/api/oauth/google-callback': typeof ApiOauthGoogleCallbackRoute
   '/api/oauth/providers': typeof ApiOauthProvidersRoute
+  '/api/dns/cloudflare/callback': typeof ApiDnsCloudflareCallbackRoute
+  '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -294,6 +309,8 @@ export interface FileRoutesByTo {
   '/api/oauth/google': typeof ApiOauthGoogleRoute
   '/api/oauth/google-callback': typeof ApiOauthGoogleCallbackRoute
   '/api/oauth/providers': typeof ApiOauthProvidersRoute
+  '/api/dns/cloudflare/callback': typeof ApiDnsCloudflareCallbackRoute
+  '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -332,6 +349,8 @@ export interface FileRoutesById {
   '/api/oauth/google': typeof ApiOauthGoogleRoute
   '/api/oauth/google-callback': typeof ApiOauthGoogleCallbackRoute
   '/api/oauth/providers': typeof ApiOauthProvidersRoute
+  '/api/dns/cloudflare/callback': typeof ApiDnsCloudflareCallbackRoute
+  '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -371,6 +390,8 @@ export interface FileRouteTypes {
     | '/api/oauth/google'
     | '/api/oauth/google-callback'
     | '/api/oauth/providers'
+    | '/api/dns/cloudflare/callback'
+    | '/api/dns/cloudflare/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -408,6 +429,8 @@ export interface FileRouteTypes {
     | '/api/oauth/google'
     | '/api/oauth/google-callback'
     | '/api/oauth/providers'
+    | '/api/dns/cloudflare/callback'
+    | '/api/dns/cloudflare/start'
   id:
     | '__root__'
     | '/'
@@ -445,6 +468,8 @@ export interface FileRouteTypes {
     | '/api/oauth/google'
     | '/api/oauth/google-callback'
     | '/api/oauth/providers'
+    | '/api/dns/cloudflare/callback'
+    | '/api/dns/cloudflare/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -483,6 +508,8 @@ export interface RootRouteChildren {
   ApiOauthGoogleRoute: typeof ApiOauthGoogleRoute
   ApiOauthGoogleCallbackRoute: typeof ApiOauthGoogleCallbackRoute
   ApiOauthProvidersRoute: typeof ApiOauthProvidersRoute
+  ApiDnsCloudflareCallbackRoute: typeof ApiDnsCloudflareCallbackRoute
+  ApiDnsCloudflareStartRoute: typeof ApiDnsCloudflareStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -732,6 +759,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthProvidersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dns/cloudflare/callback': {
+      id: '/api/dns/cloudflare/callback'
+      path: '/api/dns/cloudflare/callback'
+      fullPath: '/api/dns/cloudflare/callback'
+      preLoaderRoute: typeof ApiDnsCloudflareCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dns/cloudflare/start': {
+      id: '/api/dns/cloudflare/start'
+      path: '/api/dns/cloudflare/start'
+      fullPath: '/api/dns/cloudflare/start'
+      preLoaderRoute: typeof ApiDnsCloudflareStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -771,6 +812,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthGoogleRoute: ApiOauthGoogleRoute,
   ApiOauthGoogleCallbackRoute: ApiOauthGoogleCallbackRoute,
   ApiOauthProvidersRoute: ApiOauthProvidersRoute,
+  ApiDnsCloudflareCallbackRoute: ApiDnsCloudflareCallbackRoute,
+  ApiDnsCloudflareStartRoute: ApiDnsCloudflareStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

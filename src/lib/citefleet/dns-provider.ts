@@ -79,6 +79,18 @@ export interface DnsSetupSettings {
   docsUrl: string;
 }
 
+export interface CloudflareDnsSettings {
+  state: "ready" | "off" | "misconfigured";
+  service: "cloudflare";
+  startPath: string;
+  docsUrl: string;
+}
+
+export interface DnsAutomationSettings {
+  entri: DnsSetupSettings;
+  cloudflare: CloudflareDnsSettings;
+}
+
 export interface DnsSetupLink {
   link: string;
   jobId: string;
@@ -90,6 +102,12 @@ export function readEntriJobId(value: unknown): string | null {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId)
     ? jobId.toLowerCase()
     : null;
+}
+
+export function dnsSetupOperationId(
+  setup: { operationId?: string; jobId?: string } | undefined,
+): string | null {
+  return setup?.operationId?.trim() || setup?.jobId?.trim() || null;
 }
 
 export function dnsProviderActions(

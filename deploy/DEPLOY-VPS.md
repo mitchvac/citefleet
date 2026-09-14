@@ -133,6 +133,32 @@ V3 HMAC with a timestamp no more than five minutes old. A signed
 DNS-only live proof check; an existing well-known file cannot satisfy that
 check, and the webhook alone never marks a property verified.
 
+### Direct Cloudflare connection
+
+Create one public OAuth client for CiteFleet in Cloudflare under **Manage
+Account > OAuth clients**. Configure the Authorization Code grant, client-secret
+authentication, the `Zone Read` and `DNS Write` permissions, and this exact
+redirect URL:
+
+```text
+https://citefleet.app/api/dns/cloudflare/callback
+```
+
+Store the client ID, client secret, and the exact space-separated scope string
+shown for that client on lines 1-3 of the durable root-owned file:
+
+```bash
+printf '%s\n%s\n%s\n' '<client-id>' '<client-secret>' '<scope-string>' \
+  > /root/citefleet-cloudflare.oauth
+chmod 600 /root/citefleet-cloudflare.oauth
+```
+
+The deploy validates all three lines before rewriting `.env`. Customers whose
+authoritative nameservers resolve to Cloudflare can then approve access from
+their own account. CiteFleet locates only the exact stored zone, creates only
+the required apex TXT record, checks public DNS, and discards the access token
+after requesting revocation. Remove the file and redeploy to turn this path off.
+
 ## 2b. Sign-in (accounts + operator token)
 
 Anyone may create an account with email/password or a verified Google/GitHub

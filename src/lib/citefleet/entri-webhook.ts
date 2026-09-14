@@ -1,5 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { readEntriJobId } from "./dns-provider.ts";
+import { dnsSetupOperationId, readEntriJobId } from "./dns-provider.ts";
 import { beginCheck, endCheck, type HookResponse } from "./webhook.ts";
 import { normalizeDomain } from "./verify-token.ts";
 import type { Site, StoreShape } from "./types.ts";
@@ -108,9 +108,7 @@ function webhookDomain(domainValue: unknown, subdomainValue: unknown): string | 
     subdomain.length > 253 ||
     labels.some(
       (label) =>
-        label.length < 1 ||
-        label.length > 63 ||
-        !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label),
+        label.length < 1 || label.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label),
     )
   ) {
     return null;
@@ -121,7 +119,7 @@ function webhookDomain(domainValue: unknown, subdomainValue: unknown): string | 
 }
 
 function correlated(setup: NonNullable<Site["dnsSetup"]>, jobId: string): boolean {
-  return jobId === setup.jobId;
+  return jobId === dnsSetupOperationId(setup);
 }
 
 function nextStatus(

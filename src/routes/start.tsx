@@ -1,7 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Shell } from "@/components/citefleet/Shell";
-import { Copy } from "@/components/citefleet/Copy";
-import { proofRecord } from "@/lib/citefleet/proof-record";
 
 export const Route = createFileRoute("/start")({ component: StartPage });
 
@@ -38,59 +36,45 @@ const STEPS = [
 ] as const;
 
 function StartPage() {
-  // The proof token is one shared publisher value, not a per-site nonce
-  // (`siteVerifyToken` ignores its argument). That is what lets this page print
-  // the real record to a visitor who has no account and no property yet — and
-  // it is the one step someone can complete before signing up for anything.
-  const record = proofRecord({ domain: "your-domain.com" });
   return (
     <Shell eyebrow="Getting started" title="Get your site indexed by bots">
       <p className="mb-6 max-w-2xl text-[#b7b0cc]">
         Search engines and AI assistants only cite what they can find and verify.
-        Prove the domain first — it is one DNS record and nothing else depends on
-        it — then these three steps take the site from invisible to listed and
-        citable. Do them in order; each one needs the one before it.
+        Add the property, connect its DNS, then these three steps take the site
+        from invisible to listed and citable. Do them in order; each one needs
+        the one before it.
       </p>
 
-      {/*
-        Start this now: DNS takes minutes to propagate and nothing else in the
-        list depends on it, so a customer who adds the record before step 1 has
-        it live by the time it is checked. It also costs nothing and commits to
-        nothing, which makes it the right first ask of a stranger.
-      */}
       <section className="glass mb-8 rounded-3xl p-5 sm:p-6" data-testid="start-proof-record">
         <h2 className="text-lg font-semibold text-white">
-          Do this first: prove you own the domain
+          First: add your property and connect DNS
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-[#b7b0cc]">
-          One DNS TXT record on your domain. No deploy, no code, and it keeps
-          proving after every redeploy. Add it now and it will have propagated by
-          the time CiteFleet checks.
+          CiteFleet creates a unique proof value after you add the site. When it
+          detects a supported DNS provider, Connect DNS lets the domain owner
+          approve the exact apex TXT record from their own provider account.
         </p>
         <div className="mt-3 max-w-xl">
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-2 first:border-t-0">
             <span className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Type</span>
-            <span className="mono text-sm text-white">{record.type}</span>
+            <span className="mono text-sm text-white">TXT</span>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-2">
             <span className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Name</span>
-            <span className="mono text-sm text-white">{record.name}</span>
+            <span className="mono text-sm text-white">@</span>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-2">
             <span className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Value</span>
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="mono min-w-0 truncate text-sm text-white" title={record.value}>
-                {record.value}
-              </span>
-              <Copy label="the DNS record value" value={record.value} />
-            </span>
+            <span className="text-sm text-white">Generated for your property</span>
           </div>
         </div>
-        <p className="mt-2 max-w-2xl text-xs text-[#e2c36d]">{record.newRecordWarning}</p>
+        <p className="mt-2 max-w-2xl text-xs text-[#e2c36d]">
+          CiteFleet adds a new TXT record. It does not replace SPF or another existing TXT record.
+        </p>
         <p className="mt-1 max-w-2xl text-xs text-[#9b95b3]">
           Name <span className="mono">@</span> means the domain itself; some panels
-          leave it blank or want the domain written out. This is CiteFleet’s
-          publisher token — the same record works for every domain you list.
+          leave it blank or want the domain written out. The campaign page shows
+          the exact customer-specific value and verifies it through public DNS.
         </p>
       </section>
 

@@ -12,7 +12,7 @@ proving even if the site is rebuilt:
 ```
 Type:  TXT
 Name:  @          (blank in some panels, or your bare domain)
-Value: botcentral-verify=citefleet-app
+Value: botcentral-verify=<the unique token shown on this property's campaign>
 ```
 
 Add it as a **new** record. Most domains already have a TXT row at the apex (SPF,
@@ -31,16 +31,20 @@ curl -s "https://dns.google/resolve?name=<your-domain>&type=TXT" | grep botcentr
 https://<your-domain>/.well-known/botcentral.txt
 ```
 
-containing that same line:
+containing the exact same customer-specific line shown on the campaign:
 
 ```
-botcentral-verify=citefleet-app
+botcentral-verify=<the unique token shown on this property's campaign>
 ```
 
 Rules BotCentral applies: HTTP 200, not HTML (a single-page-app shell that answers
 every URL does not count), and the line present. If you attached your GitHub repo
 in CiteFleet, **Push origin files** commits this file for you; deploy the site
 and it is live.
+
+Existing properties created before customer-specific tokens were introduced may
+still show `botcentral-verify=citefleet-app`; that displayed value remains valid.
+Never substitute one property's value for another.
 
 Either route alone is enough. Doing both is the sturdiest: the record survives a
 redeploy that drops the file, and the file survives a DNS change.

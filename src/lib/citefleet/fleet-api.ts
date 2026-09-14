@@ -272,7 +272,8 @@ export const dnsSetupSettingsFn = createServerFn({ method: "GET" })
   .middleware([operatorMiddleware])
   .handler(async () => {
     const { dnsSetupSettings } = await import("./dns-setup.server.ts");
-    return dnsSetupSettings();
+    const { cloudflareDnsSettings } = await import("./cloudflare-dns.server.ts");
+    return { entri: dnsSetupSettings(), cloudflare: cloudflareDnsSettings() };
   });
 
 /** Create a domain-and-record-bound Entri sharing link. */
@@ -308,6 +309,8 @@ export const createDnsSetupLinkFn = createServerFn({ method: "POST" })
       if (!current) throw new Error("property not found");
       current.dnsSetup = {
         providerSlug: provider?.slug ?? ENTRI_AUTO_PROVIDER_SLUG,
+        service: "entri",
+        operationId: result.jobId,
         jobId: result.jobId,
         status: "link-created",
         createdAt,

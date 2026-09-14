@@ -1,19 +1,8 @@
-export type TaskStatus =
-  | "queued"
-  | "assigned"
-  | "running"
-  | "blocked"
-  | "done"
-  | "failed";
+export type TaskStatus = "queued" | "assigned" | "running" | "blocked" | "done" | "failed";
 
 export type BotStatus = "idle" | "assigned" | "working" | "blocked" | "standby";
 
-export type SiteStatus =
-  | "onboarding"
-  | "auditing"
-  | "campaign"
-  | "waiting"
-  | "indexed";
+export type SiteStatus = "onboarding" | "auditing" | "campaign" | "waiting" | "indexed";
 
 export type EngineId =
   | "google"
@@ -96,12 +85,28 @@ export interface Site {
    */
   provider?: import("./provider-choice").ProviderChoice;
   /** Last pre-flight proof check (same rules BotCentral applies). */
-  proof?: { proven: boolean; method: "well-known-file" | "dns-txt" | "none"; note: string; checkedAt: string };
-  /** Entri shared-link handoff and its latest signed propagation event. */
+  proof?: {
+    proven: boolean;
+    method: "well-known-file" | "dns-txt" | "none";
+    note: string;
+    checkedAt: string;
+  };
+  /** Provider authorization/write handoff and its latest verification state. */
   dnsSetup?: {
     providerSlug: string;
-    jobId: string;
-    status: "link-created" | "flow-completed" | "propagating" | "propagated" | "verified" | "failed";
+    service?: "entri" | "cloudflare";
+    /** Generic correlation id. `jobId` remains for existing Entri snapshots. */
+    operationId?: string;
+    jobId?: string;
+    status:
+      | "authorization-pending"
+      | "writing"
+      | "link-created"
+      | "flow-completed"
+      | "propagating"
+      | "propagated"
+      | "verified"
+      | "failed";
     createdAt: string;
     updatedAt: string;
     lastEvent?: string;
@@ -258,12 +263,7 @@ export interface Workspace {
   githubToken?: string;
 }
 
-export type ActDoor =
-  | "catalog"
-  | "mentions"
-  | "submissions"
-  | "spend"
-  | "autopilot";
+export type ActDoor = "catalog" | "mentions" | "submissions" | "spend" | "autopilot";
 
 export interface KillSwitch {
   global: boolean;

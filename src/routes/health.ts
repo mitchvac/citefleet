@@ -1,8 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { billingEnabled, publisherReady } from "@/lib/citefleet/botcentral";
-import { BOTCENTRAL_HOOK_PATH, MIN_HOOK_SECRET, botcentralHookSecret } from "@/lib/citefleet/webhook";
+import {
+  BOTCENTRAL_HOOK_PATH,
+  MIN_HOOK_SECRET,
+  botcentralHookSecret,
+} from "@/lib/citefleet/webhook";
 import { ENTRI_HOOK_PATH } from "@/lib/citefleet/entri-webhook";
 import { dnsSetupSettings } from "@/lib/citefleet/dns-setup.server";
+import { cloudflareDnsSettings } from "@/lib/citefleet/cloudflare-dns.server";
 import { dbConfigured } from "@/lib/db";
 import { checkDatabase, deploymentRevision } from "@/lib/health";
 
@@ -12,6 +17,8 @@ export const Route = createFileRoute("/health")({
       GET: async () => {
         const publisher = publisherReady();
         const databaseReady = dbConfigured && (await checkDatabase());
+        const entri = dnsSetupSettings().state;
+        const cloudflare = cloudflareDnsSettings().state;
         // `sites` and `listed` used to be reported here, read from the one
         // global workspace. With a workspace per customer those numbers are a
         // cross-tenant aggregate on an UNAUTHENTICATED route — it would tell
@@ -30,7 +37,10 @@ export const Route = createFileRoute("/health")({
             billing: billingEnabled() ? "on" : "off",
             catalogHook: BOTCENTRAL_HOOK_PATH,
             catalogHookSecret: botcentralHookSecret().length >= MIN_HOOK_SECRET,
-            dnsSetup: dnsSetupSettings().state,
+            // Preserve the original scalar for existing monitors; provider-level
+            // readiness is additive and contains no customer or credential data.
+            dnsSetup: entri,
+            dnsProviders: { entri, cloudflare },
             dnsHook: ENTRI_HOOK_PATH,
           },
           {

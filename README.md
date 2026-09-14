@@ -21,12 +21,12 @@ ownership, and publishes the card. BotCentral is the neutral registry bots query
 ## How a site gets listed
 
 1. Onboard the origin on Command (a customer is only a URL; nothing customer-specific is in code).
-2. Live audit; prove control. Quickest is one apex DNS TXT record
-   (`botcentral-verify=citefleet-app` on `@`, no deploy) — the campaign panel and
-   `/start` both show the record with a copy button. The campaign detects the
-   authoritative DNS provider and creates a record-bound Entri handoff link when
-   configured; open it directly or copy it for the customer. The provider's
-   official account and TXT guide remain available as the fallback.
+2. Live audit; prove control. Quickest is the customer-specific apex DNS TXT
+   record shown on the campaign (`botcentral-verify=<token>` on `@`, no deploy).
+   The campaign detects the authoritative DNS provider and offers direct
+   Cloudflare OAuth when configured, or creates a record-bound Entri handoff
+   link for its broader provider coverage. The provider's official account and
+   TXT guide remain available as the fallback.
    Otherwise get the five origin
    files to the web root: attach the website repo and push the pack (robots,
    sitemap, llms.txt, `.well-known/botcentral.txt`, the IndexNow key file), or
