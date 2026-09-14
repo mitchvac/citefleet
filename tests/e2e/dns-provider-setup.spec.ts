@@ -1,12 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { dnsProviderBySlug } from "../../src/lib/citefleet/dns-providers";
-import { exactCard, markCreated, removeIfOurs, RUN_ID, wasCreatedHere } from "./fixtures";
+import { markCreated, removeIfOurs, RUN_ID, wasCreatedHere } from "./fixtures";
 import { typeSlow } from "./typeSlow";
 
-// Local-only wiring test for the DNS provider handoff. It reads discord.com's
-// live authoritative NS records, but never opens Entri, signs in to a provider,
-// or changes DNS. The uniquely named property is removed in `finally`, and only
-// after `markCreated` confirms this run owns it.
+// Customer-path wiring test for the DNS provider handoff. It starts where a
+// customer starts, reads discord.com's live authoritative NS records, but never
+// opens an OAuth provider or changes DNS. The uniquely named property is removed
+// in `finally`, and only after `markCreated` confirms this run owns it.
 
 const SITE = {
   name: `DNS provider E2E ${RUN_ID}`,
@@ -41,19 +41,14 @@ test("detects, explains, and safely hands off a DNS provider", async ({ page }, 
   });
 
   try {
-    await go(page, "/");
-    await typeSlow(page.getByLabel("Site name"), SITE.name);
-    await typeSlow(page.getByLabel("Origin URL"), SITE.url);
-    await page.getByRole("button", { name: "Assign Grok fleet" }).click();
+    await go(page, "/start");
+    await typeSlow(page.getByLabel("Property name (optional)"), SITE.name);
+    await typeSlow(page.getByLabel("Website domain"), SITE.url);
+    await page.getByRole("button", { name: "Add property and connect DNS" }).click();
     await waitIdle(page);
-    await expect(exactCard(page, SITE.name)).toBeVisible();
+    await expect(page).toHaveURL(/\/sites\/site-[a-z0-9-]+$/);
+    await expect(page.getByRole("heading", { name: SITE.name, exact: true })).toBeVisible();
     markCreated(SITE.name);
-
-    await exactCard(page, SITE.name)
-      .getByRole("link", { name: /campaign/i })
-      .first()
-      .click();
-    await waitIdle(page);
 
     const panel = page.getByTestId("dns-provider-panel");
     await expect(panel).toBeVisible();

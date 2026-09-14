@@ -90,19 +90,20 @@ The Training module (lesson 02) is the click-by-click version. In short:
 ## Confirm a BotCentral API-key top-up
 
 BotCentral's **Top up** buttons send developers to `https://citefleet.app/topup`
-with their `bc_live_` key prefix; **Add credit** in the console nav opens the same
-page with an empty form. There is no on-chain checkout yet: BotCentral
-has no treasury address bound, so the customer opens an invoice (a real
-BotCentral `bj_…` id with the quoted amount) and pays out of band.
+with their exact `bc_live_` key prefix. There is no prefixless top-up door: the
+customer starts from a non-revoked key, and BotCentral records both its internal
+key id and public prefix on the `bj_…` invoice before returning payment instructions.
+When a selected network has no treasury address bound, the customer pays out of band.
 
 1. Take the payment and verify it yourself (explorer, exchange receipt, or
    invoice reference). Nothing on the page checks a chain.
-2. Open the invoice link the customer sends (`/topup?prefix=…&job=bj_…`), sign
+2. Open the invoice link the customer sends (`/topup?prefix=…&job=bj_…`), confirm
+   the displayed **credits bc_live\_…** target is the expected key, sign
    in if asked, paste the transaction hash or receipt reference into
    **Operator: transaction hash or receipt reference**, and click
    **Confirm payment received**.
-3. The page shows **Payment confirmed**; BotCentral credits that many jobs to
-   the prefix (`https://botcentral.org/keys` on the customer's account shows
+3. The page shows **Payment confirmed**; one database statement credits the
+   invoice's recorded key and marks the invoice paid (`https://botcentral.org/keys` shows
    Active with the credit). The Audit log records `Settled BotCentral invoice …`.
 
 Refused when the **spend** door (or the global kill switch) is on in Monitor,
@@ -157,7 +158,7 @@ signature can be verified.
 | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `Proof not live yet — …`                                               | The origin does not serve the proof line (or serves an HTML shell) and there is no DNS record.                                                                                            | Add the file or the TXT record, then Verify proof.                       |
 | `ownership not proven` (from BotCentral)                               | Pre-flight passed but the registry's own fetch failed (propagation, redirect, host-specific).                                                                                             | Wait a minute and retry; check the file from another network.            |
-| `Unauthorized: sign-in required`                                       | Session expired, was revoked, or its break-glass token was rotated.                                                                                                                        | Sign in again.                                                           |
+| `Unauthorized: sign-in required`                                       | Session expired, was revoked, or its break-glass token was rotated.                                                                                                                       | Sign in again.                                                           |
 | `Unauthorized: operator token not configured`                          | `CITEFLEET_OPERATOR_TOKEN` missing in `.env`.                                                                                                                                             | Rerun the deploy script; it mints and injects it.                        |
 | Hook answers `401`                                                     | Wrong secret, unknown repository/domain, or tampered body — all look the same on purpose.                                                                                                 | Rotate the secret and update the repository webhook.                     |
 | Hook answers `202 duplicate` / `in-progress`                           | GitHub redelivered an id, or a check from a moment ago is still running.                                                                                                                  | Nothing; the running check picks up the deploy.                          |

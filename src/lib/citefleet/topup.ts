@@ -27,7 +27,7 @@ export const MIN_TOPUP_USD = 5;
 export const MAX_TOPUP_USD = 10_000;
 /** What one API call costs, so the page can say what an amount buys. */
 export const USD_PER_CALL = 1;
-const PREFIX_RE = /^bc_live_[0-9a-f]{1,48}$/;
+const PREFIX_RE = /^bc_live_[0-9a-f]{8}$/;
 const INVOICE_RE = /^bj_[0-9a-f]{32}$/;
 
 export type TopupSearch = {
@@ -43,10 +43,10 @@ function str(value: unknown): string {
   return typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
 }
 
-/** A bc_live_ prefix, or "" when absent, malformed, or BotCentral's `bc_live_pending` placeholder. */
+/** The exact public prefix of a minted BotCentral key, or "" when malformed. */
 export function cleanPrefix(raw: unknown): string {
   const value = str(raw);
-  if (!PREFIX_RE.test(value) || value === "bc_live_pending") return "";
+  if (!PREFIX_RE.test(value)) return "";
   return value;
 }
 
@@ -93,6 +93,8 @@ export function botcentralBase(): string {
 export type TopupInvoice = {
   id: string;
   status: "invoiced" | "paid" | "done" | "failed" | "expired";
+  /** Immutable public identifier of the API key this invoice credits. */
+  key_prefix: string;
   /** Set when a payment arrived but could not be settled: short, or after the quote expired. */
   note?: string;
   usd: string;
@@ -132,6 +134,8 @@ export async function openTopupInvoice(
   base: string,
   input: { asset: TopupAsset; usd: number; prefix: string },
 ): Promise<TopupInvoice> {
+  const prefix = cleanPrefix(input.prefix);
+  if (!prefix) throw new Error("Choose a BotCentral API key before opening an invoice.");
   const res = await fetch(`${base}/v1/jobs`, {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
@@ -140,7 +144,7 @@ export async function openTopupInvoice(
       asset: input.asset,
       // `usd` is the amount to add; BotCentral credits exactly this, to the cent.
       usd: clampTopupUsd(input.usd),
-      prefix: input.prefix || undefined,
+      prefix,
     }),
     signal: AbortSignal.timeout(20_000),
   });
@@ -180,9 +184,10 @@ export async function fetchTopupInvoice(base: string, id: string): Promise<Topup
 
 /** What the customer must do to pay this invoice, as plain lines. Honest about the missing treasury. */
 export function payInstructions(invoice: TopupInvoice): string[] {
+  if (invoice.status !== "invoiced" || !cleanPrefix(invoice.key_prefix)) return [];
   const pay = invoice.pay;
   const lines = [
-    `Send exactly ${pay.amount} ${pay.ticker} on ${pay.network_name} for $${invoice.usd} (${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"}).`,
+    `Send exactly ${pay.amount} ${pay.ticker} on ${pay.network_name} for $${invoice.usd} (${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"}) to credit ${invoice.key_prefix}.`,
   ];
   if (pay.address) {
     lines.push(`Pay to ${pay.address}.`);
@@ -202,19 +207,14 @@ export function payInstructions(invoice: TopupInvoice): string[] {
   return lines;
 }
 
-export type SettleRequest = { id: string; tx: string; prefix?: string };
+export type SettleRequest = { id: string; tx: string };
 
 /** Validate what the operator submits before it reaches BotCentral. Throws on anything malformed. */
-export function settleRequestBody(input: {
-  id?: unknown;
-  tx?: unknown;
-  prefix?: unknown;
-}): SettleRequest {
+export function settleRequestBody(input: { id?: unknown; tx?: unknown }): SettleRequest {
   const id = str(input.id);
   if (!isInvoiceId(id)) throw new Error("Invoice id must look like bj_<32 hex>.");
   const tx = str(input.tx);
   if (tx.length < 4 || tx.length > 128)
     throw new Error("Enter the transaction hash or receipt reference (4–128 characters).");
-  const prefix = cleanPrefix(input.prefix);
-  return prefix ? { id, tx, prefix } : { id, tx };
+  return { id, tx };
 }

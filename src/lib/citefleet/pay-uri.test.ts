@@ -8,6 +8,7 @@ function invoice(pay: Partial<TopupInvoice["pay"]>): TopupInvoice {
   return {
     id: "bj_" + "0".repeat(32),
     status: "invoiced",
+    key_prefix: "bc_live_ab12cd34",
     usd: "1.00",
     jobs: 1,
     asset: "xrp",

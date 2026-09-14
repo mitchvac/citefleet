@@ -1,33 +1,35 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, type FormEvent } from "react";
 import { Shell } from "@/components/citefleet/Shell";
+import { onboardProperty } from "@/lib/citefleet/fleet-api";
 
 export const Route = createFileRoute("/start")({ component: StartPage });
 
 /**
- * What a new customer sees first: the three things that have to happen, in the
+ * What a new customer sees first: the things that have to happen, in the
  * order they have to happen, with the door for each one.
  *
  * Public on purpose. Someone deciding whether to sign up needs to see what the
- * work actually is before they have an account, and steps 1 and 2 happen off
- * this site anyway.
+ * work actually is before they have an account. Submitting the first step is
+ * authenticated and lands directly on the property's DNS connection panel.
  */
 const STEPS = [
   {
-    n: 1,
-    title: "Get an API key from BotCentral",
+    n: 2,
+    title: "Create a BotCentral API key",
     body: "BotCentral is the bot-search catalog your site gets listed in. The key is what lets CiteFleet publish your listing and read back whether it is still proven.",
-    action: { label: "Open botcentral.org", href: "https://botcentral.org", external: true },
+    action: { label: "Open BotCentral Keys", href: "https://botcentral.org/keys", external: true },
     note: "Keys start with bc_live_. Keep it somewhere you can paste from — the next step needs it.",
   },
   {
-    n: 2,
+    n: 3,
     title: "Add credit to the key",
-    body: "The key holds a balance and each catalog call draws it down. Adding credit here brings you straight back to CiteFleet with the key in the link, so there is nothing to copy twice.",
-    action: { label: "Add credit", to: "/topup" as const },
+    body: "Use Top up beside the key on BotCentral. That link carries the exact key prefix into CiteFleet, and the invoice records the key before showing payment instructions.",
+    action: { label: "Choose a key", href: "https://botcentral.org/keys", external: true },
     note: "Minimum top-up is $5. Payment is on-chain; most rails confirm on their own, and the page tells you which need a person.",
   },
   {
-    n: 3,
+    n: 4,
     title: "Work the training module to get listed",
     body: "Training walks the same order the real campaign runs in: prove you own the origin, publish the files bots read, then list on BotCentral. Follow it once and the site is indexed.",
     action: { label: "Open Training", to: "/learn" as const },
@@ -36,46 +38,92 @@ const STEPS = [
 ] as const;
 
 function StartPage() {
+  const navigate = useNavigate({ from: "/start" });
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function onboard(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const raw = domain.trim();
+      const parsed = new URL(raw.includes("://") ? raw : `https://${raw}`);
+      if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname)
+        throw new Error("Enter a website domain.");
+      const result = await onboardProperty({
+        data: { name: name.trim() || parsed.hostname, url: parsed.origin },
+      });
+      await navigate({ to: "/sites/$id", params: { id: result.id } });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Could not add this property.";
+      if (message.startsWith("Unauthorized")) {
+        window.location.assign("/login");
+        return;
+      }
+      setError(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Shell eyebrow="Getting started" title="Get your site indexed by bots">
       <p className="mb-6 max-w-2xl text-[#b7b0cc]">
-        Search engines and AI assistants only cite what they can find and verify.
-        Add the property, connect its DNS, then these three steps take the site
-        from invisible to listed and citable. Do them in order; each one needs
-        the one before it.
+        Search engines and AI assistants only cite what they can find and verify. Add the property,
+        connect its DNS, then these three steps take the site from invisible to listed and citable.
+        Do them in order; each one needs the one before it.
       </p>
 
-      <section className="glass mb-8 rounded-3xl p-5 sm:p-6" data-testid="start-proof-record">
-        <h2 className="text-lg font-semibold text-white">
-          First: add your property and connect DNS
-        </h2>
+      <section className="glass mb-8 rounded-3xl p-5 sm:p-6" data-testid="start-onboard-form">
+        <h2 className="text-lg font-semibold text-white">1. Add your property and connect DNS</h2>
         <p className="mt-2 max-w-2xl text-sm text-[#b7b0cc]">
-          CiteFleet creates a unique proof value after you add the site. When it
-          detects a supported DNS provider, Connect DNS lets the domain owner
-          approve the exact apex TXT record from their own provider account.
+          Enter the customer&apos;s domain. CiteFleet creates its unique proof record, detects the
+          authoritative DNS provider, and opens the connection screen.
         </p>
-        <div className="mt-3 max-w-xl">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-2 first:border-t-0">
-            <span className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Type</span>
-            <span className="mono text-sm text-white">TXT</span>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-2">
-            <span className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Name</span>
-            <span className="mono text-sm text-white">@</span>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-2">
-            <span className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Value</span>
-            <span className="text-sm text-white">Generated for your property</span>
-          </div>
-        </div>
-        <p className="mt-2 max-w-2xl text-xs text-[#e2c36d]">
-          CiteFleet adds a new TXT record. It does not replace SPF or another existing TXT record.
-        </p>
-        <p className="mt-1 max-w-2xl text-xs text-[#9b95b3]">
-          Name <span className="mono">@</span> means the domain itself; some panels
-          leave it blank or want the domain written out. The campaign page shows
-          the exact customer-specific value and verifies it through public DNS.
-        </p>
+        <form
+          onSubmit={onboard}
+          className="mt-5 grid max-w-3xl gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_auto] sm:items-end"
+        >
+          <label className="min-w-0 text-sm text-[#cfc8e8]">
+            Property name (optional)
+            <input
+              name="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Customer website"
+              autoComplete="organization"
+              className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-[#9b7dff]"
+            />
+          </label>
+          <label className="min-w-0 flex-1 text-sm text-[#cfc8e8]">
+            Website domain
+            <input
+              name="domain"
+              value={domain}
+              onChange={(event) => setDomain(event.target.value)}
+              placeholder="example.com"
+              required
+              inputMode="url"
+              autoComplete="url"
+              className="mono mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-[#9b7dff]"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={busy || !domain.trim()}
+            className="btn-light min-h-11 rounded-full px-5 py-2 text-sm font-semibold disabled:opacity-50"
+          >
+            {busy ? "Adding property…" : "Add property and connect DNS"}
+          </button>
+        </form>
+        {error ? (
+          <p className="mt-3 text-sm text-rose-300" role="alert">
+            {error}
+          </p>
+        ) : null}
       </section>
 
       {/* What BotCentral is, in the customer's words rather than the spec's.
@@ -83,14 +131,13 @@ function StartPage() {
       <section className="glass mb-8 rounded-3xl p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-white">Find the web before you crawl it.</h2>
         <p className="mt-2 max-w-2xl text-sm text-[#b7b0cc]">
-          BotCentral is an owner-proven discovery registry for AI agents. Search
-          verified websites, understand retrieval/training/action consent, and
-          discover machine-readable resources before crawling the open web.
+          BotCentral is an owner-proven discovery registry for AI agents. Search verified websites,
+          understand retrieval/training/action consent, and discover machine-readable resources
+          before crawling the open web.
         </p>
         <p className="mt-3 max-w-2xl text-xs text-[#9b95b3]">
-          CiteFleet is the publisher side: it proves you own the origin and
-          publishes your card. BotCentral is the neutral registry bots query. The
-          card format is specified in{" "}
+          CiteFleet is the publisher side: it proves you own the origin and publishes your card.
+          BotCentral is the neutral registry bots query. The card format is specified in{" "}
           <a
             href="https://datatracker.ietf.org/doc/draft-mitchell-botcentral-card/"
             target="_blank"

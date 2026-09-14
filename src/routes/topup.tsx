@@ -12,6 +12,7 @@ import {
   MIN_TOPUP_USD,
   USD_PER_CALL,
   fetchTopupInvoice,
+  cleanPrefix,
   verifyTopupInvoice,
   openTopupInvoice,
   parseTopupSearch,
@@ -63,7 +64,12 @@ function TopupPage() {
       .then((next) => {
         if (cancelled) return;
         setInvoice(next);
-        setError("");
+        if (next.key_prefix) setPrefix(next.key_prefix);
+        setError(
+          parsed.prefix && next.key_prefix && parsed.prefix !== next.key_prefix
+            ? `This invoice credits ${next.key_prefix}, not ${parsed.prefix}.`
+            : "",
+        );
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Could not load the invoice");
@@ -71,7 +77,7 @@ function TopupPage() {
     return () => {
       cancelled = true;
     };
-  }, [base, parsed.job]);
+  }, [base, parsed.job, parsed.prefix]);
 
   // While the invoice is open, ask BotCentral to check the chain. On a watched
   // coin this settles the moment the payment confirms, with nobody involved.
@@ -109,9 +115,10 @@ function TopupPage() {
     try {
       const next = await openTopupInvoice(base, { asset, usd: clampTopupUsd(usd), prefix });
       setInvoice(next);
+      setPrefix(next.key_prefix);
       setTx("");
       setSettleError("");
-      void navigate({ search: { prefix: prefix || undefined, job: next.id } });
+      void navigate({ search: { prefix: next.key_prefix, job: next.id } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open the invoice");
     } finally {
@@ -125,9 +132,7 @@ function TopupPage() {
     setSettleBusy(true);
     setSettleError("");
     try {
-      setInvoice(
-        await settleTopupFn({ data: { id: invoice.id, tx, prefix: prefix || undefined } }),
-      );
+      setInvoice(await settleTopupFn({ data: { id: invoice.id, tx } }));
     } catch (err) {
       setSettleError(err instanceof Error ? err.message : "Could not confirm the payment");
     } finally {
@@ -137,6 +142,7 @@ function TopupPage() {
 
   const lines = invoice ? payInstructions(invoice) : [];
   const paid = invoice ? invoice.status === "paid" || invoice.status === "done" : false;
+  const payable = invoice?.status === "invoiced" && Boolean(cleanPrefix(invoice.key_prefix));
   const needsSignIn = /^Unauthorized/i.test(settleError);
 
   return (
@@ -144,8 +150,8 @@ function TopupPage() {
       <p className="-mt-6 mb-8 max-w-2xl text-sm leading-6 text-[#b7b0cc]">
         Every BotCentral job run is $1.00, paid in RLUSD, XRP, XLM, BTC, HBAR, or XDC. Open an
         invoice for your <span className="mono">bc_live_</span> key prefix, pay the quoted amount,
-        and a CiteFleet operator confirms the payment here. BotCentral then credits the prefix. Mint
-        a key at{" "}
+        and a CiteFleet operator confirms the payment here. BotCentral then credits the API key
+        recorded on the invoice. Mint a key at{" "}
         <a href={`${base}/keys`} className="text-[#4ee0c3] hover:underline" rel="noreferrer">
           {base.replace(/^https?:\/\//, "")}/keys
         </a>
@@ -163,6 +169,8 @@ function TopupPage() {
             value={prefix}
             onChange={(e) => setPrefix(e.target.value.trim())}
             placeholder="bc_live_…"
+            required
+            pattern="bc_live_[0-9a-f]{8}"
             className="mono mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
           />
         </label>
@@ -190,7 +198,7 @@ function TopupPage() {
         </div>
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || !cleanPrefix(prefix)}
           className="btn-light rounded-full px-5 py-2 text-sm font-semibold disabled:opacity-50"
         >
           {busy ? "Opening…" : "Add credit"}
@@ -226,13 +234,16 @@ function TopupPage() {
           <p className="mt-2 text-sm text-[#cfc8e8]">
             {invoice.jobs} job{invoice.jobs === 1 ? "" : "s"} · ${invoice.usd} ·{" "}
             {invoice.pay.amount} {invoice.pay.ticker} on {invoice.pay.network_name}
-            {prefix ? (
+            {invoice.key_prefix ? (
               <>
                 {" "}
-                · credits <span className="mono">{prefix}</span>
+                · credits{" "}
+                <span className="mono" data-testid="invoice-key-prefix">
+                  {invoice.key_prefix}
+                </span>
               </>
             ) : (
-              " · no key prefix given"
+              " · no API key target"
             )}
           </p>
           <ul className="mt-4 space-y-2 text-sm leading-6 text-[#cfc8e8]">
@@ -241,7 +252,7 @@ function TopupPage() {
             ))}
           </ul>
           {/* Scan-to-pay: renders only when BotCentral bound a treasury address for the network. */}
-          {!paid && <PayQr invoice={invoice} />}
+          {payable && <PayQr invoice={invoice} />}
           {/* A payment arrived that could not be settled automatically. Saying so is
               the difference between a stranded payment and a solved one. */}
           {invoice.note ? (
@@ -264,13 +275,13 @@ function TopupPage() {
             <p className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
               Payment confirmed. BotCentral has credited {invoice.jobs} job
               {invoice.jobs === 1 ? "" : "s"}
-              {prefix ? ` to ${prefix}` : ""}. Check the key on{" "}
+              {invoice.key_prefix ? ` to ${invoice.key_prefix}` : ""}. Check the key on{" "}
               <a href={`${base}/keys`} className="underline" rel="noreferrer">
                 BotCentral
               </a>
               .
             </p>
-          ) : (
+          ) : payable ? (
             <form
               onSubmit={settle}
               className="mt-6 grid gap-3 border-t border-white/10 pt-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
@@ -294,8 +305,8 @@ function TopupPage() {
               </button>
               <p className="text-xs text-[#9b95b3] md:col-span-2">
                 Operators only. This does not check a chain; it records that you verified the
-                payment and asks BotCentral to credit the prefix. Frozen while the spend door is
-                killed on Monitor.
+                payment and asks BotCentral to credit the API key already recorded on this invoice.
+                Frozen while the spend door is killed on Monitor.
               </p>
               {settleError ? (
                 <p className="text-sm text-rose-200 md:col-span-2">
@@ -312,11 +323,11 @@ function TopupPage() {
                 </p>
               ) : null}
             </form>
-          )}
+          ) : null}
         </section>
       ) : (
         <p className="glass mt-6 rounded-3xl p-6 text-sm text-[#b7b0cc]">
-          No invoice open yet. Fill in the key prefix and job count, then open one. Reloading an
+          No invoice open yet. Fill in the exact key prefix and amount, then open one. Reloading an
           invoice link (<span className="mono">?job=bj_…</span>) shows its live status.
         </p>
       )}

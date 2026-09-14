@@ -117,7 +117,9 @@ stays in the catalog but stops counting as proven until it is renewed.
 1. Create an API key at `https://botcentral.org/keys` and give the operator its
    prefix (`bc_live_…`). It is not a secret — it is what the top-up links carry.
 2. Add credit at `https://citefleet.app/topup?prefix=<your prefix>&product=botcentral`.
-   A year needs $10.00 on the key.
+   Open it from **Top up** beside that key. BotCentral validates the prefix and
+   records the key on the invoice before showing payment instructions. A year
+   needs $10.00 on the key.
 3. The operator lists your site. The first proven publish buys the year; the
    campaign page then shows when it ends.
 4. About 30 days before the year ends you will hear from the operator; renewal

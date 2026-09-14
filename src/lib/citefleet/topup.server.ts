@@ -23,7 +23,10 @@ function serviceToken() {
   return process.env.BOTCENTRAL_SERVICE_TOKEN?.trim() || "";
 }
 
-export async function settleTopup(ws: WorkspaceHandle, input: { id?: unknown; tx?: unknown; prefix?: unknown }): Promise<TopupInvoice> {
+export async function settleTopup(
+  ws: WorkspaceHandle,
+  input: { id?: unknown; tx?: unknown },
+): Promise<TopupInvoice> {
   const body = settleRequestBody(input);
   assertCanAct(await ws.get(), "spend");
   if (serviceToken().length < 16) {
@@ -40,7 +43,10 @@ export async function settleTopup(ws: WorkspaceHandle, input: { id?: unknown; tx
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(20_000),
   });
-  const payload = (await res.json().catch(() => ({}))) as { error?: string; invoice?: TopupInvoice };
+  const payload = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    invoice?: TopupInvoice;
+  };
   if (!res.ok || !payload.invoice) {
     throw new Error(payload.error || `settle ${res.status}`);
   }
@@ -49,7 +55,7 @@ export async function settleTopup(ws: WorkspaceHandle, input: { id?: unknown; tx
     logActivity(store, {
       actor: "operator",
       kind: "system",
-      message: `Settled BotCentral invoice ${invoice.id}: ${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"} ($${invoice.usd}) ${body.prefix ? `credited to ${body.prefix}` : "with no key prefix"}; receipt ${body.tx}`,
+      message: `Settled BotCentral invoice ${invoice.id}: ${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"} ($${invoice.usd}) credited to ${invoice.key_prefix}; receipt ${body.tx}`,
     }),
   );
   return invoice;

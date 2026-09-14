@@ -16,6 +16,7 @@ function invoice(over: Partial<TopupInvoice["pay"]> = {}): TopupInvoice {
   return {
     id: "bj_0123456789abcdef0123456789abcdef",
     status: "invoiced",
+    key_prefix: "bc_live_ab12cd34",
     usd: "2.00",
     jobs: 2,
     asset: "xrp",
@@ -82,35 +83,55 @@ test("cleanPrefix accepts only bc_live_ hex prefixes", () => {
   assert.equal(cleanPrefix(" bc_live_ab12cd34 "), "bc_live_ab12cd34");
   assert.equal(cleanPrefix("bc_pub_ab12cd34"), "");
   assert.equal(cleanPrefix("bc_live_ZZZZ"), "");
+  assert.equal(cleanPrefix("bc_live_ab12cd3"), "");
+  assert.equal(cleanPrefix("bc_live_ab12cd345"), "");
   assert.equal(cleanPrefix(42), "");
+});
+
+test("openTopupInvoice refuses a missing key before making a network request", async () => {
+  const { openTopupInvoice } = await import("./topup.ts");
+  let called = false;
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    called = true;
+    return new Response("{}", { status: 201 });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(
+      () => openTopupInvoice("https://botcentral.org", { asset: "xrp", usd: 5, prefix: "" }),
+      /Choose a BotCentral API key/,
+    );
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = original;
+  }
 });
 
 test("payInstructions: with a treasury address it names amount, address and tag; without one it says so", () => {
   const direct = payInstructions(invoice({ address: "rTreasury123", via: "direct" }));
   assert.match(direct[0], /Send exactly 1\.481482 XRP on XRP Ledger for \$2\.00 \(2 jobs\)/);
+  assert.match(direct[0], /credit bc_live_ab12cd34/);
   assert.match(direct[1], /Pay to rTreasury123/);
   assert.match(direct[2], /Destination tag 12345 is required/);
   const viaOps = payInstructions(invoice());
   assert.match(viaOps[1], /no treasury address bound/);
   assert.ok(!viaOps.some((l) => /Pay to/.test(l)));
   assert.match(viaOps.at(-1)!, /Quote expires 2026-09-03T01:00:00\.000Z/);
+  assert.deepEqual(payInstructions({ ...invoice(), status: "failed" }), []);
+  assert.deepEqual(
+    payInstructions({ ...invoice(), key_prefix: "" }),
+    [],
+    "an unbound legacy invoice must never tell a customer to pay",
+  );
 });
 
-test("settleRequestBody validates the operator's input before it reaches BotCentral", () => {
+test("settleRequestBody validates operator input without accepting a replacement key", () => {
   assert.deepEqual(
     settleRequestBody({
       id: "bj_0123456789abcdef0123456789abcdef",
       tx: " ABCD1234 ",
-      prefix: "bc_live_ab12cd34",
     }),
-    { id: "bj_0123456789abcdef0123456789abcdef", tx: "ABCD1234", prefix: "bc_live_ab12cd34" },
-  );
-  assert.deepEqual(
-    settleRequestBody({ id: "bj_0123456789abcdef0123456789abcdef", tx: "hash", prefix: "junk" }),
-    {
-      id: "bj_0123456789abcdef0123456789abcdef",
-      tx: "hash",
-    },
+    { id: "bj_0123456789abcdef0123456789abcdef", tx: "ABCD1234" },
   );
   assert.throws(() => settleRequestBody({ id: "nope", tx: "hash" }), /Invoice id/);
   assert.throws(

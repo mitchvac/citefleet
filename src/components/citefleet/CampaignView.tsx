@@ -11,10 +11,7 @@ import type { Site, Task } from "@/lib/citefleet/types";
 import { hostingHint } from "@/lib/citefleet/hosting-hint";
 import { describeTerm, renewalState, termDaysLeft } from "@/lib/citefleet/listing-term";
 import { originRepoConflict } from "@/lib/citefleet/origin-repo";
-import {
-  droppedProviderAnswers,
-  providerGuidance,
-} from "@/lib/citefleet/provider-choice";
+import { droppedProviderAnswers, providerGuidance } from "@/lib/citefleet/provider-choice";
 import { PROVIDER_FLOWS } from "@/lib/citefleet/provider-flows";
 import { siteVerifyToken, verifyLine } from "@/lib/citefleet/verify-token";
 import { proofRecord } from "@/lib/citefleet/proof-record";
@@ -82,7 +79,12 @@ export function CampaignView({ siteId }: { siteId: string }) {
               {site.payment ? (
                 <>
                   {" "}
-                  <a href={site.payment.topup} target="_blank" rel="noreferrer" className="underline">
+                  <a
+                    href={site.payment.topup}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
                     top up key
                   </a>
                 </>
@@ -92,11 +94,11 @@ export function CampaignView({ siteId }: { siteId: string }) {
             // The card is still on the catalog, but BotCentral's own recheck no
             // longer finds the proof token at the origin. Listed, not proven.
             <p className="mt-2 text-sm text-[#e2c36d]" data-testid="botcentral-unverified">
-              On BotCentral but unverified — the proof token is no longer
-              answering at this origin, so the card is listed without proof.
-              Re-add <span className="mono">{verifyLine(siteVerifyToken(site))}</span>{" "}
-              as an apex DNS TXT record (Name @, no deploy), or Push origin files
-              and deploy that repo, then List on BotCentral.
+              On BotCentral but unverified — the proof token is no longer answering at this origin,
+              so the card is listed without proof. Re-add{" "}
+              <span className="mono">{verifyLine(siteVerifyToken(site))}</span> as an apex DNS TXT
+              record (Name @, no deploy), or Push origin files and deploy that repo, then List on
+              BotCentral.
               {site.botcentral.href ? (
                 <>
                   {" "}
@@ -114,12 +116,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
           ) : site.botcentral?.listed ? (
             <p className="mt-2 text-sm text-emerald-300">
               Live on BotCentral —{" "}
-              <a
-                href={site.botcentral.href}
-                target="_blank"
-                rel="noreferrer"
-                className="underline"
-              >
+              <a href={site.botcentral.href} target="_blank" rel="noreferrer" className="underline">
                 inspector
               </a>
               {site.botcentral.api ? (
@@ -139,8 +136,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
             </p>
           ) : (
             <p className="mt-2 text-sm text-[#e2c36d]">
-              Not listed on bot search yet. Audit the origin, serve the proof token (Push
-              origin files, then deploy that repo), then List on BotCentral.
+              Not listed on bot search yet. Start with the domain ownership connection below.
             </p>
           )}
         </div>
@@ -193,6 +189,8 @@ export function CampaignView({ siteId }: { siteId: string }) {
         <div className="glass rounded-2xl px-4 py-3 text-sm text-rose-300">{fleet.error}</div>
       )}
 
+      <AutoListingPanel site={site} fleet={fleet} />
+
       <div className="grid gap-4 md:grid-cols-4">
         <Stat label="Overall" value={`${site.scores.overall}`} />
         <Stat label="Technical" value={`${site.scores.technical}`} />
@@ -205,7 +203,6 @@ export function CampaignView({ siteId }: { siteId: string }) {
       <GithubPanel site={site} fleet={fleet} sites={fleet.store.sites} />
       <ProviderPanel site={site} fleet={fleet} />
       <OriginPackPanel site={site} fleet={fleet} />
-      <AutoListingPanel site={site} fleet={fleet} />
       <BillingPanel site={site} fleet={fleet} />
 
       <div className="glass rounded-3xl p-2 md:p-4">
@@ -218,9 +215,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
               botName={bots.find((b) => b.id === task.botId)?.callsign}
               busy={fleet.busy}
               onRun={() => fleet.runTask(task.id)}
-              onToggle={(checklistId, done) =>
-                fleet.patchTask(task.id, { checklistId, done })
-              }
+              onToggle={(checklistId, done) => fleet.patchTask(task.id, { checklistId, done })}
             />
           ))}
         </div>
@@ -243,13 +238,7 @@ const DROPPED = droppedProviderAnswers(PROVIDER_FLOWS);
  * reads that Squarespace shares a single uneditable robots.txt across every site,
  * and that an apex DNS TXT record proves ownership anyway, can act.
  */
-function ProviderPanel({
-  site,
-  fleet,
-}: {
-  site: Site;
-  fleet: ReturnType<typeof useFleet>;
-}) {
+function ProviderPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof useFleet> }) {
   const [showDropped, setShowDropped] = useState(false);
   const guidance = providerGuidance(PROVIDER_FLOWS, site.provider);
   const chosen = site.provider;
@@ -264,10 +253,10 @@ function ProviderPanel({
             {chosen ? chosen.name : "Which host is this site on?"}
           </h2>
           <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
-            The web root cannot be guessed — fifteen conventions across the
-            researched set, and several hosts decline to name one at all. Pick the
-            panel you log into and CiteFleet knows where the root is, which port
-            its SFTP answers on, and what breaks verification there.
+            The web root cannot be guessed — fifteen conventions across the researched set, and
+            several hosts decline to name one at all. Pick the panel you log into and CiteFleet
+            knows where the root is, which port its SFTP answers on, and what breaks verification
+            there.
           </p>
         </div>
         <Pill tone={chosen ? (guidance.tone === "good" ? "good" : "warn") : "neutral"}>
@@ -323,18 +312,16 @@ function ProviderPanel({
   );
 }
 
-function AutoListingPanel({
-  site,
-  fleet,
-}: {
-  site: Site;
-  fleet: ReturnType<typeof useFleet>;
-}) {
+function AutoListingPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof useFleet> }) {
   const record = proofRecord(site);
   const proof = site.proof;
   const hook = site.webhook;
   // The secret is shown once, right after generate/rotate; the store never carries it.
-  const [revealed, setRevealed] = useState<{ secret: string; payloadUrl: string; deployedUrl: string } | null>(null);
+  const [revealed, setRevealed] = useState<{
+    secret: string;
+    payloadUrl: string;
+    deployedUrl: string;
+  } | null>(null);
   const [origin, setOrigin] = useState("https://citefleet.app");
   useEffect(() => {
     if (typeof window !== "undefined") setOrigin(window.location.origin);
@@ -346,14 +333,11 @@ function AutoListingPanel({
     <section className="glass rounded-3xl p-5" data-testid="auto-listing">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
-            Automatic listing
-          </p>
-          <h2 className="mt-1 text-lg font-semibold">Origin proof and GitHub webhook</h2>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">Domain ownership</p>
+          <h2 className="mt-1 text-lg font-semibold">Connect DNS and verify this property</h2>
           <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
-            CiteFleet checks the proof with BotCentral’s own rules before it publishes. A
-            webhook from the website repo triggers that check and the listing automatically
-            after every deploy.
+            CiteFleet detects the authoritative DNS provider, asks the domain owner to approve one
+            apex TXT record, and verifies that record through public DNS.
           </p>
         </div>
         <Pill tone={proof?.proven ? "good" : "warn"}>
@@ -368,7 +352,10 @@ function AutoListingPanel({
         had already failed. The customer who has not started yet is exactly the
         one who needs it.
       */}
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3" data-testid="proof-record">
+      <div
+        className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3"
+        data-testid="proof-record"
+      >
         <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
           Add this DNS record — no deploy needed
         </p>
@@ -379,10 +366,9 @@ function AutoListingPanel({
         </div>
         <p className="mt-2 text-xs text-[#e2c36d]">{record.newRecordWarning}</p>
         <p className="mt-1 text-xs text-[#9b95b3]">
-          {record.nameNote} This is CiteFleet’s publisher token — the same record
-          works for every domain you list here. Serving{" "}
-          <span className="mono break-all">{record.value}</span> as plain text at{" "}
-          <span className="mono break-all">{record.fileUrl}</span> proves the same
+          {record.nameNote} This is CiteFleet’s publisher token — the same record works for every
+          domain you list here. Serving <span className="mono break-all">{record.value}</span> as
+          plain text at <span className="mono break-all">{record.fileUrl}</span> proves the same
           thing; either one alone is enough.
         </p>
       </div>
@@ -410,15 +396,26 @@ function AutoListingPanel({
           disabled={!!fleet.busy}
           onClick={async () => {
             const r = await fleet.webhookSecret(site.id);
-            if (r) setRevealed({ secret: r.secret, payloadUrl: r.payloadUrl, deployedUrl: r.deployedUrl });
+            if (r)
+              setRevealed({
+                secret: r.secret,
+                payloadUrl: r.payloadUrl,
+                deployedUrl: r.deployedUrl,
+              });
           }}
         >
-          {fleet.busy === "webhook" ? "Working…" : hasSecret ? "Rotate webhook secret" : "Generate webhook secret"}
+          {fleet.busy === "webhook"
+            ? "Working…"
+            : hasSecret
+              ? "Rotate webhook secret"
+              : "Generate webhook secret"}
         </button>
       </div>
       <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-[160px_1fr]">
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Payload URL</dt>
-        <dd className="mono break-all text-[#cfc8e8]" data-testid="webhook-url">{payload}</dd>
+        <dd className="mono break-all text-[#cfc8e8]" data-testid="webhook-url">
+          {payload}
+        </dd>
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Secret</dt>
         <dd className="mono break-all text-[#cfc8e8]" data-testid="webhook-secret">
           {revealed
@@ -430,19 +427,29 @@ function AutoListingPanel({
         {revealed && (
           <>
             <dt></dt>
-            <dd className="text-xs text-amber-200">Copy it now. It is not stored where the browser can read it again.</dd>
+            <dd className="text-xs text-amber-200">
+              Copy it now. It is not stored where the browser can read it again.
+            </dd>
           </>
         )}
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Any other CI</dt>
         <dd className="text-[#cfc8e8]">
-          after a deploy, POST <span className="mono">{"{\"domain\":\""}{site.domain}{"\"}"}</span> to{" "}
-          <span className="mono break-all" data-testid="deployed-url">{deployed}</span> with{" "}
-          <span className="mono">X-CiteFleet-Signature: sha256=HMAC(body, secret)</span>
+          after a deploy, POST{" "}
+          <span className="mono">
+            {'{"domain":"'}
+            {site.domain}
+            {'"}'}
+          </span>{" "}
+          to{" "}
+          <span className="mono break-all" data-testid="deployed-url">
+            {deployed}
+          </span>{" "}
+          with <span className="mono">X-CiteFleet-Signature: sha256=HMAC(body, secret)</span>
         </dd>
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Events</dt>
         <dd className="text-[#cfc8e8]">
-          push (branch <span className="mono">{site.github?.branch || "main"}</span>) and deployment_status · content type
-          application/json
+          push (branch <span className="mono">{site.github?.branch || "main"}</span>) and
+          deployment_status · content type application/json
         </dd>
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Last delivery</dt>
         <dd className="text-[#cfc8e8]" data-testid="webhook-last">
@@ -459,13 +466,7 @@ function AutoListingPanel({
 // debited from the customer's own bc_live_ key when the PROVEN card is written,
 // edits inside the year free, reads free. CiteFleet stores the key prefix here;
 // whether a publish actually carries it is the server-side switch, shown as-is.
-function BillingPanel({
-  site,
-  fleet,
-}: {
-  site: Site;
-  fleet: ReturnType<typeof useFleet>;
-}) {
+function BillingPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof useFleet> }) {
   const [prefix, setPrefix] = useState(site.billing?.keyPrefix || "");
   const settings = fleet.settings;
   const state = renewalState(site.term);
@@ -488,10 +489,10 @@ function BillingPanel({
           <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">Listing year</p>
           <h2 className="mt-1 text-lg font-semibold">BotCentral API key and term</h2>
           <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
-            A listing costs ${site.term?.usd || site.payment?.usd || "10.00"} per host per year, charged to the
-            customer’s BotCentral key when the proven card is written. Edits inside the year are free;
-            reads are always free. A year nobody renews lapses: the card stays listed, unproven, until a
-            publish with a funded key renews it.
+            A listing costs ${site.term?.usd || site.payment?.usd || "10.00"} per host per year,
+            charged to the customer’s BotCentral key when the proven card is written. Edits inside
+            the year are free; reads are always free. A year nobody renews lapses: the card stays
+            listed, unproven, until a publish with a funded key renews it.
           </p>
         </div>
         <Pill tone={pill.tone}>{pill.text}</Pill>
@@ -501,7 +502,10 @@ function BillingPanel({
           "No listing year recorded yet — the term arrives with the first publish sent with a key."}
       </p>
       {site.payment ? (
-        <div className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" data-testid="payment-required">
+        <div
+          className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100"
+          data-testid="payment-required"
+        >
           {site.payment.message} ({site.payment.reason}).{" "}
           <a href={site.payment.topup} target="_blank" rel="noreferrer" className="underline">
             Top up the key
@@ -534,10 +538,31 @@ function BillingPanel({
           {fleet.busy === "billing" ? "Saving…" : prefix.trim() ? "Save key" : "Clear key"}
         </button>
       </form>
+      <div className="mt-3 flex flex-wrap gap-3">
+        {site.billing?.keyPrefix ? (
+          <a
+            href={`/topup?prefix=${encodeURIComponent(site.billing.keyPrefix)}&product=botcentral`}
+            className="rounded-full bg-[#4ee0c3] px-4 py-2 text-sm font-semibold text-[#07060f]"
+          >
+            Top up this key
+          </a>
+        ) : (
+          <a
+            href="https://botcentral.org/keys"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+          >
+            Create a BotCentral key
+          </a>
+        )}
+      </div>
       <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-[160px_minmax(0,1fr)]">
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Key on file</dt>
         <dd className="mono break-all text-[#cfc8e8]" data-testid="billing-key">
-          {site.billing ? `${site.billing.keyPrefix} · set ${new Date(site.billing.setAt).toLocaleString()}` : "none — publishes are sent without a key and recorded unbilled"}
+          {site.billing
+            ? `${site.billing.keyPrefix} · set ${new Date(site.billing.setAt).toLocaleString()}`
+            : "none — publishes are sent without a key and recorded unbilled"}
         </dd>
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Billing switch</dt>
         <dd className="text-[#cfc8e8]" data-testid="billing-switch">
@@ -581,9 +606,7 @@ function GithubPanel({
   const tokenReady = Boolean(fleet.store?.workspace.githubToken);
   // What is on file, and what is currently typed, judged by the same rule the
   // server applies — so the panel never promises a push the server refuses.
-  const storedConflict = site.github
-    ? originRepoConflict(site, site.github, sites)
-    : null;
+  const storedConflict = site.github ? originRepoConflict(site, site.github, sites) : null;
   const draftConflict = originRepoConflict(site, { owner, repo, root }, sites);
   const attached = Boolean(site.github?.owner && site.github.repo);
   const connected = attached && !storedConflict;
@@ -602,23 +625,20 @@ function GithubPanel({
             Origin files → GitHub
           </p>
           <h2 className="mt-1 text-lg font-semibold">
-            {attached
-              ? `${site.github!.owner}/${site.github!.repo}`
-              : "Attach this site’s repo"}
+            {attached ? `${site.github!.owner}/${site.github!.repo}` : "Attach this site’s repo"}
           </h2>
           {storedConflict ? (
-            <p
-              className="mt-2 max-w-xl text-sm text-rose-200"
-              data-testid="github-repo-conflict"
-            >
+            <p className="mt-2 max-w-xl text-sm text-rose-200" data-testid="github-repo-conflict">
               {storedConflict.message}
             </p>
           ) : (
             <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
-              Writes robots.txt, sitemap.xml, llms.txt, and .well-known/botcentral.txt
-              into <span className="mono">{root || "public"}/</span> on{" "}
-              <span className="mono">{owner || "owner"}/{repo || "repo"}</span>.
-              Push saves the repo first, then commits.
+              Writes robots.txt, sitemap.xml, llms.txt, and .well-known/botcentral.txt into{" "}
+              <span className="mono">{root || "public"}/</span> on{" "}
+              <span className="mono">
+                {owner || "owner"}/{repo || "repo"}
+              </span>
+              . Push saves the repo first, then commits.
             </p>
           )}
           {/*
@@ -632,14 +652,19 @@ function GithubPanel({
           */}
           <p className="mt-2 break-all text-xs text-[#9b95b3]">
             BotCentral proof line:{" "}
-            <span className="mono text-[#cfc8e8]">{verifyLine(siteVerifyToken(site))}</span>
-            {" "}— quickest as an apex DNS TXT record (Name @, no deploy). The
-            pushed file carries the same line.
+            <span className="mono text-[#cfc8e8]">{verifyLine(siteVerifyToken(site))}</span> —
+            quickest as an apex DNS TXT record (Name @, no deploy). The pushed file carries the same
+            line.
           </p>
           {site.github?.lastPushUrl && (
             <p className="mt-2 text-xs text-[#9b95b3]">
               Last push{" "}
-              <a href={site.github.lastPushUrl} className="underline" target="_blank" rel="noreferrer">
+              <a
+                href={site.github.lastPushUrl}
+                className="underline"
+                target="_blank"
+                rel="noreferrer"
+              >
                 {site.github.lastPushSha?.slice(0, 7) || "commit"}
               </a>
               {site.github.lastPushAt
@@ -703,7 +728,8 @@ function GithubPanel({
             onChange={(e) => setRoot(e.target.value)}
             placeholder="public"
           />
-        </label>        <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
+        </label>{" "}
+        <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
           <button
             className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
             disabled={!!fleet.busy || !canPush}
@@ -716,9 +742,7 @@ function GithubPanel({
             disabled={!!fleet.busy || !canPush}
             data-testid="check-repo"
             onClick={() =>
-              fleet
-                .inspectOriginPack({ siteId: site.id, owner, repo, branch, root })
-                .then(setPlan)
+              fleet.inspectOriginPack({ siteId: site.id, owner, repo, branch, root }).then(setPlan)
             }
           >
             {fleet.busy === "inspect" ? "Reading repo…" : "Check repo"}
@@ -774,15 +798,17 @@ function OriginPlanTable({ plan }: { plan: OriginPackInspection | null }) {
     shadowed: { label: "shadowed", className: "text-amber-200" },
   };
   return (
-    <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4" data-testid="origin-plan">
+    <div
+      className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4"
+      data-testid="origin-plan"
+    >
       <p className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">
         What a push would do — read from {plan.repo} ({plan.branch})
       </p>
       {plan.unreadable.length > 0 && (
         <p className="mt-2 text-sm text-rose-200" data-testid="origin-plan-unreadable">
-          {plan.unreadable.length} path(s) could not be read: {plan.unreadable.join("; ")}.
-          Push is refused while that is true — a path CiteFleet cannot read is one it
-          must not write.
+          {plan.unreadable.length} path(s) could not be read: {plan.unreadable.join("; ")}. Push is
+          refused while that is true — a path CiteFleet cannot read is one it must not write.
         </p>
       )}
       <ul className="mt-3 space-y-2">
@@ -853,8 +879,8 @@ function ReconcilePanel({ site }: { site: Site }) {
         </div>
       ) : null}
       <p className="mt-3 text-xs text-[#9b95b3]">
-        proof and freshness are checked against the live origin; the rest is read from
-        the card as published.
+        proof and freshness are checked against the live origin; the rest is read from the card as
+        published.
         {bc.verificationNote ? ` ${bc.verificationNote}` : ""}
       </p>
     </div>
@@ -899,9 +925,7 @@ function TaskRow({
           </div>
           <h3 className="font-semibold">{task.title}</h3>
           <p className="mt-1 max-w-3xl text-sm text-[#b7b0cc]">{task.description}</p>
-          {task.blockedReason && (
-            <p className="mt-2 text-sm text-rose-300">{task.blockedReason}</p>
-          )}
+          {task.blockedReason && <p className="mt-2 text-sm text-rose-300">{task.blockedReason}</p>}
         </div>
         <div className="flex flex-col items-end gap-2">
           <GrokHandoff site={site} task={task} botName={botName} />

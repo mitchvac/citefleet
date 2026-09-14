@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useFleet } from "@/lib/citefleet/client";
 import { Pill, Score } from "./Shell";
@@ -7,8 +7,7 @@ import type { Site, SiteMonitor, Task } from "@/lib/citefleet/types";
 
 function statusTone(status: string) {
   if (["done", "indexed", "covered", "ok"].includes(status)) return "good" as const;
-  if (["waiting", "assigned", "in-progress", "campaign"].includes(status))
-    return "gold" as const;
+  if (["waiting", "assigned", "in-progress", "campaign"].includes(status)) return "gold" as const;
   if (["blocked", "failed", "critical"].includes(status)) return "bad" as const;
   if (["running", "working", "auditing"].includes(status)) return "violet" as const;
   return "neutral" as const;
@@ -16,6 +15,7 @@ function statusTone(status: string) {
 
 export function CommandBoard() {
   const fleet = useFleet();
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("https://");
   const [key, setKey] = useState("");
@@ -30,9 +30,12 @@ export function CommandBoard() {
   tickRef.current = fleet.tickAutopilot;
   useEffect(() => {
     if (!autopilotOn) return;
-    const id = window.setInterval(() => {
-      void tickRef.current();
-    }, 3 * 60 * 1000);
+    const id = window.setInterval(
+      () => {
+        void tickRef.current();
+      },
+      3 * 60 * 1000,
+    );
     return () => window.clearInterval(id);
   }, [autopilotOn]);
 
@@ -76,8 +79,8 @@ export function CommandBoard() {
             Live catalog cards
           </p>
           <p className="mt-1 text-sm text-[#cfc8e8]">
-            CiteFleet already published these. BotCentral Index is a search box — open the
-            inspector URL below. Do not wait for the homepage to list the card.
+            CiteFleet already published these. BotCentral Index is a search box — open the inspector
+            URL below. Do not wait for the homepage to list the card.
           </p>
           <ul className="mt-3 space-y-2">
             {listedSites.map((site) => (
@@ -121,8 +124,8 @@ export function CommandBoard() {
         >
           <p className="text-sm font-semibold text-rose-200">Kill switch is on</p>
           <p className="mt-1 text-sm text-[#cfc8e8]">
-            Observe still runs. Publish, mentions, spend, and autopilot acts are frozen.
-            Open Monitor to thaw.
+            Observe still runs. Publish, mentions, spend, and autopilot acts are frozen. Open
+            Monitor to thaw.
           </p>
         </Link>
       )}
@@ -136,7 +139,8 @@ export function CommandBoard() {
               : "Off — audits and Grok drafts only run when you click."}
           </p>
           <p className="mt-1 text-xs text-[#9b95b3]">
-            Set XAI_API_KEY in .env.local to have Grok write mention drafts into task evidence. Autopilot does not log into Bing or X.
+            Set XAI_API_KEY in .env.local to have Grok write mention drafts into task evidence.
+            Autopilot does not log into Bing or X.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -168,8 +172,8 @@ export function CommandBoard() {
               {sites.length ? "Listing another site?" : "New here? Start with the three steps"}
             </h2>
             <p className="mt-1 text-sm text-[#9b95b3]">
-              Get a BotCentral API key, add credit to it, then work the training
-              module to get indexed.
+              Get a BotCentral API key, add credit to it, then work the training module to get
+              indexed.
             </p>
           </div>
           <Link
@@ -205,14 +209,14 @@ export function CommandBoard() {
         <aside className="glass min-w-0 rounded-3xl p-5">
           <h2 className="mb-1 text-sm font-semibold">Onboard a property</h2>
           <p className="mb-4 text-sm text-[#9b95b3]">
-            Grok Dispatcher will assign each specialist bot a playbook task for Google,
-            Bing, IndexNow, Grok, ChatGPT, and BotCentral bot-search listings.
+            Grok Dispatcher will assign each specialist bot a playbook task for Google, Bing,
+            IndexNow, Grok, ChatGPT, and BotCentral bot-search listings.
           </p>
           <form
             className="space-y-3"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              fleet.onboard({
+              const siteId = await fleet.onboard({
                 name,
                 url,
                 indexNowKey: key || undefined,
@@ -221,6 +225,7 @@ export function CommandBoard() {
                     ? { owner: ghOwner, repo: ghRepo, branch: "main", root: "public" }
                     : undefined,
               });
+              if (siteId) await navigate({ to: "/sites/$id", params: { id: siteId } });
             }}
           >
             <Field label="Site name">
@@ -278,9 +283,9 @@ export function CommandBoard() {
           GitHub token — all properties
         </p>
         <p className="mt-1 text-sm text-[#b7b0cc]">
-          One classic PAT with <span className="mono">repo</span> scope. CiteFleet uses it
-          to push robots.txt, sitemap.xml, llms.txt, and .well-known/botcentral.txt into
-          each site’s repo. Token is not shown back.
+          One classic PAT with <span className="mono">repo</span> scope. CiteFleet uses it to push
+          robots.txt, sitemap.xml, llms.txt, and .well-known/botcentral.txt into each site’s repo.
+          Token is not shown back.
           {workspace.githubToken ? " Status: stored." : " Status: missing."}
         </p>
         <form
@@ -382,18 +387,10 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint: strin
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] uppercase tracking-wide text-[#9b95b3]">
-        {label}
-      </span>
+      <span className="mb-1 block text-[11px] uppercase tracking-wide text-[#9b95b3]">{label}</span>
       {children}
     </label>
   );
@@ -522,9 +519,7 @@ function SiteCard({
         <span className={monitorState(monitor).className}>
           monitor: {monitorState(monitor).label}
         </span>
-        {site.lastAuditAt
-          ? ` · last audit ${new Date(site.lastAuditAt).toLocaleString()}`
-          : ""}
+        {site.lastAuditAt ? ` · last audit ${new Date(site.lastAuditAt).toLocaleString()}` : ""}
       </p>
     </article>
   );

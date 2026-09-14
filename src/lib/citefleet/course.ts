@@ -122,7 +122,8 @@ export const LESSONS: Lesson[] = [
     slug: "onboard",
     number: "04",
     title: "Onboard a property",
-    summary: "Add a customer origin so the dispatcher creates the 11-task playbook and assigns the fleet.",
+    summary:
+      "Add a customer origin so the dispatcher creates the 11-task playbook and assigns the fleet.",
     where: "Command → Onboard a property",
     steps: [
       {
@@ -147,7 +148,8 @@ export const LESSONS: Lesson[] = [
     slug: "audit",
     number: "05",
     title: "Live audit",
-    summary: "The only automated inspection today: HTTP reality of the origin, mapped onto bot tasks.",
+    summary:
+      "The only automated inspection today: HTTP reality of the origin, mapped onto bot tasks.",
     where: "Property card → Live audit",
     steps: [
       {
@@ -256,7 +258,8 @@ export const LESSONS: Lesson[] = [
     slug: "workflow",
     number: "10",
     title: "Recommended operating sequence",
-    summary: "Do the work in this order. Skipping ahead wastes mention effort on a site crawlers still 404.",
+    summary:
+      "Do the work in this order. Skipping ahead wastes mention effort on a site crawlers still 404.",
     where: "Every property",
     steps: [
       {
@@ -303,7 +306,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "Top up an API key",
-        body: "Developers mint a bc_live_ key at botcentral.org/keys; every job run is $1.00. Each Top up button on BotCentral opens citefleet.app/topup with that key prefix, and Add credit in the nav opens the same page. The customer opens an invoice there and pays the quoted amount; an operator confirms receipt on the same page with the transaction hash, and BotCentral credits the prefix. Nothing on this page moves money by itself.",
+        body: "Developers mint a bc_live_ key at botcentral.org/keys; every job run is $1.00. Each Top up button on BotCentral opens citefleet.app/topup with that exact key prefix. BotCentral validates the key and records it on the invoice before any payment instructions appear; settlement credits only that recorded key. Nothing on this page moves money by itself.",
       },
     ],
   },
@@ -377,7 +380,8 @@ export const QUIZ: QuizQuestion[] = [
   },
   {
     id: "q2",
-    prompt: "A customer site returns JSON 404 on /premium unless the client sends Accept: text/html. Who owns that?",
+    prompt:
+      "A customer site returns JSON 404 on /premium unless the client sends Accept: text/html. Who owns that?",
     choices: ["Lyra", "Vesper", "Aether", "Cassian"],
     answer: 2,
     explain:
@@ -405,7 +409,8 @@ export const QUIZ: QuizQuestion[] = [
       "A Perplexity API token in CiteFleet settings",
     ],
     answer: 1,
-    explain: "Orion handles crawler access; Lyra / Vesper / Cassian build the link graph Perplexity follows.",
+    explain:
+      "Orion handles crawler access; Lyra / Vesper / Cassian build the link graph Perplexity follows.",
   },
   {
     id: "q5",
@@ -445,7 +450,8 @@ export const QUIZ: QuizQuestion[] = [
   },
   {
     id: "q8",
-    prompt: "Where do you tick work you already did outside the app (claimed Trustpilot, posted draft #2)?",
+    prompt:
+      "Where do you tick work you already did outside the app (claimed Trustpilot, posted draft #2)?",
     choices: [
       "Only in Audit log by typing a note",
       "Command KPI cards",
@@ -469,7 +475,8 @@ export const QUIZ: QuizQuestion[] = [
   },
   {
     id: "q10",
-    prompt: "Why must mentions include the exact domain (acme-dating.com), not just the brand name “Acme Dating”?",
+    prompt:
+      "Why must mentions include the exact domain (acme-dating.com), not just the brand name “Acme Dating”?",
     choices: [
       "IndexNow keys are domain-scoped",
       "Other products share the name; assistants will cite the wrong property without the URL",

@@ -103,15 +103,27 @@ export function useFleet() {
     error,
     busy,
     refresh,
-    onboard: (body: {
+    onboard: async (body: {
       name: string;
       url: string;
       indexNowKey?: string;
       github?: { owner: string; repo: string; branch?: string; root?: string };
-    }) =>
-      run("onboard", async () => {
-        await onboardProperty({ data: body });
-      }),
+    }): Promise<string | null> => {
+      setBusy("onboard");
+      setError(null);
+      try {
+        const result = await onboardProperty({ data: body });
+        await refresh();
+        return result.id;
+      } catch (err) {
+        if (redirectIfSignedOut(err)) return null;
+        await refresh().catch(() => {});
+        setError(err instanceof Error ? err.message : "Request failed");
+        return null;
+      } finally {
+        setBusy(null);
+      }
+    },
     dispatch: (siteId: string) =>
       run("dispatch", async () => {
         await dispatchProperty({ data: { siteId } });
