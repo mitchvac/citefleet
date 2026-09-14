@@ -19,8 +19,8 @@ export interface DnsMcpCapability {
 export interface DnsProvider {
   slug: string;
   name: string;
-  /** W3Techs group share on the registry's checked date. */
-  marketShare: number;
+  /** W3Techs group share on the registry's checked date, or null when not measured. */
+  marketShare: number | null;
   websiteUrl: string;
   accountUrl?: string;
   guideUrl: string;
@@ -36,6 +36,7 @@ export interface DnsProvider {
 
 export type DnsProviderInput = Omit<DnsProvider, "checkedAt" | "mcp"> & {
   mcp?: DnsMcpCapability;
+  checkedAt?: string;
 };
 
 export const DNS_RESEARCH_DATE = "2026-09-12";
@@ -46,7 +47,7 @@ export function defineDnsProvider(input: DnsProviderInput): DnsProvider {
   return Object.freeze({
     ...input,
     mcp: input.mcp ?? { status: "not-verified" as const },
-    checkedAt: DNS_RESEARCH_DATE,
+    checkedAt: input.checkedAt ?? DNS_RESEARCH_DATE,
   });
 }
 
@@ -157,7 +158,10 @@ export function validateDnsProviders(providers: readonly DnsProvider[]): void {
     }
     if (slugs.has(provider.slug)) throw new Error(`duplicate DNS provider: ${provider.slug}`);
     slugs.add(provider.slug);
-    if (!(provider.marketShare > 0 && provider.marketShare <= 100)) {
+    if (
+      provider.marketShare !== null &&
+      !(provider.marketShare > 0 && provider.marketShare <= 100)
+    ) {
       throw new Error(`invalid market share for ${provider.slug}`);
     }
     for (const url of [

@@ -81,6 +81,30 @@ test("detects, explains, and safely hands off a DNS provider", async ({ page }, 
       godaddy!.api.docsUrl!,
     );
 
+    const porkbun = dnsProviderBySlug("porkbun");
+    expect(porkbun).toBeTruthy();
+    await pickerButton.click();
+    await page.getByTestId("dns-provider-option-porkbun").click();
+    await expect(pickerButton).toContainText("Porkbun");
+    await expect(pickerButton).not.toContainText("null%");
+    await expect(pickerButton).not.toContainText("30 providers");
+    await expect(panel.getByRole("link", { name: "Open Porkbun" })).toHaveAttribute(
+      "href",
+      porkbun!.accountUrl!,
+    );
+    await expect(panel.getByRole("link", { name: "Official TXT guide" })).toHaveAttribute(
+      "href",
+      porkbun!.guideUrl,
+    );
+    await expect(panel.getByRole("link", { name: "API docs" })).toHaveAttribute(
+      "href",
+      porkbun!.api.docsUrl!,
+    );
+    await expect(panel.getByRole("link", { name: "MCP docs" })).toHaveAttribute(
+      "href",
+      porkbun!.mcp.docsUrl!,
+    );
+
     const cloudflare = dnsProviderBySlug("cloudflare");
     expect(cloudflare).toBeTruthy();
     await pickerButton.click();

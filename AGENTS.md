@@ -44,8 +44,10 @@ Playwright for e2e. **Node 22** (`engines: >=22`, both Dockerfile stages are `no
 
 - `src/lib/citefleet/dns-provider.ts`, `dns-providers/*.ts`, and
   `dns-provider-detection.server.ts` own the browser-safe provider contract, the
-  29-group/72.3% W3Techs snapshot, exact authoritative-NS matching, and bounded
-  live detection. An unmatched domain may use the explicit `entri-auto` path;
+  29-group/72.3% W3Techs snapshot plus additional evidence-backed providers
+  (currently Porkbun), exact authoritative-NS matching, and bounded live detection.
+  Providers outside the measured snapshot carry no invented percentage. An
+  unmatched domain may use the explicit `entri-auto` path;
   that does not create a guessed provider or change the measured-share claim.
 - `cloudflare-dns.server.ts`, `dns-oauth.server.ts`, and the
   `routes/api/dns/cloudflare/*` routes own CiteFleet's first direct provider

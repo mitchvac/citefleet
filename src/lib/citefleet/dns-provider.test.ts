@@ -12,13 +12,13 @@ import {
 } from "./dns-provider.ts";
 import { DNS_PROVIDERS, DNS_PROVIDER_MARKET_SHARE } from "./dns-providers/index.ts";
 
-test("the registry has one source file per top provider group and an honest measured share", () => {
+test("the registry has one source file per provider and an honest measured share", () => {
   const files = readdirSync(path.resolve(import.meta.dirname, "dns-providers"))
     .filter((name) => name.endsWith(".ts") && name !== "index.ts")
     .map((name) => name.slice(0, -3))
     .sort();
   assert.deepEqual(files, DNS_PROVIDERS.map(({ slug }) => slug).sort());
-  assert.equal(DNS_PROVIDERS.length, 29);
+  assert.equal(DNS_PROVIDERS.length, 30);
   assert.equal(DNS_PROVIDER_MARKET_SHARE, 72.3);
   assert.equal(DNS_MARKET_SOURCE, "https://w3techs.com/technologies/overview/dns_server");
   assert.doesNotThrow(() => validateDnsProviders(DNS_PROVIDERS));
@@ -57,6 +57,7 @@ test("the checked W3Techs snapshot pins every group share, not only the total", 
       ["beget", 0.5],
       ["alibaba-cloud", 0.5],
       ["hosting-com", 0.5],
+      ["porkbun", null],
     ],
   );
 });
@@ -70,6 +71,34 @@ test("matching normalizes case and a trailing dot without accepting suffix attac
     "unknown",
   );
   assert.equal(matchDnsProvider(["notcloudflare.com"], DNS_PROVIDERS).status, "unknown");
+});
+
+test("Porkbun is selectable, detectable, and backed by verified automation links", () => {
+  const porkbun = DNS_PROVIDERS.find((provider) => provider.slug === "porkbun");
+  assert.ok(porkbun);
+  assert.equal(porkbun.marketShare, null);
+  assert.equal(porkbun.api.status, "public");
+  assert.equal(porkbun.mcp.status, "official");
+  assert.equal(porkbun.entri, "automatic");
+  assert.equal(
+    dnsProviderActions(porkbun, {
+      state: "ready",
+      service: "entri",
+      docsUrl: "https://developers.entri.com/connect/shared-links",
+    }).guided,
+    true,
+  );
+  assert.equal(
+    matchDnsProvider(
+      ["MACEIO.NS.PORKBUN.COM.", "curitiba.ns.porkbun.com", "salvador.ns.porkbun.com"],
+      DNS_PROVIDERS,
+    ).provider?.slug,
+    "porkbun",
+  );
+  assert.equal(
+    matchDnsProvider(["maceio.ns.porkbun.com.evil.test"], DNS_PROVIDERS).status,
+    "unknown",
+  );
 });
 
 test("mixed or partial delegations are ambiguous instead of guessed", () => {
@@ -102,6 +131,7 @@ test("capability claims carry official HTTPS evidence and destructive APIs carry
   }
   assert.match(DNS_PROVIDERS.find((p) => p.slug === "namecheap")!.api.caution!, /read and merge/i);
   assert.equal(DNS_PROVIDERS.find((p) => p.slug === "namecheap")!.mcp.status, "official");
+  assert.match(DNS_PROVIDERS.find((p) => p.slug === "porkbun")!.api.caution!, /intended domain/i);
 });
 
 test("guided setup never removes the verified manual account fallback", () => {

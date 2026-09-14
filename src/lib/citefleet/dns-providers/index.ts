@@ -27,6 +27,7 @@ import microsoftAzure from "./microsoft-azure.ts";
 import beget from "./beget.ts";
 import alibabaCloud from "./alibaba-cloud.ts";
 import hostingCom from "./hosting-com.ts";
+import porkbun from "./porkbun.ts";
 import { validateDnsProviders } from "../dns-provider.ts";
 
 export const DNS_PROVIDERS = Object.freeze([
@@ -59,12 +60,13 @@ export const DNS_PROVIDERS = Object.freeze([
   beget,
   alibabaCloud,
   hostingCom,
+  porkbun,
 ]);
 
 validateDnsProviders(DNS_PROVIDERS);
 
 export const DNS_PROVIDER_MARKET_SHARE = Number(
-  DNS_PROVIDERS.reduce((sum, provider) => sum + provider.marketShare, 0).toFixed(1),
+  DNS_PROVIDERS.reduce((sum, provider) => sum + (provider.marketShare ?? 0), 0).toFixed(1),
 );
 
 export function dnsProviderBySlug(slug: string) {

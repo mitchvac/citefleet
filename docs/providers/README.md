@@ -140,13 +140,15 @@ checked 2026-09-12; absence from that list falls back to the provider's official
 sign-in and TXT-record guide.
 
 The separate DNS inventory in `src/lib/citefleet/dns-providers/` has one source
-file for each of the 29 largest W3Techs DNS provider groups, with official
-account, TXT-guide, public API and official MCP links where verified. Those
-groups total **72.3% measured market share**, not 90%. CiteFleet does not claim
-90% until the same source data supports it. When nameservers do not match one
-of those 29 groups, CiteFleet can still hand the domain to Entri for live
-provider detection. That path neither invents provider metadata nor adds the
-domain to the measured 72.3% claim.
+file for each of the 29 largest W3Techs DNS provider groups, plus additional
+evidence-backed providers customers need, beginning with Porkbun. Every entry
+has official account, TXT-guide, public API and official MCP links where
+verified. The 29 measured groups total **72.3% measured market share**, not 90%;
+an additional provider with no figure in that snapshot is not assigned an
+invented percentage or added to the total. When nameservers do not match an
+inventory entry, CiteFleet can still hand the domain to Entri for live provider
+detection. That path neither invents provider metadata nor adds the domain to
+the measured 72.3% claim.
 
 `lego` is **not** CiteFleet's DNS executor. It is an ACME client whose DNS
 providers create a temporary `_acme-challenge` TXT record and remove it after

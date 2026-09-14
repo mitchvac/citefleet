@@ -81,7 +81,11 @@ export function DnsProviderPicker({
           {current?.name ?? "Choose the account that manages DNS"}
         </span>
         <span className="flex shrink-0 items-center gap-2 text-xs text-[#9b95b3]">
-          {current ? `${current.marketShare}%` : `${DNS_PROVIDERS.length} providers`}
+          {current
+            ? current.marketShare !== null
+              ? `${current.marketShare}%`
+              : null
+            : `${DNS_PROVIDERS.length} providers`}
           <ChevronDown
             aria-hidden="true"
             className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
@@ -115,7 +119,7 @@ export function DnsProviderPicker({
               >
                 <span>{provider.name}</span>
                 <span className="flex items-center gap-2 text-xs text-[#9b95b3]">
-                  {provider.marketShare}%
+                  {provider.marketShare !== null ? `${provider.marketShare}%` : null}
                   {selected ? (
                     <Check aria-hidden="true" className="h-4 w-4 text-[#4ee0c3]" />
                   ) : null}
