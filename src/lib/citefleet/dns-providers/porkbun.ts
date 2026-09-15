@@ -5,12 +5,13 @@ export default defineDnsProvider({
   name: "Porkbun",
   marketShare: null,
   websiteUrl: "https://porkbun.com/",
-  accountUrl: "https://porkbun.com/account/login",
-  guideUrl: "https://kb.porkbun.com/article/68-how-to-edit-dns-records",
+  accountUrl: "https://porkbun.com/account/api",
+  guideUrl: "https://kb.porkbun.com/article/231-how-to-add-dns-records-on-porkbun",
   api: {
     status: "public",
     docsUrl: "https://porkbun.com/api/json/v3/documentation",
-    caution: "Enable API access only for the intended domain and use domain-scoped credentials.",
+    caution:
+      "CiteFleet uses the generated key only for the intended domain; remove it after the DNS record verifies.",
   },
   mcp: {
     status: "official",
@@ -18,9 +19,9 @@ export default defineDnsProvider({
   },
   entri: "automatic",
   nameserverPatterns: ["^(?:maceio|curitiba|salvador|fortaleza)\\.ns\\.porkbun\\.com$"],
-  note: "Entri supports guided setup; Porkbun also provides a public DNS API and official MCP.",
+  note: "CiteFleet uses Porkbun's browser approval to add the exact proof record automatically.",
   sourceUrls: [
-    "https://kb.porkbun.com/article/153-how-to-add-your-external-domain-to-your-porkbun-account",
+    "https://kb.porkbun.com/article/231-how-to-add-dns-records-on-porkbun",
     "https://porkbun.com/api/json/v3/documentation",
     "https://porkbun.com/mcp",
     "https://www.entri.com/2025-site/blog/porkbun-added-to-entri-supported-dns-providers",

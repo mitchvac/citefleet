@@ -27,7 +27,9 @@ async function go(page: Page, path: string) {
   await waitIdle(page);
 }
 
-test("detects, explains, and safely hands off a DNS provider", async ({ page }, testInfo) => {
+test("detects a DNS provider and exposes the real automated TXT action", async ({
+  page,
+}, testInfo) => {
   await page.addInitScript(() => {
     const state = window as unknown as { __pending: number };
     state.__pending = 0;
@@ -66,19 +68,17 @@ test("detects, explains, and safely hands off a DNS provider", async ({ page }, 
     const picker = panel.getByTestId("dns-provider-picker");
     const pickerButton = picker.getByRole("button");
     await expect(pickerButton).toContainText("Cloudflare");
+    await expect(page.getByTestId("proof-record")).toHaveClass(/border-sky-400/);
 
     const godaddy = dnsProviderBySlug("godaddy");
     expect(godaddy).toBeTruthy();
     await pickerButton.click();
     await page.getByTestId("dns-provider-option-godaddy").click();
     await expect(pickerButton).toContainText("GoDaddy");
-    await expect(panel.getByRole("link", { name: "Official TXT guide" })).toHaveAttribute(
+    await panel.getByText("Add the record manually").click();
+    await expect(panel.getByRole("link", { name: "Official TXT instructions" })).toHaveAttribute(
       "href",
       godaddy!.guideUrl,
-    );
-    await expect(panel.getByRole("link", { name: "API docs" })).toHaveAttribute(
-      "href",
-      godaddy!.api.docsUrl!,
     );
 
     const porkbun = dnsProviderBySlug("porkbun");
@@ -88,51 +88,28 @@ test("detects, explains, and safely hands off a DNS provider", async ({ page }, 
     await expect(pickerButton).toContainText("Porkbun");
     await expect(pickerButton).not.toContainText("null%");
     await expect(pickerButton).not.toContainText("30 providers");
-    await expect(panel.getByRole("link", { name: "Open Porkbun" })).toHaveAttribute(
-      "href",
-      porkbun!.accountUrl!,
-    );
-    await expect(panel.getByRole("link", { name: "Official TXT guide" })).toHaveAttribute(
-      "href",
-      porkbun!.guideUrl,
-    );
-    await expect(panel.getByRole("link", { name: "API docs" })).toHaveAttribute(
-      "href",
-      porkbun!.api.docsUrl!,
-    );
-    await expect(panel.getByRole("link", { name: "MCP docs" })).toHaveAttribute(
-      "href",
-      porkbun!.mcp.docsUrl!,
-    );
-
-    const cloudflare = dnsProviderBySlug("cloudflare");
-    expect(cloudflare).toBeTruthy();
-    await pickerButton.click();
-    await page.getByTestId("dns-provider-option-cloudflare").click();
-    await expect(panel.getByRole("link", { name: "MCP docs" })).toHaveAttribute(
-      "href",
-      cloudflare!.mcp.docsUrl!,
-    );
-
-    await expect(panel.getByRole("link", { name: "Open Cloudflare" })).toHaveAttribute(
-      "href",
-      cloudflare!.accountUrl!,
-    );
-    const guided = panel.getByRole("button", { name: "Create secure link" });
-    if (await guided.count()) await expect(guided).toBeEnabled();
+    const addRecord = panel.getByRole("link", { name: "Add TXT record with Porkbun" });
+    await expect(addRecord).toBeVisible();
+    await expect(addRecord).toHaveAttribute("href", /\/api\/dns\/porkbun\/start\?siteId=site-/);
+    await expect(panel).toContainText("sign in and approve CiteFleet");
+    await expect(panel).toContainText("CiteFleet uses the generated key once and does not save it");
 
     await page.screenshot({
-      path: testInfo.outputPath("dns-provider-desktop.png"),
+      path: testInfo.outputPath("porkbun-automation-desktop.png"),
       fullPage: true,
     });
     await page.setViewportSize({ width: 320, height: 844 });
     await expect(panel).toBeVisible();
-    await expect(pickerButton).toContainText("Cloudflare");
+    await expect(pickerButton).toContainText("Porkbun");
+    await expect(addRecord).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow, "campaign page should not overflow at 320px").toBeLessThanOrEqual(1);
-    await page.screenshot({ path: testInfo.outputPath("dns-provider-mobile.png"), fullPage: true });
+    await page.screenshot({
+      path: testInfo.outputPath("porkbun-automation-mobile.png"),
+      fullPage: true,
+    });
   } finally {
     const ours = wasCreatedHere(SITE.name);
     const outcome = await removeIfOurs(page, SITE.name);

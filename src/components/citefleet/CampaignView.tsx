@@ -353,26 +353,20 @@ function AutoListingPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeo
         one who needs it.
       */}
       <div
-        className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3"
+        className="mt-4 rounded-2xl border border-sky-400/40 bg-sky-400/10 p-3"
         data-testid="proof-record"
       >
-        <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
-          Add this DNS record — no deploy needed
+        <p className="text-[11px] uppercase tracking-[0.16em] text-sky-300">
+          DNS record CiteFleet will add
         </p>
         <div className="mt-2">
-          <Row label="Type" value={record.type} />
-          <Row label="Name" value={record.name} />
-          <Row label="Value" value={record.value} />
+          <Row label="Type" value={record.type} tone="blue" />
+          <Row label="Name" value={record.name} tone="blue" />
+          <Row label="Value" value={record.value} tone="blue" />
         </div>
         <p className="mt-2 text-xs text-[#e2c36d]">{record.newRecordWarning}</p>
-        <p className="mt-1 text-xs text-[#9b95b3]">
-          {record.nameNote} This is CiteFleet’s publisher token — the same record works for every
-          domain you list here. Serving <span className="mono break-all">{record.value}</span> as
-          plain text at <span className="mono break-all">{record.fileUrl}</span> proves the same
-          thing; either one alone is enough.
-        </p>
       </div>
-      <DnsProviderPanel site={site} />
+      <DnsProviderPanel site={site} onChanged={fleet.refresh} />
       {proof && (
         <p className="mt-3 text-xs text-[#9b95b3]" data-testid="proof-note">
           {proof.note} · checked {new Date(proof.checkedAt).toLocaleString()}

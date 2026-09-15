@@ -46,16 +46,28 @@ export function Row({
   label,
   value,
   mono = true,
+  tone = "default",
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  tone?: "default" | "blue";
 }) {
+  const blue = tone === "blue";
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-2 first:border-t-0">
-      <span className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">{label}</span>
+    <div
+      className={`flex flex-wrap items-center justify-between gap-2 border-t py-2 first:border-t-0 ${blue ? "border-sky-300/20" : "border-white/8"}`}
+    >
+      <span
+        className={`text-[11px] uppercase tracking-[0.14em] ${blue ? "text-sky-300" : "text-[#9b95b3]"}`}
+      >
+        {label}
+      </span>
       <span className="flex min-w-0 items-center gap-2">
-        <span className={`${mono ? "mono" : ""} min-w-0 truncate text-sm text-white`} title={value}>
+        <span
+          className={`${mono ? "mono" : ""} min-w-0 truncate text-sm ${blue ? "text-sky-100" : "text-white"}`}
+          title={value}
+        >
           {value}
         </span>
         <Copy label={label} value={value} />

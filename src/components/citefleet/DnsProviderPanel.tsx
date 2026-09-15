@@ -1,4 +1,4 @@
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { ExternalLink, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createDnsSetupLinkFn,
@@ -8,12 +8,10 @@ import {
 import type { DnsAutomationSettings, DnsProviderDetection } from "@/lib/citefleet/dns-provider";
 import {
   dnsProviderActions,
-  DNS_MARKET_SOURCE,
-  DNS_RESEARCH_DATE,
   ENTRI_AUTO_PROVIDER_SLUG,
   type DnsSetupLink,
 } from "@/lib/citefleet/dns-provider";
-import { DNS_PROVIDER_MARKET_SHARE, dnsProviderBySlug } from "@/lib/citefleet/dns-providers";
+import { dnsProviderBySlug } from "@/lib/citefleet/dns-providers";
 import type { Site } from "@/lib/citefleet/types";
 import { Copy } from "./Copy";
 import { DnsProviderPicker } from "./DnsProviderPicker";
@@ -25,7 +23,13 @@ function signedOut(error: unknown): boolean {
   return true;
 }
 
-export function DnsProviderPanel({ site }: { site: Site }) {
+export function DnsProviderPanel({
+  site,
+  onChanged,
+}: {
+  site: Site;
+  onChanged: () => Promise<void>;
+}) {
   const [detection, setDetection] = useState<DnsProviderDetection | null>(null);
   const [settings, setSettings] = useState<DnsAutomationSettings | null>(null);
   const [selected, setSelected] = useState("");
@@ -39,12 +43,10 @@ export function DnsProviderPanel({ site }: { site: Site }) {
     setBusy("detect");
     setError(null);
     try {
-      const result = await detectDnsProviderFn({ data: { siteId: site.id } });
+      const next = await detectDnsProviderFn({ data: { siteId: site.id } });
       if (request === detectionRequest.current) {
-        setDetection(result);
-        // A refreshed mixed or unknown delegation must not keep presenting the
-        // provider detected by an older lookup as though it were still current.
-        setSelected(result.provider?.slug ?? "");
+        setDetection(next);
+        setSelected(next.provider?.slug ?? "");
       }
     } catch (cause) {
       if (request === detectionRequest.current && !signedOut(cause)) {
@@ -76,26 +78,41 @@ export function DnsProviderPanel({ site }: { site: Site }) {
     };
   }, [detect]);
 
+  useEffect(() => {
+    if (site.dnsSetup?.status !== "writing" && site.dnsSetup?.status !== "propagating") return;
+    let refreshing = false;
+    const timer = window.setInterval(() => {
+      if (refreshing) return;
+      refreshing = true;
+      void onChanged().finally(() => {
+        refreshing = false;
+      });
+    }, 5_000);
+    return () => window.clearInterval(timer);
+  }, [onChanged, site.dnsSetup?.status]);
+
   const provider = dnsProviderBySlug(selected);
   const actions = dnsProviderActions(provider, settings?.entri ?? null);
   const cloudflareGuided =
     detection?.status === "matched" &&
     detection.provider?.slug === "cloudflare" &&
     settings?.cloudflare.state === "ready";
-  const entriGuided = actions.guided && !cloudflareGuided;
+  const porkbunSelected = provider?.slug === "porkbun";
+  const entriGuided = actions.guided && !cloudflareGuided && !porkbunSelected;
 
   async function startSetup() {
     if (!entriGuided) return;
     setBusy("setup");
     setError(null);
     try {
-      const result = await createDnsSetupLinkFn({
+      const next = await createDnsSetupLinkFn({
         data: { siteId: site.id, providerSlug: provider?.slug ?? ENTRI_AUTO_PROVIDER_SLUG },
       });
-      setSetupLink(result);
+      setSetupLink(next);
     } catch (cause) {
-      if (!signedOut(cause))
+      if (!signedOut(cause)) {
         setError(cause instanceof Error ? cause.message : "Guided DNS setup failed.");
+      }
     } finally {
       setBusy(null);
     }
@@ -107,7 +124,9 @@ export function DnsProviderPanel({ site }: { site: Site }) {
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">DNS provider</p>
           <h3 className="mt-1 text-base font-semibold">
-            Open the account that controls this record
+            {provider
+              ? `${provider.name} controls this domain`
+              : "Detecting who controls this domain"}
           </h3>
         </div>
         <button
@@ -126,7 +145,15 @@ export function DnsProviderPanel({ site }: { site: Site }) {
       </div>
 
       <div className="mt-3 max-w-xl">
-        <DnsProviderPicker value={selected} onChange={setSelected} disabled={busy !== null} />
+        <DnsProviderPicker
+          value={selected}
+          disabled={busy !== null}
+          onChange={(slug) => {
+            setSelected(slug);
+            setSetupLink(null);
+            setError(null);
+          }}
+        />
       </div>
 
       <p className="mt-2 text-xs text-[#9b95b3]" data-testid="dns-detection-note">
@@ -142,148 +169,70 @@ export function DnsProviderPanel({ site }: { site: Site }) {
         </p>
       ) : null}
 
-      {provider || entriGuided ? (
-        <div className="mt-4">
-          {provider ? (
-            <>
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full border border-white/10 px-2.5 py-1 text-[#cfc8e8]">
-                  {provider.api.status === "public"
-                    ? "Public API"
-                    : provider.api.status === "restricted"
-                      ? "Limited API"
-                      : "API not verified"}
-                </span>
-                {provider.mcp.status === "official" ? (
-                  <span className="rounded-full border border-[#4ee0c3]/30 bg-[#4ee0c3]/10 px-2.5 py-1 text-[#8ff0dc]">
-                    Official MCP
-                  </span>
-                ) : null}
-                {cloudflareGuided ? (
-                  <span className="rounded-full border border-[#4ee0c3]/30 bg-[#4ee0c3]/10 px-2.5 py-1 text-[#8ff0dc]">
-                    Automatic DNS connection
-                  </span>
-                ) : settings?.entri.state === "ready" && provider.entri !== "not-listed" ? (
-                  <span className="rounded-full border border-[#9b7dff]/30 bg-[#9b7dff]/10 px-2.5 py-1 text-[#cbb8ff]">
-                    {provider.entri === "automatic" ? "Guided setup" : "Guided by brand"}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-2 text-sm text-[#b7b0cc]">{provider.note}</p>
-              {provider.api.caution ? (
-                <p className="mt-1 text-xs text-[#e2c36d]">{provider.api.caution}</p>
-              ) : null}
-            </>
-          ) : (
-            <p className="text-sm text-[#b7b0cc]">
-              Entri can identify additional supported providers from this domain without a guessed
-              market-share or account match.
-            </p>
-          )}
+      {porkbunSelected ? (
+        <div className="mt-4 max-w-xl">
+          <p className="text-sm text-[#b7b0cc]">
+            Porkbun opens so the domain owner can sign in and approve CiteFleet. When they return,
+            CiteFleet adds the blue record above and checks public DNS automatically.
+          </p>
+          <a
+            href={`/api/dns/porkbun/start?siteId=${encodeURIComponent(site.id)}`}
+            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md bg-sky-400 px-4 py-2 text-sm font-semibold text-[#07111f] hover:bg-sky-300"
+            data-testid="add-porkbun-txt"
+          >
+            <Plus aria-hidden="true" className="h-4 w-4" /> Add TXT record with Porkbun
+          </a>
+          <p className="mt-2 text-xs text-[#9b95b3]">
+            Porkbun names the approval for {site.domain}. CiteFleet uses the generated key once and
+            does not save it; remove that key in Porkbun after verification.
+          </p>
+        </div>
+      ) : cloudflareGuided ? (
+        <a
+          href={`${settings.cloudflare.startPath}?siteId=${encodeURIComponent(site.id)}`}
+          className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sky-400 px-4 py-2 text-sm font-semibold text-[#07111f] hover:bg-sky-300"
+          data-testid="connect-cloudflare-dns"
+        >
+          <ExternalLink aria-hidden="true" className="h-4 w-4" /> Connect Cloudflare
+        </a>
+      ) : entriGuided ? (
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={startSetup}
+          className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md bg-sky-400 px-4 py-2 text-sm font-semibold text-[#07111f] hover:bg-sky-300 disabled:opacity-40"
+        >
+          <ExternalLink aria-hidden="true" className="h-4 w-4" />
+          {busy === "setup"
+            ? "Creating secure link..."
+            : setupLink
+              ? "Create another link"
+              : "Connect DNS"}
+        </button>
+      ) : null}
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {cloudflareGuided ? (
-              <a
-                href={`${settings.cloudflare.startPath}?siteId=${encodeURIComponent(site.id)}`}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gradient-to-r from-[#6d4aff] to-[#4ee0c3] px-4 py-2 text-sm font-semibold text-[#07060f]"
-                data-testid="connect-cloudflare-dns"
-              >
-                <ExternalLink aria-hidden="true" className="h-4 w-4" /> Connect Cloudflare
-              </a>
-            ) : entriGuided ? (
-              <button
-                type="button"
-                disabled={busy !== null}
-                onClick={startSetup}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gradient-to-r from-[#6d4aff] to-[#4ee0c3] px-4 py-2 text-sm font-semibold text-[#07060f] disabled:opacity-40"
-              >
-                <ExternalLink aria-hidden="true" className="h-4 w-4" />
-                {busy === "setup"
-                  ? "Creating secure link..."
-                  : setupLink
-                    ? "Create another link"
-                    : "Create secure link"}
-              </button>
-            ) : null}
-            {provider && actions.accountUrl ? (
-              <a
-                href={actions.accountUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
-              >
-                <ExternalLink aria-hidden="true" className="h-4 w-4" /> Open {provider.name}
-              </a>
-            ) : null}
-            {provider ? (
-              <a
-                href={provider.guideUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-[#4ee0c3] underline"
-              >
-                Official TXT guide
-              </a>
-            ) : null}
-            {provider?.api.docsUrl ? (
-              <a
-                href={provider.api.docsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-[#cbb8ff] underline"
-              >
-                API docs
-              </a>
-            ) : null}
-            {provider?.mcp.docsUrl ? (
-              <a
-                href={provider.mcp.docsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-[#cbb8ff] underline"
-              >
-                MCP docs
-              </a>
-            ) : null}
+      {setupLink ? (
+        <div className="mt-3 border-t border-white/10 pt-3" data-testid="dns-secure-link">
+          <p className="text-xs text-[#b7b0cc]">
+            Secure setup is ready for <span className="mono text-white">{site.domain}</span>.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <a
+              href={setupLink.link}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+            >
+              <ExternalLink aria-hidden="true" className="h-4 w-4" /> Open secure setup
+            </a>
+            <Copy label="secure DNS setup link" value={setupLink.link} size="control" />
           </div>
-          {setupLink ? (
-            <div className="mt-3 border-t border-white/10 pt-3" data-testid="dns-secure-link">
-              <p className="text-xs text-[#b7b0cc]">
-                Ready for <span className="mono text-[#eee9ff]">{site.domain}</span>. Share only
-                with the person who controls its DNS; a new link replaces this one&apos;s callback
-                tracking.
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <a
-                  href={setupLink.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
-                >
-                  <ExternalLink aria-hidden="true" className="h-4 w-4" /> Open secure setup
-                </a>
-                <Copy label="secure DNS setup link" value={setupLink.link} size="control" />
-              </div>
-            </div>
-          ) : null}
         </div>
       ) : null}
 
-      {settings?.entri.state === "misconfigured" ? (
-        <p className="mt-3 text-xs text-rose-300">
-          Guided DNS setup is disabled because its credentials or sharing host are incomplete or
-          invalid.
-        </p>
-      ) : null}
-      {detection?.provider?.slug === "cloudflare" &&
-      settings?.cloudflare.state === "misconfigured" ? (
-        <p className="mt-3 text-xs text-rose-300">
-          Cloudflare connection is disabled because its OAuth client configuration is incomplete.
-        </p>
-      ) : null}
       {site.dnsSetup?.lastResult ? (
         <p
-          className={`mt-3 text-xs ${site.dnsSetup.status === "verified" ? "text-[#8ff0dc]" : site.dnsSetup.status === "failed" ? "text-rose-300" : "text-[#cfc8e8]"}`}
+          className={`mt-3 text-sm ${site.dnsSetup.status === "verified" ? "text-[#8ff0dc]" : site.dnsSetup.status === "failed" ? "text-rose-300" : "text-sky-200"}`}
           data-testid="dns-setup-status"
         >
           {site.dnsSetup.lastResult}
@@ -294,13 +243,35 @@ export function DnsProviderPanel({ site }: { site: Site }) {
           {error}
         </p>
       ) : null}
-      <p className="mt-4 text-[11px] text-[#77718e]">
-        <a href={DNS_MARKET_SOURCE} target="_blank" rel="noreferrer" className="underline">
-          {DNS_PROVIDER_MARKET_SHARE}% measured provider coverage
-        </a>{" "}
-        across 29 researched groups as checked {DNS_RESEARCH_DATE}. Entri can guide additional
-        supported providers without turning them into an invented market-share claim.
-      </p>
+
+      {provider ? (
+        <details className="mt-4 text-sm text-[#b7b0cc]">
+          <summary className="cursor-pointer text-xs text-[#9b95b3]">
+            Add the record manually
+          </summary>
+          <p className="mt-2">Open {provider.name} and enter the blue record above exactly.</p>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {actions.accountUrl ? (
+              <a
+                href={actions.accountUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-sky-300 underline"
+              >
+                <ExternalLink aria-hidden="true" className="h-4 w-4" /> Open {provider.name}
+              </a>
+            ) : null}
+            <a
+              href={provider.guideUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sky-300 underline"
+            >
+              Official TXT instructions
+            </a>
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

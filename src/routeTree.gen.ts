@@ -46,6 +46,8 @@ import { Route as ApiOauthGoogleCallbackRouteImport } from './routes/api/oauth/g
 import { Route as ApiOauthProvidersRouteImport } from './routes/api/oauth/providers'
 import { Route as ApiDnsCloudflareCallbackRouteImport } from './routes/api/dns/cloudflare/callback'
 import { Route as ApiDnsCloudflareStartRouteImport } from './routes/api/dns/cloudflare/start'
+import { Route as ApiDnsPorkbunCallbackRouteImport } from './routes/api/dns/porkbun/callback'
+import { Route as ApiDnsPorkbunStartRouteImport } from './routes/api/dns/porkbun/start'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -233,6 +235,16 @@ const ApiDnsCloudflareStartRoute = ApiDnsCloudflareStartRouteImport.update({
   path: '/api/dns/cloudflare/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDnsPorkbunCallbackRoute = ApiDnsPorkbunCallbackRouteImport.update({
+  id: '/api/dns/porkbun/callback',
+  path: '/api/dns/porkbun/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDnsPorkbunStartRoute = ApiDnsPorkbunStartRouteImport.update({
+  id: '/api/dns/porkbun/start',
+  path: '/api/dns/porkbun/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -272,6 +284,8 @@ export interface FileRoutesByFullPath {
   '/api/oauth/providers': typeof ApiOauthProvidersRoute
   '/api/dns/cloudflare/callback': typeof ApiDnsCloudflareCallbackRoute
   '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
+  '/api/dns/porkbun/callback': typeof ApiDnsPorkbunCallbackRoute
+  '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -311,6 +325,8 @@ export interface FileRoutesByTo {
   '/api/oauth/providers': typeof ApiOauthProvidersRoute
   '/api/dns/cloudflare/callback': typeof ApiDnsCloudflareCallbackRoute
   '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
+  '/api/dns/porkbun/callback': typeof ApiDnsPorkbunCallbackRoute
+  '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -351,6 +367,8 @@ export interface FileRoutesById {
   '/api/oauth/providers': typeof ApiOauthProvidersRoute
   '/api/dns/cloudflare/callback': typeof ApiDnsCloudflareCallbackRoute
   '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
+  '/api/dns/porkbun/callback': typeof ApiDnsPorkbunCallbackRoute
+  '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -392,6 +410,8 @@ export interface FileRouteTypes {
     | '/api/oauth/providers'
     | '/api/dns/cloudflare/callback'
     | '/api/dns/cloudflare/start'
+    | '/api/dns/porkbun/callback'
+    | '/api/dns/porkbun/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -431,6 +451,8 @@ export interface FileRouteTypes {
     | '/api/oauth/providers'
     | '/api/dns/cloudflare/callback'
     | '/api/dns/cloudflare/start'
+    | '/api/dns/porkbun/callback'
+    | '/api/dns/porkbun/start'
   id:
     | '__root__'
     | '/'
@@ -470,6 +492,8 @@ export interface FileRouteTypes {
     | '/api/oauth/providers'
     | '/api/dns/cloudflare/callback'
     | '/api/dns/cloudflare/start'
+    | '/api/dns/porkbun/callback'
+    | '/api/dns/porkbun/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -510,6 +534,8 @@ export interface RootRouteChildren {
   ApiOauthProvidersRoute: typeof ApiOauthProvidersRoute
   ApiDnsCloudflareCallbackRoute: typeof ApiDnsCloudflareCallbackRoute
   ApiDnsCloudflareStartRoute: typeof ApiDnsCloudflareStartRoute
+  ApiDnsPorkbunCallbackRoute: typeof ApiDnsPorkbunCallbackRoute
+  ApiDnsPorkbunStartRoute: typeof ApiDnsPorkbunStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -773,6 +799,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDnsCloudflareStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dns/porkbun/callback': {
+      id: '/api/dns/porkbun/callback'
+      path: '/api/dns/porkbun/callback'
+      fullPath: '/api/dns/porkbun/callback'
+      preLoaderRoute: typeof ApiDnsPorkbunCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dns/porkbun/start': {
+      id: '/api/dns/porkbun/start'
+      path: '/api/dns/porkbun/start'
+      fullPath: '/api/dns/porkbun/start'
+      preLoaderRoute: typeof ApiDnsPorkbunStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -814,6 +854,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthProvidersRoute: ApiOauthProvidersRoute,
   ApiDnsCloudflareCallbackRoute: ApiDnsCloudflareCallbackRoute,
   ApiDnsCloudflareStartRoute: ApiDnsCloudflareStartRoute,
+  ApiDnsPorkbunCallbackRoute: ApiDnsPorkbunCallbackRoute,
+  ApiDnsPorkbunStartRoute: ApiDnsPorkbunStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

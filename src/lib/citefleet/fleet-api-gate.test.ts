@@ -113,6 +113,28 @@ test("Cloudflare DNS OAuth is property-bound and never accepts a browser-supplie
   assert.doesNotMatch(route, /accessToken\s*:/);
 });
 
+test("Porkbun browser approval is property-bound and persists no generated API credential", () => {
+  const route = readFileSync(
+    path.resolve(import.meta.dirname, "porkbun-dns-oauth.server.ts"),
+    "utf8",
+  );
+  assert.match(route, /searchParams\.get\("siteId"\)/);
+  assert.doesNotMatch(route, /searchParams\.get\("domain"\)/);
+  assert.doesNotMatch(route, /searchParams\.get\("apiKey"\)|searchParams\.get\("secretApiKey"\)/);
+  assert.match(route, /const site = getSite\(store, siteId\)/);
+  assert.match(route, /assertCanAct\(store, "spend"\)/);
+  assert.match(route, /detectDnsProvider\(domain\)/);
+  assert.match(route, /createPorkbunAuthorization\(domain\)/);
+  assert.match(route, /consumePorkbunAuthorizationState\(requestToken, user\.id\)/);
+  assert.match(route, /normalizeDomain\(site\.domain\) !== transaction\.domain/);
+  assert.match(route, /dnsSetupOperationId\(site\.dnsSetup\) !== transaction\.operationId/);
+  assert.match(route, /const record = proofRecord\(site\)/);
+  assert.match(route, /ensurePorkbunTxt\([\s\S]*record\.apex,[\s\S]*record\.value/);
+  assert.match(route, /credentials = null/);
+  assert.doesNotMatch(route, /dnsSetup\s*=\s*\{[^}]*apiKey/s);
+  assert.doesNotMatch(route, /dnsSetup\s*=\s*\{[^}]*secretApiKey/s);
+});
+
 test("new onboarding persists a generated versioned proof token", () => {
   const dispatcher = readFileSync(path.resolve(import.meta.dirname, "dispatcher.ts"), "utf8");
   const onboard = dispatcher.slice(

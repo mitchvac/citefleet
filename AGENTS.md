@@ -74,9 +74,18 @@ Playwright for e2e. **Node 22** (`engines: >=22`, both Dockerfile stages are `no
   exact UTF-8 bytes; GitHub alone receives its documented 25 MB delivery ceiling,
   while the other public hooks retain the tighter 8 MB default.
 - `DnsProviderPanel.tsx` and `DnsProviderPicker.tsx` expose provider detection,
-  official account/TXT/API/MCP evidence, manual fallback, and open/copy controls
-  for the customer handoff. `routes/api/hooks/entri.ts` is the callback route;
-  `health.ts` reports only deployment-level guided-DNS readiness.
+  a blue proof record, direct Cloudflare/Entri actions, and a real Porkbun **Add
+  TXT record** action. `porkbun-dns.server.ts`,
+  `porkbun-dns-oauth.server.ts`, the `routes/api/dns/porkbun/*` routes, and
+  migration `20260915140000_citefleet_porkbun_dns_authorizations.sql` implement
+  Porkbun's official browser approval with PKCE: the request token is stored only
+  as a digest, the verifier is deleted atomically at callback, the returned key
+  pair is used once and never persisted, and both provider detection and the
+  stored domain are re-checked before creating only the exact apex proof TXT.
+  The callback then starts the same public-DNS verification loop. Manual
+  instructions remain behind a fallback disclosure. `routes/api/hooks/entri.ts`
+  is the Entri callback route; `health.ts` reports only deployment-level
+  guided-DNS readiness.
 - `deploy/deploy-vps.sh` optionally reads `/root/citefleet-entri.connect`
   (application id, the shared application/webhook secret, and an optional
   custom share hostname) and `/root/citefleet-cloudflare.oauth` (public OAuth
