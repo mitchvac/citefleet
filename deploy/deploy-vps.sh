@@ -160,6 +160,27 @@ if [[ -e "$CLOUDFLARE_FILE" ]]; then
   fi
 fi
 
+# Optional direct Vercel External Integration. The slug identifies the public
+# install URL; the client secret stays only on this server. The integration
+# needs Domain Read/Write and Installation Read/Write permissions.
+VERCEL_FILE="/root/citefleet-vercel.oauth"
+VERCEL_INTEGRATION_SLUG=""
+VERCEL_CLIENT_ID=""
+VERCEL_CLIENT_SECRET=""
+if [[ -e "$VERCEL_FILE" ]]; then
+  mapfile -t _vercel < "$VERCEL_FILE"
+  VERCEL_INTEGRATION_SLUG="${_vercel[0]-}"
+  VERCEL_CLIENT_ID="${_vercel[1]-}"
+  VERCEL_CLIENT_SECRET="${_vercel[2]-}"
+  VERCEL_INTEGRATION_SLUG="${VERCEL_INTEGRATION_SLUG//$'\r'/}"
+  VERCEL_CLIENT_ID="${VERCEL_CLIENT_ID//$'\r'/}"
+  VERCEL_CLIENT_SECRET="${VERCEL_CLIENT_SECRET//$'\r'/}"
+  if [[ -z "$VERCEL_INTEGRATION_SLUG" || -z "$VERCEL_CLIENT_ID" || -z "$VERCEL_CLIENT_SECRET" ]]; then
+    echo "deploy: $VERCEL_FILE must contain integration slug, client ID, and secret on lines 1-3" >&2
+    exit 1
+  fi
+fi
+
 NET="citefleet-net"
 PG_NAME="citefleet-postgres"
 PASS_FILE="/root/citefleet-postgres.pass"
@@ -300,6 +321,11 @@ fi
     printf 'CITEFLEET_CLOUDFLARE_CLIENT_ID=%s\n' "$CLOUDFLARE_CLIENT_ID"
     printf 'CITEFLEET_CLOUDFLARE_CLIENT_SECRET=%s\n' "$CLOUDFLARE_CLIENT_SECRET"
     printf 'CITEFLEET_CLOUDFLARE_SCOPES=%s\n' "$CLOUDFLARE_SCOPES"
+  fi
+  if [[ -n "$VERCEL_CLIENT_ID" ]]; then
+    printf 'CITEFLEET_VERCEL_INTEGRATION_SLUG=%s\n' "$VERCEL_INTEGRATION_SLUG"
+    printf 'CITEFLEET_VERCEL_CLIENT_ID=%s\n' "$VERCEL_CLIENT_ID"
+    printf 'CITEFLEET_VERCEL_CLIENT_SECRET=%s\n' "$VERCEL_CLIENT_SECRET"
   fi
   # Listing-year billing (BotCentral brief, 2026-09-06). OFF until a key has
   # been funded end to end — a publish with an unfunded key is a 402. Turn it

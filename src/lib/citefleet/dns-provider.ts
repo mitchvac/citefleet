@@ -87,9 +87,17 @@ export interface CloudflareDnsSettings {
   docsUrl: string;
 }
 
+export interface VercelDnsSettings {
+  state: "ready" | "off" | "misconfigured";
+  service: "vercel";
+  startPath: string;
+  docsUrl: string;
+}
+
 export interface DnsAutomationSettings {
   entri: DnsSetupSettings;
   cloudflare: CloudflareDnsSettings;
+  vercel: VercelDnsSettings;
 }
 
 export interface DnsSetupLink {

@@ -94,7 +94,7 @@ export interface Site {
   /** Provider authorization/write handoff and its latest verification state. */
   dnsSetup?: {
     providerSlug: string;
-    service?: "entri" | "cloudflare" | "porkbun";
+    service?: "entri" | "cloudflare" | "porkbun" | "vercel";
     /** Generic correlation id. `jobId` remains for existing Entri snapshots. */
     operationId?: string;
     jobId?: string;

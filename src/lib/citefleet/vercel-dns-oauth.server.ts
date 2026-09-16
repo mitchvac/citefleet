@@ -1,19 +1,20 @@
 import { currentSessionUser } from "../auth/operator.server.ts";
 import { assertSameSiteRequest } from "../auth/isolation.server.ts";
 import { assertCanAct } from "./control.ts";
-import {
-  cloudflareAuthorizationUrl,
-  cloudflareOAuthConfig,
-  ensureCloudflareTxt,
-  exchangeCloudflareCode,
-  revokeCloudflareToken,
-} from "./cloudflare-dns.server.ts";
 import { detectDnsProvider } from "./dns-provider-detection.server.ts";
 import { dnsSetupOperationId } from "./dns-provider.ts";
 import { createDnsOAuthState, consumeDnsOAuthState } from "./dns-oauth-state.server.ts";
 import { runWebhookListing } from "./dispatcher.ts";
 import { proofRecord } from "./proof-record.ts";
 import { getSite, logActivity } from "./store.ts";
+import {
+  ensureVercelTxt,
+  exchangeVercelCode,
+  removeVercelIntegration,
+  vercelAuthorizationUrl,
+  vercelCompletionUrl,
+  vercelOAuthConfig,
+} from "./vercel-dns.server.ts";
 import { normalizeDomain } from "./verify-token.ts";
 import { workspaceForPrincipal } from "./workspace-registry.server.ts";
 
@@ -27,54 +28,6 @@ function campaign(siteId: string, result: string): Response {
 
 function login(): Response {
   return redirect("/login");
-}
-
-export async function startCloudflareDnsOAuth(request: Request): Promise<Response> {
-  assertSameSiteRequest();
-  const user = await currentSessionUser(request);
-  if (!user) return login();
-  const siteId = new URL(request.url).searchParams.get("siteId")?.trim() ?? "";
-  if (!siteId) return redirect("/");
-
-  const ws = await workspaceForPrincipal({ kind: "user", userId: user.id, email: user.email });
-  const store = await ws.get();
-  const site = getSite(store, siteId);
-  if (!site) return redirect("/");
-  assertCanAct(store, "spend");
-  const detection = await detectDnsProvider(site.domain);
-  if (detection.status !== "matched" || detection.provider?.slug !== "cloudflare") {
-    throw new Error("Cloudflare is not the current authoritative DNS provider for this property.");
-  }
-  const config = cloudflareOAuthConfig();
-  if (!config) throw new Error("Cloudflare DNS connection is not configured.");
-  const created = await createDnsOAuthState({
-    workspaceId: ws.id,
-    userId: user.id,
-    siteId: site.id,
-    provider: "cloudflare",
-    domain: normalizeDomain(site.domain),
-  });
-  const at = new Date().toISOString();
-  await ws.mutate((next) => {
-    const current = getSite(next, site.id);
-    if (!current) throw new Error("property not found");
-    current.dnsSetup = {
-      providerSlug: "cloudflare",
-      service: "cloudflare",
-      operationId: created.operationId,
-      status: "authorization-pending",
-      createdAt: at,
-      updatedAt: at,
-      lastResult: "Waiting for the customer to approve DNS access in Cloudflare.",
-    };
-    logActivity(next, {
-      actor: user.email,
-      kind: "system",
-      siteId: site.id,
-      message: `Started Cloudflare DNS authorization for ${site.domain}.`,
-    });
-  });
-  return redirect(cloudflareAuthorizationUrl(config, created.state));
 }
 
 async function markFailed(
@@ -94,25 +47,86 @@ async function markFailed(
   });
 }
 
-export async function finishCloudflareDnsOAuth(request: Request): Promise<Response> {
+export async function startVercelDnsOAuth(request: Request): Promise<Response> {
+  assertSameSiteRequest();
+  const user = await currentSessionUser(request);
+  if (!user) return login();
+  const siteId = new URL(request.url).searchParams.get("siteId")?.trim() ?? "";
+  if (!siteId) return redirect("/");
+
+  const ws = await workspaceForPrincipal({ kind: "user", userId: user.id, email: user.email });
+  const store = await ws.get();
+  const site = getSite(store, siteId);
+  if (!site) return redirect("/");
+  assertCanAct(store, "spend");
+  const detection = await detectDnsProvider(site.domain);
+  if (detection.status !== "matched" || detection.provider?.slug !== "vercel") {
+    throw new Error("Vercel is not the current authoritative DNS provider for this property.");
+  }
+  const config = vercelOAuthConfig();
+  if (!config) throw new Error("Vercel DNS connection is not configured.");
+  const created = await createDnsOAuthState({
+    workspaceId: ws.id,
+    userId: user.id,
+    siteId: site.id,
+    provider: "vercel",
+    domain: normalizeDomain(site.domain),
+  });
+  const at = new Date().toISOString();
+  await ws.mutate((next) => {
+    const current = getSite(next, site.id);
+    if (!current) throw new Error("property not found");
+    current.dnsSetup = {
+      providerSlug: "vercel",
+      service: "vercel",
+      operationId: created.operationId,
+      status: "authorization-pending",
+      createdAt: at,
+      updatedAt: at,
+      lastResult: "Waiting for the customer to approve temporary DNS access in Vercel.",
+    };
+    logActivity(next, {
+      actor: user.email,
+      kind: "system",
+      siteId: site.id,
+      message: `Started Vercel DNS authorization for ${site.domain}.`,
+    });
+  });
+  return redirect(vercelAuthorizationUrl(config, created.state));
+}
+
+export async function finishVercelDnsOAuth(request: Request): Promise<Response> {
   assertSameSiteRequest();
   const user = await currentSessionUser(request);
   if (!user) return login();
   const url = new URL(request.url);
-  const rawState = url.searchParams.get("state") ?? "";
-  const transaction = await consumeDnsOAuthState(rawState, user.id, "cloudflare");
+  const transaction = await consumeDnsOAuthState(
+    url.searchParams.get("state") ?? "",
+    user.id,
+    "vercel",
+  );
   if (!transaction) return redirect("/?dns=invalid-state");
   const ws = await workspaceForPrincipal({ kind: "user", userId: user.id, email: user.email });
   if (ws.id !== transaction.workspaceId) return redirect("/?dns=invalid-state");
-  const denied = url.searchParams.has("error");
+
   const code = url.searchParams.get("code")?.trim() ?? "";
-  if (denied || !code) {
+  const configurationId = url.searchParams.get("configurationId")?.trim() ?? "";
+  const rawTeamId = url.searchParams.get("teamId")?.trim() ?? "";
+  const teamId = rawTeamId || null;
+  const denied = url.searchParams.has("error");
+  if (
+    denied ||
+    !code ||
+    code.length > 4096 ||
+    !/^icfg_[A-Za-z0-9_-]{6,160}$/.test(configurationId) ||
+    (teamId !== null && !/^team_[A-Za-z0-9_-]{6,160}$/.test(teamId))
+  ) {
     await markFailed(
       transaction.siteId,
       transaction.operationId,
       user,
       ws,
-      "Cloudflare access was not approved. No DNS record was changed.",
+      "Vercel access was not approved. No DNS record was changed.",
     );
     return campaign(transaction.siteId, "denied");
   }
@@ -129,15 +143,19 @@ export async function finishCloudflareDnsOAuth(request: Request): Promise<Respon
     }
     assertCanAct(store, "spend");
     const detection = await detectDnsProvider(site.domain);
-    if (detection.status !== "matched" || detection.provider?.slug !== "cloudflare") {
-      throw new Error("Cloudflare is no longer authoritative for this property.");
+    if (detection.status !== "matched" || detection.provider?.slug !== "vercel") {
+      throw new Error("Vercel is no longer authoritative for this property.");
     }
-    const config = cloudflareOAuthConfig();
-    if (!config) throw new Error("Cloudflare DNS connection is not configured.");
-    token = await exchangeCloudflareCode(code, config);
+    const config = vercelOAuthConfig();
+    if (!config) throw new Error("Vercel DNS connection is not configured.");
+    const authorization = await exchangeVercelCode(code, config);
+    token = authorization.accessToken;
+    if (authorization.teamId !== teamId) {
+      throw new Error("Vercel returned a different account scope than the approved installation.");
+    }
     const record = proofRecord(site);
-    const result = await ensureCloudflareTxt(token, record.apex, record.value);
-    const revoked = await revokeCloudflareToken(token, config);
+    const result = await ensureVercelTxt(token, record.apex, record.value, teamId);
+    const removed = await removeVercelIntegration(token, configurationId, teamId);
     token = "";
     const at = new Date().toISOString();
     await ws.mutate((next) => {
@@ -145,38 +163,38 @@ export async function finishCloudflareDnsOAuth(request: Request): Promise<Respon
       if (!current || dnsSetupOperationId(current.dnsSetup) !== transaction.operationId) return;
       current.dnsSetup!.status = "propagating";
       current.dnsSetup!.updatedAt = at;
-      current.dnsSetup!.lastResult = revoked
-        ? `${result.created ? "Created" : "Found"} the exact apex TXT record and revoked temporary Cloudflare access. Checking public DNS now.`
-        : `${result.created ? "Created" : "Found"} the exact apex TXT record. Temporary access was discarded locally, but Cloudflare revocation could not be confirmed.`;
+      current.dnsSetup!.lastResult = removed
+        ? `${result.created ? "Created" : "Found"} the exact apex TXT record and removed temporary Vercel access. Checking public DNS now.`
+        : `${result.created ? "Created" : "Found"} the exact apex TXT record. Temporary access was discarded locally, but Vercel removal could not be confirmed.`;
       logActivity(next, {
         actor: user.email,
         kind: "system",
         siteId: transaction.siteId,
-        message: `${result.created ? "Created" : "Found"} the BotCentral proof TXT record for ${site.domain}; Cloudflare token revocation ${revoked ? "confirmed" : "not confirmed"}.`,
+        message: `${result.created ? "Created" : "Found"} the BotCentral proof TXT record for ${site.domain}; Vercel integration removal ${removed ? "confirmed" : "not confirmed"}.`,
       });
     });
-    void runWebhookListing(ws, transaction.siteId, "Cloudflare DNS setup", {
+    void runWebhookListing(ws, transaction.siteId, "Vercel DNS setup", {
       dnsSetupOperationId: transaction.operationId,
-      inFlightKey: `cloudflare:${transaction.siteId}:${transaction.operationId}`,
+      inFlightKey: `vercel:${transaction.siteId}:${transaction.operationId}`,
     });
-    return campaign(transaction.siteId, "verifying");
+    const completion = vercelCompletionUrl(url.searchParams.get("next"));
+    return completion ? redirect(completion) : campaign(transaction.siteId, "verifying");
   } catch (error) {
     if (token) {
       try {
-        const config = cloudflareOAuthConfig();
-        if (config) await revokeCloudflareToken(token, config);
+        await removeVercelIntegration(token, configurationId, teamId);
       } catch {
-        // The temporary token is still discarded locally when config changed mid-flow.
+        // The temporary token is still discarded locally after a bounded removal attempt.
       }
     }
-    const message = error instanceof Error ? error.message : "Cloudflare DNS setup failed.";
-    console.error("[citefleet] Cloudflare DNS setup failed", message);
+    const message = error instanceof Error ? error.message : "Vercel DNS setup failed.";
+    console.error("[citefleet] Vercel DNS setup failed", message);
     await markFailed(
       transaction.siteId,
       transaction.operationId,
       user,
       ws,
-      `${message} No Cloudflare credential was stored.`,
+      `${message} No Vercel credential was stored.`,
     );
     return campaign(transaction.siteId, "failed");
   }

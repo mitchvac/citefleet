@@ -77,3 +77,20 @@ test("Cloudflare OAuth credentials survive deploys only through the durable root
   const envRewrite = deploy.indexOf("} > .env");
   assert.ok(validation >= 0 && validation < envRewrite);
 });
+
+test("Vercel OAuth credentials survive deploys only through the durable root file", () => {
+  assert.match(deploy, /VERCEL_FILE="\/root\/citefleet-vercel\.oauth"/);
+  assert.match(deploy, /mapfile -t _vercel < "\$VERCEL_FILE"/);
+  assert.match(
+    deploy,
+    /if \[\[ -z "\$VERCEL_INTEGRATION_SLUG" \|\| -z "\$VERCEL_CLIENT_ID" \|\| -z "\$VERCEL_CLIENT_SECRET" \]\]; then[\s\S]*?exit 1/,
+  );
+  assert.match(deploy, /CITEFLEET_VERCEL_INTEGRATION_SLUG=%s/);
+  assert.match(deploy, /CITEFLEET_VERCEL_CLIENT_ID=%s/);
+  assert.match(deploy, /CITEFLEET_VERCEL_CLIENT_SECRET=%s/);
+  assert.doesNotMatch(deploy, /echo[^\n]*\$VERCEL_CLIENT_SECRET/);
+
+  const validation = deploy.indexOf('if [[ -e "$VERCEL_FILE" ]]');
+  const envRewrite = deploy.indexOf("} > .env");
+  assert.ok(validation >= 0 && validation < envRewrite);
+});

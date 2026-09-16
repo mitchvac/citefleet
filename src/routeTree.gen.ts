@@ -48,6 +48,8 @@ import { Route as ApiDnsCloudflareCallbackRouteImport } from './routes/api/dns/c
 import { Route as ApiDnsCloudflareStartRouteImport } from './routes/api/dns/cloudflare/start'
 import { Route as ApiDnsPorkbunCallbackRouteImport } from './routes/api/dns/porkbun/callback'
 import { Route as ApiDnsPorkbunStartRouteImport } from './routes/api/dns/porkbun/start'
+import { Route as ApiDnsVercelCallbackRouteImport } from './routes/api/dns/vercel/callback'
+import { Route as ApiDnsVercelStartRouteImport } from './routes/api/dns/vercel/start'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -245,6 +247,16 @@ const ApiDnsPorkbunStartRoute = ApiDnsPorkbunStartRouteImport.update({
   path: '/api/dns/porkbun/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDnsVercelCallbackRoute = ApiDnsVercelCallbackRouteImport.update({
+  id: '/api/dns/vercel/callback',
+  path: '/api/dns/vercel/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDnsVercelStartRoute = ApiDnsVercelStartRouteImport.update({
+  id: '/api/dns/vercel/start',
+  path: '/api/dns/vercel/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -286,6 +298,8 @@ export interface FileRoutesByFullPath {
   '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
   '/api/dns/porkbun/callback': typeof ApiDnsPorkbunCallbackRoute
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
+  '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
+  '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -327,6 +341,8 @@ export interface FileRoutesByTo {
   '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
   '/api/dns/porkbun/callback': typeof ApiDnsPorkbunCallbackRoute
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
+  '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
+  '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -369,6 +385,8 @@ export interface FileRoutesById {
   '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
   '/api/dns/porkbun/callback': typeof ApiDnsPorkbunCallbackRoute
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
+  '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
+  '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -412,6 +430,8 @@ export interface FileRouteTypes {
     | '/api/dns/cloudflare/start'
     | '/api/dns/porkbun/callback'
     | '/api/dns/porkbun/start'
+    | '/api/dns/vercel/callback'
+    | '/api/dns/vercel/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -453,6 +473,8 @@ export interface FileRouteTypes {
     | '/api/dns/cloudflare/start'
     | '/api/dns/porkbun/callback'
     | '/api/dns/porkbun/start'
+    | '/api/dns/vercel/callback'
+    | '/api/dns/vercel/start'
   id:
     | '__root__'
     | '/'
@@ -494,6 +516,8 @@ export interface FileRouteTypes {
     | '/api/dns/cloudflare/start'
     | '/api/dns/porkbun/callback'
     | '/api/dns/porkbun/start'
+    | '/api/dns/vercel/callback'
+    | '/api/dns/vercel/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -536,6 +560,8 @@ export interface RootRouteChildren {
   ApiDnsCloudflareStartRoute: typeof ApiDnsCloudflareStartRoute
   ApiDnsPorkbunCallbackRoute: typeof ApiDnsPorkbunCallbackRoute
   ApiDnsPorkbunStartRoute: typeof ApiDnsPorkbunStartRoute
+  ApiDnsVercelCallbackRoute: typeof ApiDnsVercelCallbackRoute
+  ApiDnsVercelStartRoute: typeof ApiDnsVercelStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -813,6 +839,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDnsPorkbunStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dns/vercel/callback': {
+      id: '/api/dns/vercel/callback'
+      path: '/api/dns/vercel/callback'
+      fullPath: '/api/dns/vercel/callback'
+      preLoaderRoute: typeof ApiDnsVercelCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dns/vercel/start': {
+      id: '/api/dns/vercel/start'
+      path: '/api/dns/vercel/start'
+      fullPath: '/api/dns/vercel/start'
+      preLoaderRoute: typeof ApiDnsVercelStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -856,6 +896,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDnsCloudflareStartRoute: ApiDnsCloudflareStartRoute,
   ApiDnsPorkbunCallbackRoute: ApiDnsPorkbunCallbackRoute,
   ApiDnsPorkbunStartRoute: ApiDnsPorkbunStartRoute,
+  ApiDnsVercelCallbackRoute: ApiDnsVercelCallbackRoute,
+  ApiDnsVercelStartRoute: ApiDnsVercelStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

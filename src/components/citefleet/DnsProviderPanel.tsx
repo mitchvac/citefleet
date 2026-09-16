@@ -79,7 +79,12 @@ export function DnsProviderPanel({
   }, [detect]);
 
   useEffect(() => {
-    if (site.dnsSetup?.status !== "writing" && site.dnsSetup?.status !== "propagating") return;
+    if (
+      site.dnsSetup?.status !== "authorization-pending" &&
+      site.dnsSetup?.status !== "writing" &&
+      site.dnsSetup?.status !== "propagating"
+    )
+      return;
     let refreshing = false;
     const timer = window.setInterval(() => {
       if (refreshing) return;
@@ -94,11 +99,17 @@ export function DnsProviderPanel({
   const provider = dnsProviderBySlug(selected);
   const actions = dnsProviderActions(provider, settings?.entri ?? null);
   const cloudflareGuided =
+    provider?.slug === "cloudflare" &&
     detection?.status === "matched" &&
     detection.provider?.slug === "cloudflare" &&
     settings?.cloudflare.state === "ready";
   const porkbunSelected = provider?.slug === "porkbun";
-  const entriGuided = actions.guided && !cloudflareGuided && !porkbunSelected;
+  const vercelGuided =
+    provider?.slug === "vercel" &&
+    detection?.status === "matched" &&
+    detection.provider?.slug === "vercel" &&
+    settings?.vercel.state === "ready";
+  const entriGuided = actions.guided && !cloudflareGuided && !vercelGuided && !porkbunSelected;
 
   async function startSetup() {
     if (!entriGuided) return;
@@ -213,6 +224,22 @@ export function DnsProviderPanel({
         >
           <ExternalLink aria-hidden="true" className="h-4 w-4" /> Connect Cloudflare
         </a>
+      ) : vercelGuided ? (
+        <div className="mt-4 max-w-xl">
+          <p className="text-sm text-[#b7b0cc]">
+            Vercel opens in a new tab for approval. CiteFleet adds only the blue TXT record above,
+            removes its temporary Vercel access, and updates this page automatically.
+          </p>
+          <a
+            href={`${settings.vercel.startPath}?siteId=${encodeURIComponent(site.id)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md bg-sky-400 px-4 py-2 text-sm font-semibold text-[#07111f] hover:bg-sky-300"
+            data-testid="add-vercel-txt"
+          >
+            <Plus aria-hidden="true" className="h-4 w-4" /> Add TXT record with Vercel
+          </a>
+        </div>
       ) : entriGuided ? (
         <button
           type="button"

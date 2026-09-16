@@ -8,6 +8,7 @@ import {
 import { ENTRI_HOOK_PATH } from "@/lib/citefleet/entri-webhook";
 import { dnsSetupSettings } from "@/lib/citefleet/dns-setup.server";
 import { cloudflareDnsSettings } from "@/lib/citefleet/cloudflare-dns.server";
+import { vercelDnsSettings } from "@/lib/citefleet/vercel-dns.server";
 import { dbConfigured } from "@/lib/db";
 import { checkDatabase, deploymentRevision } from "@/lib/health";
 
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/health")({
         const databaseReady = dbConfigured && (await checkDatabase());
         const entri = dnsSetupSettings().state;
         const cloudflare = cloudflareDnsSettings().state;
+        const vercel = vercelDnsSettings().state;
         // `sites` and `listed` used to be reported here, read from the one
         // global workspace. With a workspace per customer those numbers are a
         // cross-tenant aggregate on an UNAUTHENTICATED route — it would tell
@@ -40,7 +42,7 @@ export const Route = createFileRoute("/health")({
             // Preserve the original scalar for existing monitors; provider-level
             // readiness is additive and contains no customer or credential data.
             dnsSetup: entri,
-            dnsProviders: { entri, cloudflare },
+            dnsProviders: { entri, cloudflare, vercel },
             dnsHook: ENTRI_HOOK_PATH,
           },
           {

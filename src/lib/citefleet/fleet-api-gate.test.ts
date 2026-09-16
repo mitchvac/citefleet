@@ -105,12 +105,31 @@ test("Cloudflare DNS OAuth is property-bound and never accepts a browser-supplie
   assert.doesNotMatch(route, /searchParams\.get\("domain"\)/);
   assert.match(route, /const site = getSite\(store, siteId\)/);
   assert.match(route, /detectDnsProvider\(site\.domain\)/);
-  assert.match(route, /consumeDnsOAuthState\(rawState, user\.id\)/);
+  assert.match(route, /consumeDnsOAuthState\(rawState, user\.id, "cloudflare"\)/);
   assert.match(route, /normalizeDomain\(site\.domain\) !== transaction\.domain/);
   assert.match(route, /dnsSetupOperationId\(site\.dnsSetup\) !== transaction\.operationId/);
   assert.match(route, /ensureCloudflareTxt\(token, record\.apex, record\.value\)/);
   assert.match(route, /revokeCloudflareToken\(token, config\)/);
   assert.doesNotMatch(route, /accessToken\s*:/);
+});
+
+test("Vercel DNS OAuth is property-bound, exact-domain, and discards authorization", () => {
+  const route = readFileSync(
+    path.resolve(import.meta.dirname, "vercel-dns-oauth.server.ts"),
+    "utf8",
+  );
+  assert.match(route, /searchParams\.get\("siteId"\)/);
+  assert.doesNotMatch(route, /searchParams\.get\("domain"\)/);
+  assert.match(route, /const site = getSite\(store, siteId\)/);
+  assert.match(route, /detectDnsProvider\(site\.domain\)/);
+  assert.match(route, /consumeDnsOAuthState\([^;]*"vercel",?\s*\)/s);
+  assert.match(route, /normalizeDomain\(site\.domain\) !== transaction\.domain/);
+  assert.match(route, /dnsSetupOperationId\(site\.dnsSetup\) !== transaction\.operationId/);
+  assert.match(route, /authorization\.teamId !== teamId/);
+  assert.match(route, /ensureVercelTxt\(token, record\.apex, record\.value, teamId\)/);
+  assert.match(route, /removeVercelIntegration\(token, configurationId, teamId\)/);
+  assert.match(route, /token = ""/);
+  assert.doesNotMatch(route, /dnsSetup\s*=\s*\{[^}]*accessToken/s);
 });
 
 test("Porkbun browser approval is property-bound and persists no generated API credential", () => {

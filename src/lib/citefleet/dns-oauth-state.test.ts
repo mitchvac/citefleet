@@ -50,7 +50,7 @@ test("OAuth state stores only a digest and a ten-minute expiry", async () => {
 
 test("OAuth state consumption is atomic, user-bound, unexpired, and membership-bound", async () => {
   let query = "";
-  const result = await consumeDnsOAuthState("b".repeat(43), "user-1", {
+  const result = await consumeDnsOAuthState("b".repeat(43), "user-1", "cloudflare", {
     sql: fakeSql((text) => {
       query = text;
       return [
@@ -67,9 +67,10 @@ test("OAuth state consumption is atomic, user-bound, unexpired, and membership-b
   });
   assert.equal(result?.workspaceId, "ws-acme");
   assert.match(query, /consumed_at IS NULL/);
-  assert.match(query, /expires_at > \$3/);
+  assert.match(query, /expires_at > \$4/);
   assert.match(query, /citefleet_workspace_members/);
   assert.match(query, /oauth\.user_id = \$2/);
+  assert.match(query, /oauth\.provider = \$3/);
 });
 
 test("malformed or replayed OAuth state resolves to nothing", async () => {
@@ -78,10 +79,21 @@ test("malformed or replayed OAuth state resolves to nothing", async () => {
     called = true;
     return [];
   });
-  assert.equal(await consumeDnsOAuthState("too-short", "user-1", { sql }), null);
+  assert.equal(await consumeDnsOAuthState("too-short", "user-1", "cloudflare", { sql }), null);
   assert.equal(called, false);
-  assert.equal(await consumeDnsOAuthState("c".repeat(43), "user-1", { sql }), null);
+  assert.equal(await consumeDnsOAuthState("c".repeat(43), "user-1", "cloudflare", { sql }), null);
   assert.equal(called, true);
+});
+
+test("Vercel state is provider-bound and cannot consume a Cloudflare transaction", async () => {
+  let params: unknown[] = [];
+  await consumeDnsOAuthState("v".repeat(43), "user-1", "vercel", {
+    sql: fakeSql((_text, nextParams) => {
+      params = nextParams;
+      return [];
+    }),
+  });
+  assert.equal(params[2], "vercel");
 });
 
 test("Porkbun PKCE state stores a request-token digest and bounded verifier", async () => {
@@ -168,4 +180,14 @@ test("the migration owns, constrains, indexes, and enables RLS on OAuth state", 
   assert.match(porkbun, /ADD COLUMN IF NOT EXISTS pkce_verifier TEXT/);
   assert.match(porkbun, /provider IN \('cloudflare', 'porkbun'\)/);
   assert.match(porkbun, /provider = 'porkbun'[\s\S]*pkce_verifier ~ /);
+
+  const vercel = readFileSync(
+    new URL(
+      "../../../supabase/migrations/20260916120000_citefleet_vercel_dns_authorizations.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(vercel, /provider IN \('cloudflare', 'porkbun', 'vercel'\)/);
+  assert.match(vercel, /provider IN \('cloudflare', 'vercel'\)[\s\S]*pkce_verifier IS NULL/);
 });

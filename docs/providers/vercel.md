@@ -235,12 +235,19 @@ propagates without the customer redeploying.
 
 ## DNS API and ACME provider evidence
 
-Vercel's REST DNS API can create the persistent proof record, and Entri Connect
-supports Vercel. `lego` also ships a Vercel DNS-01 provider, but it cannot be
-CiteFleet's executor: lego creates a temporary `_acme-challenge` record for
-certificate validation and removes it afterward. CiteFleet must call Vercel's
-DNS API directly or use Entri for a customer whose domain uses **Vercel DNS /
-Vercel nameservers**.
+Vercel's REST DNS API can create the persistent proof record, and CiteFleet now
+uses it through a Vercel External Integration. The customer opens Vercel, signs
+in, chooses the account that owns the exact stored domain, and approves the
+integration. CiteFleet exchanges the one-time code server-side, re-detects the
+authoritative nameservers, validates the exact domain and account scope, creates
+or finds only the apex proof TXT, then deletes the integration configuration and
+discards the access token. No customer API token is copied into CiteFleet or
+saved in the workspace.
+
+Entri Connect remains a provider-supported fallback. `lego` also ships a Vercel
+DNS-01 provider, but it cannot be CiteFleet's executor: lego creates a temporary
+`_acme-challenge` record for certificate validation and removes it afterward.
+This only works when the domain uses **Vercel DNS / Vercel nameservers**.
 
 | | |
 |---|---|
@@ -251,12 +258,11 @@ Vercel nameservers**.
 
 (https://go-acme.github.io/lego/dns/vercel/)
 
-The token is an ordinary Vercel API token from the customer's account settings. It is
-**account-scoped, not domain-scoped** — a token that can write one DNS record can also
-read and change projects, deployments and other domains on that account. Ask for a token
-only if the customer understands that; otherwise have them paste the TXT record by hand.
-This only works when the domain's nameservers are Vercel's; a domain merely *pointed* at
-Vercel with an A record has its DNS elsewhere and needs that registrar's provider instead.
+The environment variables above describe lego's separate ACME adapter, not the
+CiteFleet customer flow. CiteFleet's deployment instead holds one Vercel
+External Integration slug, client id, and client secret; the customer provides
+only interactive approval. A domain merely *pointed* at Vercel with an A record
+has its DNS elsewhere and needs that authoritative provider instead.
 
 ## If files cannot be placed
 
@@ -287,6 +293,10 @@ Vercel with an A record has its DNS elsewhere and needs that registrar's provide
 - https://nextjs.org/docs/app/api-reference/file-conventions/metadata/robots — static `app/robots.txt` vs generated `app/robots.js`/`.ts`; the collision source for Gotcha 2.
 - https://vercel.com/docs/deployments/vercel-ignore — `.vercelignore` excludes files from a deployment; allowlist pattern (`/*` plus `!` re-includes) shown in Vercel's own example.
 - https://go-acme.github.io/lego/dns/vercel/ — lego provider code `vercel`; required `VERCEL_API_TOKEN`; optional `VERCEL_TEAM_ID`, `VERCEL_TTL`, `VERCEL_HTTP_TIMEOUT`, `VERCEL_POLLING_INTERVAL`, `VERCEL_PROPAGATION_TIMEOUT`; `_FILE` suffix supported.
+- https://vercel.com/docs/integrations/create-integration/submit-integration — External Integration start URL, callback parameters, state, and required completion redirect.
+- https://vercel.com/docs/integrations/create-integration/vercel-api-integrations — one-time code exchange, server-only token handling, and team scoping.
+- https://vercel.com/docs/rest-api/dns/create-a-dns-record — apex DNS record creation with an empty `name`.
+- https://vercel.com/docs/rest-api/integrations/delete-an-integration-configuration — removal of the temporary installation after the write.
 **UNVERIFIED on this host:** whether a `public/.well-known/botcentral.txt` committed to the
 repo is actually served (see [The `.well-known/` problem](#the-well-known-problem) for
 exactly what was searched). Treat DNS TXT as the proof and test the file URL if you ship it.

@@ -273,7 +273,12 @@ export const dnsSetupSettingsFn = createServerFn({ method: "GET" })
   .handler(async () => {
     const { dnsSetupSettings } = await import("./dns-setup.server.ts");
     const { cloudflareDnsSettings } = await import("./cloudflare-dns.server.ts");
-    return { entri: dnsSetupSettings(), cloudflare: cloudflareDnsSettings() };
+    const { vercelDnsSettings } = await import("./vercel-dns.server.ts");
+    return {
+      entri: dnsSetupSettings(),
+      cloudflare: cloudflareDnsSettings(),
+      vercel: vercelDnsSettings(),
+    };
   });
 
 /** Create a domain-and-record-bound Entri sharing link. */

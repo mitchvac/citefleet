@@ -4,13 +4,14 @@ import { asWorkspaceId, type WorkspaceId } from "./workspace-id.ts";
 
 export const DNS_OAUTH_TTL_MS = 10 * 60 * 1000;
 export const PORKBUN_AUTH_TTL_MS = 30 * 60 * 1000;
+export type DnsOAuthProvider = "cloudflare" | "vercel";
 
 export interface DnsOAuthState {
   operationId: string;
   workspaceId: WorkspaceId;
   userId: string;
   siteId: string;
-  provider: "cloudflare";
+  provider: DnsOAuthProvider;
   domain: string;
 }
 
@@ -19,7 +20,7 @@ type DnsOAuthRow = {
   workspace_id: string;
   user_id: string;
   site_id: string;
-  provider: "cloudflare" | "porkbun";
+  provider: DnsOAuthProvider | "porkbun";
   domain: string;
   pkce_verifier?: string | null;
 };
@@ -70,27 +71,28 @@ export async function createDnsOAuthState(
 export async function consumeDnsOAuthState(
   state: string,
   userId: string,
+  provider: DnsOAuthProvider,
   deps: { sql?: Sql; now?: () => Date } = {},
 ): Promise<DnsOAuthState | null> {
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(state)) return null;
   const sql = deps.sql ?? (await getSql());
   const rows = await sql.query<DnsOAuthRow>(
     `UPDATE citefleet_dns_oauth_states AS oauth
-        SET consumed_at = $3
+        SET consumed_at = $4
        FROM citefleet_workspace_members AS member,
             citefleet_workspaces AS workspace
       WHERE oauth.state_hash = $1
         AND oauth.user_id = $2
-        AND oauth.provider = 'cloudflare'
+        AND oauth.provider = $3
         AND oauth.consumed_at IS NULL
-        AND oauth.expires_at > $3
+        AND oauth.expires_at > $4
         AND member.workspace_id = oauth.workspace_id
         AND member.user_id = oauth.user_id
         AND workspace.id = oauth.workspace_id
         AND workspace.archived_at IS NULL
       RETURNING oauth.operation_id, oauth.workspace_id, oauth.user_id,
                 oauth.site_id, oauth.provider, oauth.domain`,
-    [digest(state), userId, deps.now?.() ?? new Date()],
+    [digest(state), userId, provider, deps.now?.() ?? new Date()],
   );
   if (rows.length !== 1) return null;
   const row = rows[0];
@@ -99,7 +101,7 @@ export async function consumeDnsOAuthState(
     workspaceId: asWorkspaceId(row.workspace_id),
     userId: row.user_id,
     siteId: row.site_id,
-    provider: "cloudflare",
+    provider,
     domain: row.domain,
   };
 }
