@@ -171,7 +171,25 @@ export function DnsProviderPanel({
 
       {porkbunSelected ? (
         <div className="mt-4 max-w-xl">
-          <p className="text-sm text-[#b7b0cc]">
+          <div
+            className="rounded-md border border-amber-300/30 bg-amber-300/10 p-3"
+            data-testid="porkbun-api-prerequisite"
+          >
+            <p className="text-sm text-amber-100">
+              <strong>Required once in Porkbun:</strong> open Domain Management, find {site.domain},
+              select Details, and turn on API Access for this domain.
+            </p>
+            <a
+              href="https://porkbun.com/account"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-sky-300 underline"
+            >
+              <ExternalLink aria-hidden="true" className="h-4 w-4" /> Enable API access for{" "}
+              {site.domain}
+            </a>
+          </div>
+          <p className="mt-3 text-sm text-[#b7b0cc]">
             Porkbun opens so the domain owner can sign in and approve CiteFleet. When they return,
             CiteFleet adds the blue record above and checks public DNS automatically.
           </p>
@@ -184,7 +202,7 @@ export function DnsProviderPanel({
           </a>
           <p className="mt-2 text-xs text-[#9b95b3]">
             Porkbun names the approval for {site.domain}. CiteFleet uses the generated key once and
-            does not save it; remove that key in Porkbun after verification.
+            does not save it; remove that key from Porkbun API Access after verification.
           </p>
         </div>
       ) : cloudflareGuided ? (

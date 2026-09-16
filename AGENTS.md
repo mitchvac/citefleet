@@ -70,6 +70,10 @@ Playwright for e2e. **Node 22** (`engines: >=22`, both Dockerfile stages are `no
   proof polls from overwriting newer state. `fleet-api.ts`,
   `dispatcher.ts`, `hook-tenant.server.ts`, `proof.ts`, and `types.ts` connect
   that flow to the tenant-scoped snapshot and an independent DNS-only verification.
+- Porkbun automation also surfaces Porkbun's unavoidable one-time per-domain
+  API Access toggle before approval and maps the provider's opt-in rejection to
+  that exact recovery step; CiteFleet never asks customers to enable every
+  domain globally.
 - `webhook-body.server.ts` bounds every signed raw-body read while preserving
   exact UTF-8 bytes; GitHub alone receives its documented 25 MB delivery ceiling,
   while the other public hooks retain the tighter 8 MB default.

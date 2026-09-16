@@ -74,8 +74,11 @@ async function readJson(response: Response): Promise<PorkbunEnvelope> {
   }
 }
 
-function apiError(response: Response, body: PorkbunEnvelope): Error {
+function apiError(response: Response, body: PorkbunEnvelope, domain?: string): Error {
   const code = typeof body.code === "string" ? body.code : "";
+  const apiAccessRequired = domain
+    ? `Porkbun requires API Access to be enabled for ${domain}. In Porkbun Domain Management, open Details for ${domain}, turn on API Access, then return here and try again.`
+    : "Porkbun requires API Access to be enabled for this domain.";
   const messages: Record<string, string> = {
     API_KEY_REQUIRED: "Porkbun did not return both approved credentials.",
     INVALID_API_KEYS_001: "Porkbun rejected the approved API key.",
@@ -84,6 +87,9 @@ function apiError(response: Response, body: PorkbunEnvelope): Error {
     IP_NOT_ALLOWED: "The approved Porkbun key does not allow requests from CiteFleet.",
     DOMAIN_NOT_ALLOWED: "The approved Porkbun key is not allowed to manage this domain.",
     DOMAIN_NOT_FOUND: "This domain is not in the approving Porkbun account.",
+    DOMAIN_IS_NOT_OPTED_IN_TO_API_ACCESS: apiAccessRequired,
+    DOMAIN_IS_NOT_OPTED_IN_TO_API_ACCESS_YOU_CAN_ENABLE_API_ACCESS_FOR_ALL_DOMAINS_GLOBALLY_FROM_YOUR_ACCOUNT_SETTINGS_AT_PORKBUNCOM:
+      apiAccessRequired,
     RECORD_CONFLICT: "Porkbun reports a conflicting DNS record at the domain apex.",
     ZONE_RECORD_LIMIT: "This Porkbun DNS zone has reached its record limit.",
     RATE_LIMIT_EXCEEDED: "Porkbun is rate limiting DNS setup. Wait, then try again.",
@@ -257,7 +263,7 @@ export async function ensurePorkbunTxt(
     deps,
   );
   if (!retrieved.response.ok || retrieved.body.status !== "SUCCESS") {
-    throw apiError(retrieved.response, retrieved.body);
+    throw apiError(retrieved.response, retrieved.body, domain);
   }
   if (!Array.isArray(retrieved.body.records)) {
     throw new Error("Porkbun did not return a DNS record list.");
@@ -285,7 +291,7 @@ export async function ensurePorkbunTxt(
     created.body.code === "DUPLICATE_RECORD" ? recordId(created.body.existingId) : null;
   if (duplicateId) return { recordId: duplicateId, created: false };
   if (!created.response.ok || created.body.status !== "SUCCESS") {
-    throw apiError(created.response, created.body);
+    throw apiError(created.response, created.body, domain);
   }
   const createdId = recordId(created.body.id);
   if (!createdId) throw new Error("Porkbun did not return a DNS record id.");

@@ -227,3 +227,20 @@ test("provider failures are actionable without exposing provider response text",
     /response was too large/,
   );
 });
+
+test("a domain API opt-in failure gives the exact recovery step without exposing its raw code", async () => {
+  const providerCode =
+    "DOMAIN_IS_NOT_OPTED_IN_TO_API_ACCESS_YOU_CAN_ENABLE_API_ACCESS_FOR_ALL_DOMAINS_GLOBALLY_FROM_YOUR_ACCOUNT_SETTINGS_AT_PORKBUNCOM";
+  await assert.rejects(
+    ensurePorkbunTxt(credentials, "MarketSwarm.app", "botcentral-verify=exact", "operation-6", {
+      fetch: async () => json({ status: "ERROR", code: providerCode }, 400),
+    }),
+    (error: unknown) => {
+      assert.match(String(error), /API Access to be enabled for marketswarm\.app/i);
+      assert.match(String(error), /Domain Management/);
+      assert.match(String(error), /open Details/);
+      assert.doesNotMatch(String(error), new RegExp(providerCode));
+      return true;
+    },
+  );
+});

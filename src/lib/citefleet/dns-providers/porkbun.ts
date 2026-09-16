@@ -5,13 +5,13 @@ export default defineDnsProvider({
   name: "Porkbun",
   marketShare: null,
   websiteUrl: "https://porkbun.com/",
-  accountUrl: "https://porkbun.com/account/api",
+  accountUrl: "https://porkbun.com/account",
   guideUrl: "https://kb.porkbun.com/article/231-how-to-add-dns-records-on-porkbun",
   api: {
     status: "public",
     docsUrl: "https://porkbun.com/api/json/v3/documentation",
     caution:
-      "CiteFleet uses the generated key only for the intended domain; remove it after the DNS record verifies.",
+      "Porkbun requires API Access enabled for the intended domain. CiteFleet uses the generated key only for that domain and discards it after the write; remove the key after verification.",
   },
   mcp: {
     status: "official",

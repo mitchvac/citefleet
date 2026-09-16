@@ -93,6 +93,12 @@ test("detects a DNS provider and exposes the real automated TXT action", async (
     await expect(addRecord).toHaveAttribute("href", /\/api\/dns\/porkbun\/start\?siteId=site-/);
     await expect(panel).toContainText("sign in and approve CiteFleet");
     await expect(panel).toContainText("CiteFleet uses the generated key once and does not save it");
+    const prerequisite = panel.getByTestId("porkbun-api-prerequisite");
+    await expect(prerequisite).toContainText("turn on API Access for this domain");
+    await expect(prerequisite.getByRole("link", { name: /Enable API access for/ })).toHaveAttribute(
+      "href",
+      "https://porkbun.com/account",
+    );
 
     await page.screenshot({
       path: testInfo.outputPath("porkbun-automation-desktop.png"),
