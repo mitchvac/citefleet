@@ -70,7 +70,10 @@ const card = exactCard;
 
 async function openCampaign(page: Page) {
   await go(page, "/");
-  await card(page, SITE.name).getByRole("link", { name: /campaign/i }).first().click();
+  await card(page, SITE.name)
+    .getByRole("link", { name: /campaign/i })
+    .first()
+    .click();
   await waitIdle(page);
 }
 
@@ -91,7 +94,10 @@ test("setup: onboard a property with its own repo", async ({ page }) => {
 
 test("the panel offers a read-only check before any write", async ({ page }) => {
   await openCampaign(page);
+  const connect = page.getByRole("button", { name: "Connect GitHub and install 5 files" });
   const check = page.getByTestId("check-repo");
+  await expect(connect).toBeVisible();
+  await expect(connect).toBeEnabled();
   await expect(check).toBeVisible();
   await expect(check).toBeEnabled();
   // Nothing is shown until it is asked for — the table must never imply a
@@ -111,8 +117,26 @@ test("a repo the rule already refuses cannot be checked or pushed", async ({ pag
   // All three buttons, not just push: reading a repo this property may not own
   // is a question with no useful answer.
   await expect(page.getByRole("button", { name: "Save repo" })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Connect GitHub and install 5 files" }),
+  ).toBeDisabled();
   await expect(page.getByTestId("check-repo")).toBeDisabled();
   await expect(page.getByRole("button", { name: /^Push/ })).toBeDisabled();
+});
+
+test("GitHub callback results return to the property with a clear outcome", async ({ page }) => {
+  await openCampaign(page);
+  const path = new URL(page.url()).pathname;
+
+  await go(page, `${path}?github=installed`);
+  await expect(page.getByTestId("github-connect-result")).toContainText(
+    "CiteFleet installed the origin files",
+  );
+
+  await go(page, `${path}?github=failed`);
+  await expect(page.getByTestId("github-connect-result")).toContainText(
+    "safety check stopped the install",
+  );
 });
 
 test("a repo that cannot be read is refused, never written blind", async ({ page }) => {
@@ -137,15 +161,11 @@ test("a repo that cannot be read is refused, never written blind", async ({ page
   // A token that GitHub rejects, or a repo that does not exist: the read fails,
   // every path lands in `unreadable`, and push offers nothing.
   await expect(plan).toBeVisible();
-  await expect(page.getByTestId("origin-plan-unreadable")).toContainText(
-    "could not be read",
-  );
+  await expect(page.getByTestId("origin-plan-unreadable")).toContainText("could not be read");
   await expect(page.getByRole("button", { name: "Push 0 files" })).toBeDisabled();
 });
 
-test("the verdict table reports one state per file, read from the repo", async ({
-  page,
-}) => {
+test("the verdict table reports one state per file, read from the repo", async ({ page }) => {
   test.skip(
     !GH_TOKEN || !REAL_REPO,
     "needs E2E_GITHUB_TOKEN and E2E_ORIGIN_REPO to read a real repo",
@@ -188,4 +208,3 @@ test("teardown: remove only the property this file created", async ({ page }) =>
   expect(outcome, "the property this run created should have been removed").toBe("removed");
   await expect(card(page, SITE.name)).toHaveCount(0);
 });
-

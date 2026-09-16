@@ -2,11 +2,19 @@ import { randomBytes } from "node:crypto";
 import type { SessionUser } from "./operator-core.ts";
 import { readCookie, sessionCookie } from "./operator-core.ts";
 import { createAccountSession } from "./auth-state.server.ts";
+import {
+  oauthStateValue,
+  readOAuthIntent,
+  requestedGithubSite,
+  type OAuthIntent,
+  type OAuthProvider,
+} from "./oauth-intent.ts";
 
 const STATE_COOKIE = "citefleet_oauth";
 const STATE_TTL = 10 * 60;
 
-type Provider = "google" | "github";
+type Provider = OAuthProvider;
+type GithubConnectResult = "installed" | "current" | "failed" | "denied" | "unavailable";
 
 /**
  * Only an https URL is ever stored or rendered. A provider response is remote
@@ -66,6 +74,16 @@ function loginError(reason: string): Response {
   return redirect(`/login?error=${reason}`);
 }
 
+function githubConnectRedirect(
+  siteId: string,
+  result: GithubConnectResult,
+  request: Request,
+): Response {
+  return redirect(`/sites/${siteId}?github=${result}`, {
+    "Set-Cookie": stateCookie("", request, 0),
+  });
+}
+
 async function signedIn(
   request: Request,
   user: SessionUser,
@@ -81,10 +99,40 @@ async function signedIn(
   });
 }
 
-export function startOAuth(provider: Provider, request: Request): Response {
+export async function startOAuth(provider: Provider, request: Request): Promise<Response> {
   const ready = oauthConfigured();
   if (provider === "google" && !ready.google) return loginError("google-not-configured");
-  if (provider === "github" && !ready.github) return loginError("github-not-configured");
+
+  const url = new URL(request.url);
+  const hasConnectTarget = provider === "github" && url.searchParams.has("connect");
+  const connectSiteId = provider === "github" ? requestedGithubSite(request) : null;
+  if (hasConnectTarget && !connectSiteId) return loginError("oauth-denied");
+  if (provider === "github" && !ready.github) {
+    return connectSiteId
+      ? githubConnectRedirect(connectSiteId, "unavailable", request)
+      : loginError("github-not-configured");
+  }
+
+  let intent: OAuthIntent = { kind: "sign-in" };
+  if (connectSiteId) {
+    const { currentSessionUser } = await import("./operator.server.ts");
+    const user = await currentSessionUser(request);
+    if (!user) return loginError("oauth-denied");
+    const { workspaceForPrincipal } = await import("@/lib/citefleet/workspace-registry.server.ts");
+    const ws = await workspaceForPrincipal({ kind: "user", userId: user.id, email: user.email });
+    const site = (await ws.get()).sites.find((candidate) => candidate.id === connectSiteId);
+    if (!site?.github?.owner || !site.github.repo) {
+      return githubConnectRedirect(connectSiteId, "failed", request);
+    }
+    const { githubRepoTarget, githubRoot } = await import("@/lib/citefleet/origin-repo.ts");
+    try {
+      githubRepoTarget(site.github.owner, site.github.repo);
+      githubRoot(site.github.root);
+    } catch {
+      return githubConnectRedirect(connectSiteId, "failed", request);
+    }
+    intent = { kind: "github-connect", siteId: connectSiteId, userId: user.id };
+  }
 
   const state = randomBytes(24).toString("hex");
   const origin = publicOrigin(request);
@@ -108,7 +156,9 @@ export function startOAuth(provider: Provider, request: Request): Response {
     });
     authorize = `https://github.com/login/oauth/authorize?${params}`;
   }
-  return redirect(authorize, { "Set-Cookie": stateCookie(`${provider}:${state}`, request) });
+  return redirect(authorize, {
+    "Set-Cookie": stateCookie(oauthStateValue(provider, state, intent), request),
+  });
 }
 
 export async function finishOAuth(provider: Provider, request: Request): Promise<Response> {
@@ -116,7 +166,40 @@ export async function finishOAuth(provider: Provider, request: Request): Promise
   const code = url.searchParams.get("code") || "";
   const state = url.searchParams.get("state") || "";
   const expected = readCookie(request.headers.get("cookie"), STATE_COOKIE) || "";
-  if (!code || !state || expected !== `${provider}:${state}`) return loginError("oauth-denied");
+  const intent = readOAuthIntent(provider, state, expected);
+  if (!intent) return loginError("oauth-denied");
+
+  if (intent.kind === "github-connect") {
+    if (!code) return githubConnectRedirect(intent.siteId, "denied", request);
+    try {
+      const { currentSessionUser } = await import("./operator.server.ts");
+      const user = await currentSessionUser(request);
+      if (!user || user.id !== intent.userId) return loginError("oauth-denied");
+      const { workspaceForPrincipal } =
+        await import("@/lib/citefleet/workspace-registry.server.ts");
+      const ws = await workspaceForPrincipal({
+        kind: "user",
+        userId: user.id,
+        email: user.email,
+      });
+      if (!(await ws.get()).sites.some((site) => site.id === intent.siteId)) {
+        return loginError("oauth-denied");
+      }
+      const profile = await githubProfile(code, publicOrigin(request));
+      const { connectGithubAndInstall } = await import("@/lib/citefleet/github.ts");
+      const result = await connectGithubAndInstall(ws, intent.siteId, profile.token);
+      return githubConnectRedirect(
+        intent.siteId,
+        result.alreadyCurrent ? "current" : "installed",
+        request,
+      );
+    } catch (error) {
+      console.error("[citefleet] GitHub connection/install failed", error);
+      return githubConnectRedirect(intent.siteId, "failed", request);
+    }
+  }
+
+  if (!code) return loginError("oauth-denied");
 
   const { ensureWorkspaceFor } = await import("@/lib/citefleet/workspace-registry.server.ts");
   try {
@@ -235,6 +318,7 @@ async function githubProfile(
       code,
       redirect_uri: `${origin}/api/oauth/github-callback`,
     }),
+    signal: AbortSignal.timeout(20_000),
   });
   if (!tokenRes.ok) throw new Error("github token");
   const tokenJson = (await tokenRes.json()) as { access_token?: string };
@@ -246,6 +330,7 @@ async function githubProfile(
       Accept: "application/vnd.github+json",
       "User-Agent": "citefleet",
     },
+    signal: AbortSignal.timeout(20_000),
   });
   if (!me.ok) throw new Error("github user");
   const user = (await me.json()) as {
@@ -264,6 +349,7 @@ async function githubProfile(
       Accept: "application/vnd.github+json",
       "User-Agent": "citefleet",
     },
+    signal: AbortSignal.timeout(20_000),
   });
   if (emailsRes.ok) {
     const emails = (await emailsRes.json()) as Array<{

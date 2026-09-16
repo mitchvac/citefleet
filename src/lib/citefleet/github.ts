@@ -1,21 +1,12 @@
 import type { StoreShape } from "./types";
 import { buildOriginPack, originRoot } from "./originPack.ts";
-import {
-  frameworkSourceDirs,
-  planOriginPack,
-  shadowedOriginFile,
-} from "./origin-ownership.ts";
+import { frameworkSourceDirs, planOriginPack, shadowedOriginFile } from "./origin-ownership.ts";
 import { siteVerifyToken } from "./verify-token.ts";
 import { maskStoreSecrets } from "./secrets.ts";
 import { assertCanAct } from "./control.ts";
 import { logActivity } from "./store.ts";
 import type { WorkspaceHandle } from "./workspace-handle.ts";
-import {
-  normalizeOwner,
-  normalizeRepo,
-  normalizeRoot,
-  originRepoConflict,
-} from "./origin-repo.ts";
+import { githubRepoTarget, githubRoot, originRepoConflict } from "./origin-repo.ts";
 
 const API = "https://api.github.com";
 
@@ -34,11 +25,7 @@ function tokenFrom(store: StoreShape) {
   );
 }
 
-async function gh(
-  token: string,
-  path: string,
-  init: RequestInit = {},
-) {
+async function gh(token: string, path: string, init: RequestInit = {}) {
   const res = await fetch(`${API}${path}`, {
     ...init,
     headers: {
@@ -82,11 +69,10 @@ async function putFile(
     branch: repo.branch,
   };
   if (sha) body.sha = sha;
-  const put = await gh(
-    token,
-    `/repos/${repo.owner}/${repo.repo}/contents/${encodeURI(path)}`,
-    { method: "PUT", body: JSON.stringify(body) },
-  );
+  const put = await gh(token, `/repos/${repo.owner}/${repo.repo}/contents/${encodeURI(path)}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
   if (!put.ok) {
     const msg =
       put.json && typeof put.json === "object" && "message" in put.json
@@ -113,9 +99,7 @@ async function readFileContent(
   token: string,
   repo: { owner: string; repo: string; branch: string },
   path: string,
-): Promise<
-  { ok: true; content: string | null } | { ok: false; message: string }
-> {
+): Promise<{ ok: true; content: string | null } | { ok: false; message: string }> {
   const res = await gh(
     token,
     `/repos/${repo.owner}/${repo.repo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(repo.branch)}`,
@@ -245,19 +229,18 @@ export async function attachGithub(
   siteId: string,
   input: { owner: string; repo: string; branch?: string; root?: string },
 ) {
-  const owner = normalizeOwner(input.owner);
-  const repo = normalizeRepo(input.repo);
-  if (!owner || !repo) throw new Error("GitHub owner and repo are required");
+  const { owner, repo } = githubRepoTarget(input.owner, input.repo);
+  const root = githubRoot(input.root);
   await ws.mutate((store) => {
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) throw new Error("Site not found");
-    const conflict = originRepoConflict(site, { owner, repo, root: input.root }, store.sites);
+    const conflict = originRepoConflict(site, { owner, repo, root }, store.sites);
     if (conflict) throw new Error(conflict.message);
     site.github = {
       owner,
       repo,
       branch: (input.branch || "main").trim() || "main",
-      root: normalizeRoot(input.root),
+      root,
       lastPushAt: site.github?.lastPushAt,
       lastPushSha: site.github?.lastPushSha,
       lastPushUrl: site.github?.lastPushUrl,
@@ -285,6 +268,47 @@ export async function setGithubToken(ws: WorkspaceHandle, token: string) {
     });
   });
   return { ok: Boolean(trimmed) };
+}
+
+function installError(error: unknown): string {
+  const message = error instanceof Error ? error.message : "GitHub installation failed.";
+  return message.replace(/[\r\n\t]+/g, " ").slice(0, 800);
+}
+
+async function recordInstallAttempt(
+  ws: WorkspaceHandle,
+  siteId: string,
+  error?: unknown,
+): Promise<void> {
+  await ws.mutate((store) => {
+    const site = store.sites.find((candidate) => candidate.id === siteId);
+    if (!site?.github) return;
+    site.github.lastInstallAttemptAt = new Date().toISOString();
+    site.github.lastInstallError = error === undefined ? undefined : installError(error);
+  });
+}
+
+/** Explicit GitHub authorization followed by the guarded origin-pack install. */
+export async function connectGithubAndInstall(ws: WorkspaceHandle, siteId: string, token: string) {
+  const store = await ws.get();
+  const site = store.sites.find((candidate) => candidate.id === siteId);
+  if (!site) throw new Error("Site not found");
+  if (!site.github?.owner || !site.github.repo) {
+    throw new Error("Save the GitHub repository for this property first.");
+  }
+
+  // Re-save through the parser before the token can write anything. This also
+  // repairs historical rows where a complete GitHub URL was stored as `repo`.
+  await attachGithub(ws, siteId, site.github);
+  await setGithubToken(ws, token);
+  try {
+    const result = await pushOriginPack(ws, siteId);
+    await recordInstallAttempt(ws, siteId);
+    return result;
+  } catch (error) {
+    await recordInstallAttempt(ws, siteId, error);
+    throw error;
+  }
 }
 
 export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
@@ -315,8 +339,11 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
   // acceptable where minting a second key would not be: the key is a public
   // string, `ensureIndexNowKey` never replaces an existing one, so a retry
   // reuses it and nothing is stranded on the customer's origin.
-  const { ensureIndexNowKey } = await import("./dispatcher");
-  const indexNowKey = await ensureIndexNowKey(ws, siteId);
+  const indexNowKey =
+    site.indexNowKey ||
+    (await import("./dispatcher.ts").then(({ ensureIndexNowKey }) =>
+      ensureIndexNowKey(ws, siteId),
+    ));
 
   // Look before writing. `buildOriginPack` generates from campaign state, so a
   // blind PUT replaces a site's own robots policy with a generic one — it did,
@@ -336,13 +363,22 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
   const writablePaths = new Set(plan.writable.map((v) => v.path));
   const toWrite = files.filter((f) => writablePaths.has(f.path));
   if (!toWrite.length) {
-    throw new Error(
-      plan.blocked.length
-        ? `Nothing to push — every file is spoken for. ${plan.blocked
-            .map((v) => `${v.path}: ${v.reason}`)
-            .join(" ")}`
-        : "Nothing to push — the repo already holds exactly these files.",
-    );
+    if (plan.blocked.length) {
+      throw new Error(
+        `Nothing to push — every file is spoken for. ${plan.blocked
+          .map((v) => `${v.path}: ${v.reason}`)
+          .join(" ")}`,
+      );
+    }
+    return {
+      ok: true,
+      repo: `${site.github.owner}/${site.github.repo}`,
+      branch: site.github.branch,
+      files: [],
+      blocked: [],
+      commit: undefined,
+      alreadyCurrent: true,
+    };
   }
 
   const results: Array<{ path: string; sha?: string; url?: string }> = [];
@@ -384,7 +420,10 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
         // read, later, as a push of four.
         (plan.blocked.length
           ? ` Left alone: ${plan.blocked
-              .map((v) => `${v.path} (${v.state === "shadowed" ? `route owned by ${v.shadowedBy}` : "not CiteFleet's file"})`)
+              .map(
+                (v) =>
+                  `${v.path} (${v.state === "shadowed" ? `route owned by ${v.shadowedBy}` : "not CiteFleet's file"})`,
+              )
               .join(", ")}.`
           : ""),
     });
@@ -396,6 +435,7 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
     files: results,
     blocked: plan.blocked,
     commit: last?.url,
+    alreadyCurrent: false,
   };
 }
 

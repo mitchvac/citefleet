@@ -42,6 +42,7 @@ export { applyKill, ensureControl } from "./control";
 export { defaultControl } from "./control";
 export {
   attachGithub,
+  connectGithubAndInstall,
   inspectOriginPack,
   pushOriginPack,
   setGithubToken,

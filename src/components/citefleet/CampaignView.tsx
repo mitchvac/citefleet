@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import { Github } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFleet } from "@/lib/citefleet/client";
 import type { OriginPackInspection } from "@/lib/citefleet/client";
@@ -25,7 +26,15 @@ function tone(status: string) {
   return "neutral" as const;
 }
 
-export function CampaignView({ siteId }: { siteId: string }) {
+type GithubResult = "installed" | "current" | "failed" | "denied" | "unavailable";
+
+export function CampaignView({
+  siteId,
+  githubResult,
+}: {
+  siteId: string;
+  githubResult?: GithubResult;
+}) {
   const fleet = useFleet();
   const navigate = useNavigate();
   if (fleet.loading || !fleet.store) {
@@ -200,7 +209,7 @@ export function CampaignView({ siteId }: { siteId: string }) {
 
       <ReconcilePanel site={site} />
 
-      <GithubPanel site={site} fleet={fleet} sites={fleet.store.sites} />
+      <GithubPanel site={site} fleet={fleet} sites={fleet.store.sites} result={githubResult} />
       <ProviderPanel site={site} fleet={fleet} />
       <OriginPackPanel site={site} fleet={fleet} />
       <BillingPanel site={site} fleet={fleet} />
@@ -253,10 +262,9 @@ function ProviderPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof u
             {chosen ? chosen.name : "Which host is this site on?"}
           </h2>
           <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
-            The web root cannot be guessed — fifteen conventions across the researched set, and
-            several hosts decline to name one at all. Pick the panel you log into and CiteFleet
-            knows where the root is, which port its SFTP answers on, and what breaks verification
-            there.
+            Direct host installation is available only after CiteFleet has verified that host’s
+            authorization and upload API. Choose your host to see its current path; GitHub above is
+            the automatic option when the site deploys from a repository.
           </p>
         </div>
         <Pill tone={chosen ? (guidance.tone === "good" ? "good" : "warn") : "neutral"}>
@@ -274,9 +282,6 @@ function ProviderPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof u
         <p className="text-sm font-medium text-[#eee9ff]">{guidance.headline}</p>
         <p className="mt-1 text-sm text-[#b7b0cc]">{guidance.detail}</p>
       </div>
-      {fleet.error && fleet.busy === null && (
-        <p className="mt-3 text-sm text-rose-200">{fleet.error}</p>
-      )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {chosen && (
           <button
@@ -584,15 +589,18 @@ function GithubPanel({
   site,
   fleet,
   sites,
+  result,
 }: {
   site: Site;
   fleet: ReturnType<typeof useFleet>;
   sites: Site[];
+  result?: GithubResult;
 }) {
   const [owner, setOwner] = useState(site.github?.owner || "");
   const [repo, setRepo] = useState(site.github?.repo || "");
   const [branch, setBranch] = useState(site.github?.branch || "main");
   const [root, setRoot] = useState(site.github?.root || "public");
+  const [connecting, setConnecting] = useState(false);
   // What a push would actually do, read from the repo. Null until the operator
   // asks; cleared whenever the target changes, because a verdict for one
   // owner/repo/folder says nothing about another.
@@ -611,6 +619,20 @@ function GithubPanel({
     plan.root === root.trim().replace(/^\/+|\/+$/g, "");
   const shown = planIsForTarget ? plan : null;
   const canPush = Boolean(owner.trim() && repo.trim()) && !draftConflict;
+  const connectMessage =
+    result === "installed"
+      ? "GitHub approved. CiteFleet installed the origin files in this repository."
+      : result === "current"
+        ? "GitHub approved. This repository already contains the exact origin files."
+        : result === "denied"
+          ? "GitHub approval was cancelled. No repository access was added."
+          : result === "unavailable"
+            ? "GitHub connection is not configured on this CiteFleet deployment."
+            : result === "failed"
+              ? site.github?.lastInstallError ||
+                "GitHub connected, but the safety check stopped the install. Check the repository below for the exact file conflict."
+              : null;
+  const connectTone = result === "installed" || result === "current" ? "good" : "bad";
   return (
     <section className="glass rounded-3xl p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -671,15 +693,23 @@ function GithubPanel({
           {storedConflict ? "wrong repo" : connected ? "repo attached" : "no repo"}
         </Pill>
       </div>
-      {!tokenReady && (
-        <p className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          No GitHub token on this workspace. Open{" "}
-          <Link to="/" className="underline">
-            Command
-          </Link>{" "}
-          and save a classic PAT with repo scope, then push again.
+      {connectMessage && (
+        <p
+          className={`mt-3 rounded-2xl border px-3 py-2 text-sm ${
+            connectTone === "good"
+              ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100"
+              : "border-rose-400/30 bg-rose-400/10 text-rose-100"
+          }`}
+          data-testid="github-connect-result"
+        >
+          {connectMessage}
         </p>
       )}
+      <p className="mt-3 text-sm text-[#b7b0cc]">
+        Save the repository details, then approve GitHub once. CiteFleet reads the existing paths,
+        commits only files its ownership guard allows, and keeps the authorization for future
+        updates. No personal access token needs to be copied.
+      </p>
       <form
         className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
         onSubmit={(e) => {
@@ -725,6 +755,29 @@ function GithubPanel({
         </label>{" "}
         <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
           <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-full bg-sky-400 px-4 py-2 text-sm font-semibold text-[#07060f] hover:bg-sky-300 disabled:opacity-40"
+            disabled={!!fleet.busy || connecting || !canPush}
+            onClick={async () => {
+              setConnecting(true);
+              const saved = await fleet.attachGithub({
+                siteId: site.id,
+                owner,
+                repo,
+                branch,
+                root,
+              });
+              if (!saved) {
+                setConnecting(false);
+                return;
+              }
+              window.location.assign(`/api/oauth/github?connect=${encodeURIComponent(site.id)}`);
+            }}
+          >
+            <Github aria-hidden="true" className="h-4 w-4" />
+            {connecting ? "Opening GitHub…" : "Connect GitHub and install 5 files"}
+          </button>
+          <button
             className="rounded-full border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-40"
             disabled={!!fleet.busy || !canPush}
           >
@@ -760,6 +813,9 @@ function GithubPanel({
           </button>
           {fleet.busy === "origin" && (
             <span className="text-xs text-[#9b95b3]">Saving repo, then committing to GitHub…</span>
+          )}
+          {tokenReady && (
+            <span className="text-xs text-emerald-200">GitHub authorization connected</span>
           )}
           {draftConflict && (
             <span className="text-xs text-rose-200" data-testid="github-draft-conflict">

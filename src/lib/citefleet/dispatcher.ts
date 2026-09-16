@@ -13,7 +13,7 @@ import type { AuditResult, PlaybookId, Site, Task } from "./types";
 import { createSiteVerifyToken, siteVerifyToken } from "./verify-token.ts";
 import { checklistTransition, toggleEvidenceLabel } from "./task-state.ts";
 import { checkOriginProof, waitForDnsProof, waitForProof } from "./proof.ts";
-import { normalizeOwner, normalizeRepo, normalizeRoot, originRepoConflict } from "./origin-repo.ts";
+import { githubRepoTarget, githubRoot, originRepoConflict } from "./origin-repo.ts";
 import { deployedUrl, endCheck, newWebhookSecret, payloadUrl } from "./webhook.ts";
 import { applyWebhookProof, recordWebhookResult } from "./webhook-proof-state.ts";
 
@@ -55,15 +55,13 @@ export async function onboardSite(
     createdAt: new Date().toISOString(),
     scores: { technical: 0, submissions: 0, mentions: 0, overall: 0 },
     summary: "Onboarded. Awaiting Grok Dispatcher assignment.",
-    github:
-      input.github?.owner && input.github.repo
-        ? {
-            owner: normalizeOwner(input.github.owner),
-            repo: normalizeRepo(input.github.repo),
-            branch: input.github.branch || "main",
-            root: normalizeRoot(input.github.root),
-          }
-        : undefined,
+    github: input.github?.repo
+      ? {
+          ...githubRepoTarget(input.github.owner, input.github.repo),
+          branch: input.github.branch || "main",
+          root: githubRoot(input.github.root),
+        }
+      : undefined,
   };
 
   await ws.mutate((store) => {

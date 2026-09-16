@@ -34,12 +34,93 @@ export function normalizeOwner(owner: string): string {
 }
 
 export function normalizeRepo(repo: string): string {
-  return repo.trim().replace(/\.git$/, "");
+  return repo.trim().replace(/\.git$/i, "");
+}
+
+const GITHUB_OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+const GITHUB_REPO = /^[A-Za-z0-9._-]{1,100}$/;
+
+/**
+ * Parse the repository forms customers actually paste into one canonical pair.
+ *
+ * The UI historically had separate owner/repo fields, but accepted a complete
+ * URL in the repo field and persisted it literally. That produced paths such as
+ * `mitchvac/https://github.com/mitchvac/marketswarm` in every GitHub API call.
+ * A GitHub URL or `owner/repo` value is authoritative; the separate owner field
+ * remains the fallback for a plain repository name.
+ */
+export function githubRepoTarget(ownerInput: string, repoInput: string): RepoRef {
+  const raw = repoInput.trim().replace(/\/+$/, "");
+  let owner = normalizeOwner(ownerInput);
+  let repo = raw;
+
+  if (/^https?:\/\//i.test(raw)) {
+    let url: URL;
+    try {
+      url = new URL(raw);
+    } catch {
+      throw new Error("Enter a valid GitHub repository URL or owner/repo.");
+    }
+    if (
+      url.protocol !== "https:" ||
+      url.hostname.toLowerCase() !== "github.com" ||
+      url.port ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      throw new Error("Enter an https://github.com/owner/repo GitHub repository URL.");
+    }
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts.length !== 2) {
+      throw new Error("Enter an https://github.com/owner/repo GitHub repository URL.");
+    }
+    [owner, repo] = parts;
+  } else {
+    const ssh = raw.match(/^git@github\.com:([^/]+)\/([^/]+)$/i);
+    if (ssh) {
+      owner = ssh[1];
+      repo = ssh[2];
+    } else {
+      const parts = raw.split("/");
+      if (parts.length === 2) [owner, repo] = parts;
+      else if (parts.length !== 1) {
+        throw new Error("Enter a valid GitHub repository URL or owner/repo.");
+      }
+    }
+  }
+
+  owner = normalizeOwner(owner);
+  repo = normalizeRepo(repo);
+  if (!owner || !repo) throw new Error("GitHub owner and repo are required.");
+  if (!GITHUB_OWNER.test(owner) || !GITHUB_REPO.test(repo) || repo === "." || repo === "..") {
+    throw new Error("Enter a valid GitHub repository URL or owner/repo.");
+  }
+  return { owner, repo };
 }
 
 /** Matches what `attachGithub` persists: no leading or trailing slash, default `public`. */
 export function normalizeRoot(root: string | undefined): string {
   return (root ?? "public").trim().replace(/^\/+|\/+$/g, "");
+}
+
+/** A GitHub Contents API path must stay inside the selected repository. */
+export function githubRoot(root: string | undefined): string {
+  const normalized = normalizeRoot(root);
+  if (
+    normalized.length > 512 ||
+    normalized.includes("\\") ||
+    [...normalized].some((char) => {
+      const code = char.charCodeAt(0);
+      return code < 32 || code === 127;
+    }) ||
+    (normalized !== "" &&
+      normalized.split("/").some((part) => part === "." || part === ".." || !part))
+  ) {
+    throw new Error("GitHub folder must be a repository-relative path such as public.");
+  }
+  return normalized;
 }
 
 /**
@@ -65,8 +146,7 @@ export function repoSlot(ref: RepoRef): string {
 function squatsCitefleetRepo(s: SiteLike): boolean {
   if (!s.github?.repo) return false;
   return (
-    normalizeRepo(s.github.repo).toLowerCase() === CITEFLEET_REPO &&
-    s.domain !== CITEFLEET_DOMAIN
+    normalizeRepo(s.github.repo).toLowerCase() === CITEFLEET_REPO && s.domain !== CITEFLEET_DOMAIN
   );
 }
 

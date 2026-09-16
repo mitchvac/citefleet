@@ -3,6 +3,8 @@ import { test } from "node:test";
 import { buildOriginPack } from "./originPack.ts";
 import type { Site } from "./types.ts";
 import {
+  githubRepoTarget,
+  githubRoot,
   normalizeRoot,
   originRepoConflict,
   repoSlot,
@@ -80,10 +82,7 @@ test("citefleet.app keeps its own repo even while the other two are squatting it
   // A bad row must never deadlock the good one: if wflowprocess.app squatting
   // mitchvac/citefleet could block citefleet.app, there would be no order in
   // which the operator could repair the store.
-  assert.equal(
-    originRepoConflict(CITEFLEET, CITEFLEET.github!, [CITEFLEET, WFLOW, RESO]),
-    null,
-  );
+  assert.equal(originRepoConflict(CITEFLEET, CITEFLEET.github!, [CITEFLEET, WFLOW, RESO]), null);
 });
 
 test("the fix the operator applies is accepted", () => {
@@ -108,8 +107,12 @@ test("the fix the operator applies is accepted", () => {
 });
 
 test("a property re-saving its own repo is not a conflict with itself", () => {
-  const a = site({ id: "a", domain: "a.com", url: "https://a.com",
-    github: { owner: "mitchvac", repo: "a-site", branch: "main", root: "public" } });
+  const a = site({
+    id: "a",
+    domain: "a.com",
+    url: "https://a.com",
+    github: { owner: "mitchvac", repo: "a-site", branch: "main", root: "public" },
+  });
   assert.equal(
     originRepoConflict(a, { owner: "mitchvac", repo: "a-site", root: "public" }, [a]),
     null,
@@ -118,10 +121,17 @@ test("a property re-saving its own repo is not a conflict with itself", () => {
 
 // The hardcoded name check could never have caught these.
 test("any repo already held by another property is refused, not just citefleet", () => {
-  const a = site({ id: "a", domain: "a.com", url: "https://a.com",
-    github: { owner: "mitchvac", repo: "shared", branch: "main", root: "public" } });
+  const a = site({
+    id: "a",
+    domain: "a.com",
+    url: "https://a.com",
+    github: { owner: "mitchvac", repo: "shared", branch: "main", root: "public" },
+  });
   const b = site({ id: "b", domain: "b.com", url: "https://b.com" });
-  const conflict = originRepoConflict(b, { owner: "mitchvac", repo: "shared", root: "public" }, [a, b]);
+  const conflict = originRepoConflict(b, { owner: "mitchvac", repo: "shared", root: "public" }, [
+    a,
+    b,
+  ]);
   assert.ok(conflict);
   assert.equal(conflict.reason, "claimed-by-other-site");
   assert.equal(conflict.otherDomain, "a.com");
@@ -129,8 +139,12 @@ test("any repo already held by another property is refused, not just citefleet",
 });
 
 test("owner and repo compare case-insensitively, the way GitHub resolves them", () => {
-  const a = site({ id: "a", domain: "a.com", url: "https://a.com",
-    github: { owner: "MitchVac", repo: "Shared", branch: "main", root: "public" } });
+  const a = site({
+    id: "a",
+    domain: "a.com",
+    url: "https://a.com",
+    github: { owner: "MitchVac", repo: "Shared", branch: "main", root: "public" },
+  });
   const b = site({ id: "b", domain: "b.com", url: "https://b.com" });
   assert.ok(
     originRepoConflict(b, { owner: "mitchvac", repo: "shared", root: "public" }, [a, b]),
@@ -139,15 +153,23 @@ test("owner and repo compare case-insensitively, the way GitHub resolves them", 
 });
 
 test("a monorepo may serve two properties from two different roots", () => {
-  const a = site({ id: "a", domain: "a.com", url: "https://a.com",
-    github: { owner: "mitchvac", repo: "mono", branch: "main", root: "apps/a/public" } });
+  const a = site({
+    id: "a",
+    domain: "a.com",
+    url: "https://a.com",
+    github: { owner: "mitchvac", repo: "mono", branch: "main", root: "apps/a/public" },
+  });
   const b = site({ id: "b", domain: "b.com", url: "https://b.com" });
   assert.equal(
     originRepoConflict(b, { owner: "mitchvac", repo: "mono", root: "apps/b/public" }, [a, b]),
     null,
   );
   // Roots are paths, and paths inside a repo are case-sensitive.
-  assert.equal(repoSlot({ owner: "o", repo: "r", root: "Public" }) === repoSlot({ owner: "o", repo: "r", root: "public" }), false);
+  assert.equal(
+    repoSlot({ owner: "o", repo: "r", root: "Public" }) ===
+      repoSlot({ owner: "o", repo: "r", root: "public" }),
+    false,
+  );
 });
 
 test("an unconfigured repo is not a conflict", () => {
@@ -159,5 +181,44 @@ test("normalization matches what attachGithub persists", () => {
   assert.equal(normalizeRoot(undefined), "public");
   assert.equal(normalizeRoot("/frontend/public/"), "frontend/public");
   assert.equal(normalizeRoot(""), "");
-  assert.equal(repoSlot({ owner: "@mitchvac", repo: "resonanse.git", root: "/public/" }), "mitchvac/resonanse:public");
+  assert.equal(
+    repoSlot({ owner: "@mitchvac", repo: "resonanse.git", root: "/public/" }),
+    "mitchvac/resonanse:public",
+  );
+});
+
+test("production reproduction: a pasted GitHub URL becomes owner/repo, not part of the repo name", () => {
+  assert.deepEqual(githubRepoTarget("mitchvac", "https://github.com/mitchvac/marketswarm"), {
+    owner: "mitchvac",
+    repo: "marketswarm",
+  });
+});
+
+test("GitHub target accepts common repository forms and rejects unsafe or foreign URLs", () => {
+  assert.deepEqual(githubRepoTarget("", "mitchvac/marketswarm.git"), {
+    owner: "mitchvac",
+    repo: "marketswarm",
+  });
+  assert.deepEqual(githubRepoTarget("", "git@github.com:mitchvac/marketswarm.git"), {
+    owner: "mitchvac",
+    repo: "marketswarm",
+  });
+  assert.deepEqual(githubRepoTarget("@mitchvac", "marketswarm.git"), {
+    owner: "mitchvac",
+    repo: "marketswarm",
+  });
+  assert.throws(
+    () => githubRepoTarget("mitchvac", "https://example.com/mitchvac/marketswarm"),
+    /GitHub repository/,
+  );
+  assert.throws(() => githubRepoTarget("mitchvac", "../marketswarm"), /GitHub repository/);
+  assert.throws(() => githubRepoTarget("", "marketswarm"), /owner and repo are required/);
+});
+
+test("GitHub root refuses traversal and backslash paths", () => {
+  assert.equal(githubRoot("/frontend/public/"), "frontend/public");
+  assert.equal(githubRoot(""), "");
+  assert.throws(() => githubRoot("../public"), /repository-relative path/);
+  assert.throws(() => githubRoot("public/../other"), /repository-relative path/);
+  assert.throws(() => githubRoot("public\\other"), /repository-relative path/);
 });

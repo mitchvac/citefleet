@@ -278,15 +278,15 @@ export function CommandBoard() {
         </aside>
       </section>
 
-      <section className="glass rounded-3xl p-5">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">
-          GitHub token — all properties
-        </p>
-        <p className="mt-1 text-sm text-[#b7b0cc]">
-          One classic PAT with <span className="mono">repo</span> scope. CiteFleet uses it to push
-          robots.txt, sitemap.xml, llms.txt, and .well-known/botcentral.txt into each site’s repo.
-          Token is not shown back.
-          {workspace.githubToken ? " Status: stored." : " Status: missing."}
+      <details className="glass rounded-3xl p-5">
+        <summary className="cursor-pointer text-sm font-semibold text-[#cfc8e8]">
+          Advanced GitHub token fallback
+        </summary>
+        <p className="mt-3 text-sm text-[#b7b0cc]">
+          The campaign’s Connect GitHub button is the normal path. Use this only when OAuth is
+          unavailable and an administrator intentionally supplies one classic PAT with{" "}
+          <span className="mono">repo</span> scope for this workspace. The token is never shown
+          back. {workspace.githubToken ? "Status: authorization stored." : "Status: none stored."}
         </p>
         <form
           className="mt-3 flex flex-wrap gap-2"
@@ -299,6 +299,7 @@ export function CommandBoard() {
           <input
             type="password"
             autoComplete="off"
+            aria-label="GitHub personal access token"
             className="w-full flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[#9b7dff] sm:w-auto sm:min-w-[16rem]"
             value={ghToken}
             onChange={(e) => setGhToken(e.target.value)}
@@ -308,10 +309,10 @@ export function CommandBoard() {
             className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07060f]"
             disabled={!!fleet.busy || !ghToken.trim()}
           >
-            Save token
+            Save fallback token
           </button>
         </form>
-      </section>
+      </details>
 
       <section className="glass rounded-3xl p-5">
         <div className="mb-4 flex items-end justify-between">

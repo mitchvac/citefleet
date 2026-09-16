@@ -160,6 +160,9 @@ export interface Site {
     lastPushAt?: string;
     lastPushSha?: string;
     lastPushUrl?: string;
+    /** Last explicit GitHub OAuth install attempt; errors are bounded before persistence. */
+    lastInstallAttemptAt?: string;
+    lastInstallError?: string;
   };
   botcentral?: {
     listed: boolean;
