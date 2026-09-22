@@ -21,6 +21,7 @@ export interface VercelDnsDeps {
 
 export interface VercelAuthorization {
   accessToken: string;
+  installationId?: string;
   teamId: string | null;
 }
 
@@ -151,7 +152,11 @@ export async function exchangeVercelCode(
       redirect_uri: config.redirectUri,
     }),
   });
-  const result = await readJson<{ access_token?: unknown; team_id?: unknown }>(response);
+  const result = await readJson<{
+    access_token?: unknown;
+    team_id?: unknown;
+    installation_id?: unknown;
+  }>(response);
   if (!response.ok || typeof result.access_token !== "string" || !result.access_token) {
     throw new Error(`Vercel authorization failed (${response.status})`);
   }
@@ -162,7 +167,13 @@ export async function exchangeVercelCode(
   ) {
     throw new Error("Vercel authorization returned an invalid team");
   }
-  return { accessToken: result.access_token, teamId: result.team_id ?? null };
+  return {
+    accessToken: result.access_token,
+    teamId: result.team_id ?? null,
+    ...(typeof result.installation_id === "string"
+      ? { installationId: result.installation_id }
+      : {}),
+  };
 }
 
 function apexRecordName(name: unknown, domain: string): boolean {

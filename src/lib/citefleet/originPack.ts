@@ -43,6 +43,7 @@ export function packFiles(site: Site): OriginFile[] {
     `# ${OWNER_MARKER}. Marketing URLs stay Allow. Do not 402 these paths.`,
     "",
     "User-agent: *",
+    ...AI_AGENTS.map((ua) => `User-agent: ${ua}`),
     "Allow: /",
     "Allow: /llms.txt",
     "Allow: /sitemap.xml",
@@ -50,7 +51,6 @@ export function packFiles(site: Site): OriginFile[] {
     "Disallow: /admin",
     "Disallow: /settings",
     "",
-    ...AI_AGENTS.flatMap((ua) => [`User-agent: ${ua}`, "Allow: /", ""]),
     // The sitemap the site ACTUALLY serves, not an assumption. WordPress core
     // answers /wp-sitemap.xml and Yoast /sitemap_index.xml — roughly 40% of the
     // web — so a hardcoded /sitemap.xml pointed crawlers at a 404 for them.

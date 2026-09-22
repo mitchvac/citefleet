@@ -7,6 +7,7 @@ import { Pill } from "./Shell";
 import { ProviderPicker } from "./ProviderPicker";
 import { Row } from "./Copy";
 import { OriginPackPanel } from "./OriginPackPanel";
+import { VercelInstallPanel } from "./VercelInstallPanel";
 import { GrokHandoff } from "./GrokHandoff";
 import type { Site, Task } from "@/lib/citefleet/types";
 import { hostingHint } from "@/lib/citefleet/hosting-hint";
@@ -267,8 +268,24 @@ function ProviderPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof u
             the automatic option when the site deploys from a repository.
           </p>
         </div>
-        <Pill tone={chosen ? (guidance.tone === "good" ? "good" : "warn") : "neutral"}>
-          {chosen ? (guidance.tone === "good" ? "installable" : "manual install") : "no host set"}
+        <Pill
+          tone={
+            chosen?.slug === "vercel"
+              ? "neutral"
+              : chosen
+                ? guidance.tone === "good"
+                  ? "good"
+                  : "warn"
+                : "neutral"
+          }
+        >
+          {chosen?.slug === "vercel"
+            ? "Vercel deployment"
+            : chosen
+              ? guidance.tone === "good"
+                ? "installable"
+                : "manual install"
+              : "no host set"}
         </Pill>
       </div>
       <div className="mt-4 max-w-md">
@@ -278,10 +295,14 @@ function ProviderPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof u
           onChange={(slug) => void fleet.setProvider(site.id, slug)}
         />
       </div>
-      <div className="mt-3 max-w-xl" data-testid="provider-guidance">
-        <p className="text-sm font-medium text-[#eee9ff]">{guidance.headline}</p>
-        <p className="mt-1 text-sm text-[#b7b0cc]">{guidance.detail}</p>
-      </div>
+      {chosen?.slug === "vercel" ? (
+        <VercelInstallPanel site={site} />
+      ) : (
+        <div className="mt-3 max-w-xl" data-testid="provider-guidance">
+          <p className="text-sm font-medium text-[#eee9ff]">{guidance.headline}</p>
+          <p className="mt-1 text-sm text-[#b7b0cc]">{guidance.detail}</p>
+        </div>
+      )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {chosen && (
           <button
@@ -634,7 +655,7 @@ function GithubPanel({
               : null;
   const connectTone = result === "installed" || result === "current" ? "good" : "bad";
   return (
-    <section className="glass rounded-3xl p-5">
+    <section id="github-origin-install" className="glass rounded-3xl p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.16em] text-[#9b95b3]">

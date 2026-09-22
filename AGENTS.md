@@ -289,3 +289,32 @@ term_days, topup}`; the term and the 402 live on `Site.term` / `Site.payment`, N
   the header shows nothing rather than a placeholder. Sessions are IN-MEMORY, so every deploy signs
   everyone out; that is a known cost of the current design, not a bug to chase.
 - `test-results/` is Playwright output (videos, screenshots, traces); never commit.
+
+
+## Vercel origin installation (2026-09-22)
+
+- `src/components/citefleet/VercelInstallPanel.tsx` is the campaign's Vercel authorization,
+  installation progress, and live-file result panel. `CampaignView.tsx` renders it for Vercel.
+- `src/lib/citefleet/vercel-install.ts` is the browser-safe status contract;
+  `vercel-install.server.ts` handles tenant-bound OAuth, encrypted short-lived credentials,
+  claimed jobs, expiry, and explicit customer GitHub credentials. Its sibling test covers
+  token binding and state predicates.
+- `src/lib/citefleet/vercel-project.server.ts` implements exact-domain project discovery,
+  guarded atomic Git commits, commit-pinned Vercel deployments, and public-file verification.
+  `vercel-project.test.ts` tests provider response/refusal paths with injected APIs.
+- `src/routes/api/hosting/vercel/{start,callback,status,advance}.ts` expose the signed-in flow.
+- `server/plugins/vercel-install-cleanup.ts` expires abandoned operations on the Node server.
+- `supabase/migrations/20260922190000_citefleet_vercel_installs.sql` adds server-only job storage.
+  `20260921120000_citefleet_hostinger_installs.sql` preserves the prior applied migration.
+- `deploy/deploy-vps.sh` accepts separate file-install OAuth settings from
+  `/root/citefleet-vercel-install.oauth`; `deploy/.env.production.example` documents the names.
+  `docs/providers/vercel.md` documents configuration and the supported deployment scope.
+- `originPack.ts` groups named crawlers with the wildcard exclusions;
+  `originPack.test.ts` checks that named agents retain those exclusions.
+
+- `tests/e2e/vercel-install.spec.ts` drives the actual signed-in configuration panel,
+  disabled authorization, reload persistence and anonymous API refusal with a marker-only property.
+  It does not claim OAuth/deployment coverage.
+- `src/lib/database.types.ts` is regenerated from the migrated database. The shared
+  `vercel-dns.server.ts` OAuth response now preserves the provider installation ID;
+  file-install callbacks require it to match, while DNS callers retain their existing behavior.

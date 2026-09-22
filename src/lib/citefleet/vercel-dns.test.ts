@@ -155,3 +155,15 @@ test("Vercel completion redirects cannot escape Vercel", () => {
   assert.equal(vercelCompletionUrl("https://vercel.com.evil.example/steal"), null);
   assert.equal(vercelCompletionUrl("javascript:alert(1)"), null);
 });
+
+test("Vercel exchange preserves the token's installation identity for file-install binding", async () => {
+  const authorization = await exchangeVercelCode("code", config, {
+    fetch: async () =>
+      json({
+        access_token: "temporary",
+        installation_id: "icfg_verified123",
+        team_id: "team_verified123",
+      }),
+  });
+  assert.equal(authorization.installationId, "icfg_verified123");
+});
