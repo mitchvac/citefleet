@@ -17,7 +17,7 @@ and customer account behavior before treating a flow as automated.
 | `google-cloud.md` | Google Cloud hosting research. |
 | `group-one.md` | Group.one hosting research. |
 | `hetzner.md` | Hetzner hosting research. |
-| `hostinger.md` | Hostinger web root, API, sign-in, and installer validation requirements. |
+| `hostinger.md` | Hostinger Web/Cloud root and API requirements; local OAuth evidence and AI Builder rootless account result. |
 | `ionos.md` | IONOS hosting research. |
 | `microsoft-azure.md` | Microsoft Azure hosting research. |
 | `newfold.md` | Newfold hosting research. |

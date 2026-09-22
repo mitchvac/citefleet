@@ -87,8 +87,11 @@ Playwright for e2e. **Node 22** (`engines: >=22`, both Dockerfile stages are `no
   own Hostinger account; CiteFleet stores a short-lived encrypted grant in a
   tenant-bound job. The operator's webhook-triggered Grok Bot receives only a
   one-use job capability. `HostingerInstallPanel.tsx` reports verified only after
-  all five public files match. Web OAuth on an HTTPS callback and live Hostinger
-  Web/Cloud uploads remain unverified; missing `.well-known` is refused.
+  all five public files match. Local loopback OAuth read access was verified
+  against a customer account; the production HTTPS callback was rejected with
+  `invalid_redirect_uri`. That account's AI Builder site is reported as
+  `horizons` with no hosting username or document root. Live Hostinger Web/Cloud
+  uploads remain unverified; missing `.well-known` is refused.
 - Porkbun automation also surfaces Porkbun's unavoidable one-time per-domain
   API Access toggle before approval and maps the provider's opt-in rejection to
   that exact recovery step; CiteFleet never asks customers to enable every
