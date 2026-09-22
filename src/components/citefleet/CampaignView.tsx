@@ -7,6 +7,7 @@ import { Pill } from "./Shell";
 import { ProviderPicker } from "./ProviderPicker";
 import { Row } from "./Copy";
 import { OriginPackPanel } from "./OriginPackPanel";
+import { HostingerInstallPanel } from "./HostingerInstallPanel";
 import { GrokHandoff } from "./GrokHandoff";
 import type { Site, Task } from "@/lib/citefleet/types";
 import { hostingHint } from "@/lib/citefleet/hosting-hint";
@@ -211,6 +212,7 @@ export function CampaignView({
 
       <GithubPanel site={site} fleet={fleet} sites={fleet.store.sites} result={githubResult} />
       <ProviderPanel site={site} fleet={fleet} />
+      <HostingerInstallPanel site={site} />
       <OriginPackPanel site={site} fleet={fleet} />
       <BillingPanel site={site} fleet={fleet} />
 

@@ -46,6 +46,10 @@ the file map for `src/lib/citefleet/`; it does not assert live production state.
 | `hosting.test.ts` | Hosting guidance tests. |
 | `hosting.ts` | Hosting guidance. |
 | `hostinger-files.server.ts` | Exact-site Hostinger file inspection and ownership-safe TUS upload adapter. |
+| `hostinger-oauth.server.ts` / `hostinger-oauth.test.ts` | Hostinger dynamic OAuth registration, PKCE exchange/revocation, and contract tests. |
+| `hostinger-install.server.ts` / `hostinger-install.test.ts` | Customer-bound OAuth and one-use Grok Bot install job, status, and token-security test. |
+| `hostinger-token.ts` | AES-GCM encryption for short-lived customer Hostinger access tokens. |
+| `hostinger-site.ts` / `hostinger-site.test.ts` | Exact hostname scope, preserving `www` for customer website jobs. |
 | `hostinger-files.test.ts` | Hostinger API adapter tests for upload, existing files, and unsupported sites. |
 | `indexnow-flow.test.ts` | Tests IndexNow task transitions and URL submission. |
 | `indexnow-submit.test.ts` | Tests IndexNow HTTP submission responses and safety checks. |
