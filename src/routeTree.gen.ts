@@ -50,6 +50,10 @@ import { Route as ApiDnsPorkbunCallbackRouteImport } from './routes/api/dns/pork
 import { Route as ApiDnsPorkbunStartRouteImport } from './routes/api/dns/porkbun/start'
 import { Route as ApiDnsVercelCallbackRouteImport } from './routes/api/dns/vercel/callback'
 import { Route as ApiDnsVercelStartRouteImport } from './routes/api/dns/vercel/start'
+import { Route as ApiHostingVercelAdvanceRouteImport } from './routes/api/hosting/vercel/advance'
+import { Route as ApiHostingVercelCallbackRouteImport } from './routes/api/hosting/vercel/callback'
+import { Route as ApiHostingVercelStartRouteImport } from './routes/api/hosting/vercel/start'
+import { Route as ApiHostingVercelStatusRouteImport } from './routes/api/hosting/vercel/status'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -257,6 +261,27 @@ const ApiDnsVercelStartRoute = ApiDnsVercelStartRouteImport.update({
   path: '/api/dns/vercel/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHostingVercelAdvanceRoute = ApiHostingVercelAdvanceRouteImport.update({
+  id: '/api/hosting/vercel/advance',
+  path: '/api/hosting/vercel/advance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHostingVercelCallbackRoute =
+  ApiHostingVercelCallbackRouteImport.update({
+    id: '/api/hosting/vercel/callback',
+    path: '/api/hosting/vercel/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiHostingVercelStartRoute = ApiHostingVercelStartRouteImport.update({
+  id: '/api/hosting/vercel/start',
+  path: '/api/hosting/vercel/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHostingVercelStatusRoute = ApiHostingVercelStatusRouteImport.update({
+  id: '/api/hosting/vercel/status',
+  path: '/api/hosting/vercel/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -300,6 +325,10 @@ export interface FileRoutesByFullPath {
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
   '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
   '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
+  '/api/hosting/vercel/advance': typeof ApiHostingVercelAdvanceRoute
+  '/api/hosting/vercel/callback': typeof ApiHostingVercelCallbackRoute
+  '/api/hosting/vercel/start': typeof ApiHostingVercelStartRoute
+  '/api/hosting/vercel/status': typeof ApiHostingVercelStatusRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -343,6 +372,10 @@ export interface FileRoutesByTo {
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
   '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
   '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
+  '/api/hosting/vercel/advance': typeof ApiHostingVercelAdvanceRoute
+  '/api/hosting/vercel/callback': typeof ApiHostingVercelCallbackRoute
+  '/api/hosting/vercel/start': typeof ApiHostingVercelStartRoute
+  '/api/hosting/vercel/status': typeof ApiHostingVercelStatusRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -387,6 +420,10 @@ export interface FileRoutesById {
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
   '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
   '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
+  '/api/hosting/vercel/advance': typeof ApiHostingVercelAdvanceRoute
+  '/api/hosting/vercel/callback': typeof ApiHostingVercelCallbackRoute
+  '/api/hosting/vercel/start': typeof ApiHostingVercelStartRoute
+  '/api/hosting/vercel/status': typeof ApiHostingVercelStatusRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -432,6 +469,10 @@ export interface FileRouteTypes {
     | '/api/dns/porkbun/start'
     | '/api/dns/vercel/callback'
     | '/api/dns/vercel/start'
+    | '/api/hosting/vercel/advance'
+    | '/api/hosting/vercel/callback'
+    | '/api/hosting/vercel/start'
+    | '/api/hosting/vercel/status'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -475,6 +516,10 @@ export interface FileRouteTypes {
     | '/api/dns/porkbun/start'
     | '/api/dns/vercel/callback'
     | '/api/dns/vercel/start'
+    | '/api/hosting/vercel/advance'
+    | '/api/hosting/vercel/callback'
+    | '/api/hosting/vercel/start'
+    | '/api/hosting/vercel/status'
   id:
     | '__root__'
     | '/'
@@ -518,6 +563,10 @@ export interface FileRouteTypes {
     | '/api/dns/porkbun/start'
     | '/api/dns/vercel/callback'
     | '/api/dns/vercel/start'
+    | '/api/hosting/vercel/advance'
+    | '/api/hosting/vercel/callback'
+    | '/api/hosting/vercel/start'
+    | '/api/hosting/vercel/status'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -562,6 +611,10 @@ export interface RootRouteChildren {
   ApiDnsPorkbunStartRoute: typeof ApiDnsPorkbunStartRoute
   ApiDnsVercelCallbackRoute: typeof ApiDnsVercelCallbackRoute
   ApiDnsVercelStartRoute: typeof ApiDnsVercelStartRoute
+  ApiHostingVercelAdvanceRoute: typeof ApiHostingVercelAdvanceRoute
+  ApiHostingVercelCallbackRoute: typeof ApiHostingVercelCallbackRoute
+  ApiHostingVercelStartRoute: typeof ApiHostingVercelStartRoute
+  ApiHostingVercelStatusRoute: typeof ApiHostingVercelStatusRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -853,6 +906,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDnsVercelStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hosting/vercel/advance': {
+      id: '/api/hosting/vercel/advance'
+      path: '/api/hosting/vercel/advance'
+      fullPath: '/api/hosting/vercel/advance'
+      preLoaderRoute: typeof ApiHostingVercelAdvanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hosting/vercel/callback': {
+      id: '/api/hosting/vercel/callback'
+      path: '/api/hosting/vercel/callback'
+      fullPath: '/api/hosting/vercel/callback'
+      preLoaderRoute: typeof ApiHostingVercelCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hosting/vercel/start': {
+      id: '/api/hosting/vercel/start'
+      path: '/api/hosting/vercel/start'
+      fullPath: '/api/hosting/vercel/start'
+      preLoaderRoute: typeof ApiHostingVercelStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hosting/vercel/status': {
+      id: '/api/hosting/vercel/status'
+      path: '/api/hosting/vercel/status'
+      fullPath: '/api/hosting/vercel/status'
+      preLoaderRoute: typeof ApiHostingVercelStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -898,6 +979,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDnsPorkbunStartRoute: ApiDnsPorkbunStartRoute,
   ApiDnsVercelCallbackRoute: ApiDnsVercelCallbackRoute,
   ApiDnsVercelStartRoute: ApiDnsVercelStartRoute,
+  ApiHostingVercelAdvanceRoute: ApiHostingVercelAdvanceRoute,
+  ApiHostingVercelCallbackRoute: ApiHostingVercelCallbackRoute,
+  ApiHostingVercelStartRoute: ApiHostingVercelStartRoute,
+  ApiHostingVercelStatusRoute: ApiHostingVercelStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

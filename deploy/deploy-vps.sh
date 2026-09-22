@@ -181,6 +181,28 @@ if [[ -e "$VERCEL_FILE" ]]; then
   fi
 fi
 
+# Separate customer integration for repository installation and deployment.
+VERCEL_INSTALL_FILE="/root/citefleet-vercel-install.oauth"
+VERCEL_INSTALL_SLUG=""
+VERCEL_INSTALL_CLIENT_ID=""
+VERCEL_INSTALL_CLIENT_SECRET=""
+VERCEL_INSTALL_TOKEN_KEY=""
+if [[ -e "$VERCEL_INSTALL_FILE" ]]; then
+  mapfile -t _vercel_install < "$VERCEL_INSTALL_FILE"
+  VERCEL_INSTALL_SLUG="${_vercel_install[0]-}"
+  VERCEL_INSTALL_CLIENT_ID="${_vercel_install[1]-}"
+  VERCEL_INSTALL_CLIENT_SECRET="${_vercel_install[2]-}"
+  VERCEL_INSTALL_TOKEN_KEY="${_vercel_install[3]-}"
+  VERCEL_INSTALL_SLUG="${VERCEL_INSTALL_SLUG//$'\r'/}"
+  VERCEL_INSTALL_CLIENT_ID="${VERCEL_INSTALL_CLIENT_ID//$'\r'/}"
+  VERCEL_INSTALL_CLIENT_SECRET="${VERCEL_INSTALL_CLIENT_SECRET//$'\r'/}"
+  VERCEL_INSTALL_TOKEN_KEY="${VERCEL_INSTALL_TOKEN_KEY//$'\r'/}"
+  if [[ -z "$VERCEL_INSTALL_SLUG" || -z "$VERCEL_INSTALL_CLIENT_ID" || -z "$VERCEL_INSTALL_CLIENT_SECRET" || ! "$VERCEL_INSTALL_TOKEN_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
+    echo "deploy: $VERCEL_INSTALL_FILE requires slug, client ID, secret, and a base64 32-byte encryption key on lines 1-4" >&2
+    exit 1
+  fi
+fi
+
 NET="citefleet-net"
 PG_NAME="citefleet-postgres"
 PASS_FILE="/root/citefleet-postgres.pass"
@@ -326,6 +348,12 @@ fi
     printf 'CITEFLEET_VERCEL_INTEGRATION_SLUG=%s\n' "$VERCEL_INTEGRATION_SLUG"
     printf 'CITEFLEET_VERCEL_CLIENT_ID=%s\n' "$VERCEL_CLIENT_ID"
     printf 'CITEFLEET_VERCEL_CLIENT_SECRET=%s\n' "$VERCEL_CLIENT_SECRET"
+  fi
+  if [[ -n "$VERCEL_INSTALL_CLIENT_ID" ]]; then
+    printf 'CITEFLEET_VERCEL_INSTALL_INTEGRATION_SLUG=%s\n' "$VERCEL_INSTALL_SLUG"
+    printf 'CITEFLEET_VERCEL_INSTALL_CLIENT_ID=%s\n' "$VERCEL_INSTALL_CLIENT_ID"
+    printf 'CITEFLEET_VERCEL_INSTALL_CLIENT_SECRET=%s\n' "$VERCEL_INSTALL_CLIENT_SECRET"
+    printf 'CITEFLEET_VERCEL_INSTALL_TOKEN_KEY=%s\n' "$VERCEL_INSTALL_TOKEN_KEY"
   fi
   # Listing-year billing (BotCentral brief, 2026-09-06). OFF until a key has
   # been funded end to end — a publish with an unfunded key is a 402. Turn it

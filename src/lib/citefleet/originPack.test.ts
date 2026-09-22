@@ -39,17 +39,14 @@ test("the two views differ only by the repo folder", () => {
 
 test("the web view carries no repo folder — a File Manager user needs these paths", () => {
   const paths = packFiles(site()).map((f) => f.path);
-  assert.deepEqual(paths, [
-    "robots.txt",
-    "sitemap.xml",
-    "llms.txt",
-    ".well-known/botcentral.txt",
-  ]);
+  assert.deepEqual(paths, ["robots.txt", "sitemap.xml", "llms.txt", ".well-known/botcentral.txt"]);
   for (const p of paths) assert.ok(!p.startsWith("public/"), p);
 });
 
 test("a custom repo root moves the repo view only", () => {
-  const s = site({ github: { owner: "o", repo: "r", branch: "main", root: "www" } } as Partial<Site>);
+  const s = site({
+    github: { owner: "o", repo: "r", branch: "main", root: "www" },
+  } as Partial<Site>);
   assert.equal(originRoot(s), "www");
   assert.equal(buildOriginPack(s)[0].path, "www/robots.txt");
   assert.equal(packFiles(s)[0].path, "robots.txt", "the web root is not the repo folder");
@@ -96,12 +93,7 @@ test("every generated file is non-empty and ends with a newline", () => {
 // The pack is five. It silently shipped four for any property with no IndexNow
 // key, which was every property onboarded before keys were generated.
 
-const PACK_PATHS = [
-  "robots.txt",
-  "sitemap.xml",
-  "llms.txt",
-  ".well-known/botcentral.txt",
-];
+const PACK_PATHS = ["robots.txt", "sitemap.xml", "llms.txt", ".well-known/botcentral.txt"];
 
 test("a site with a key ships all five files, web view and repo view alike", () => {
   const key = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4";
@@ -130,7 +122,10 @@ test("a site with NO key ships four — which is why ensureIndexNowKey exists", 
   // before every push and inspect, and the panel offers it explicitly.
   const four = packFiles(site());
   assert.equal(four.length, 4);
-  assert.deepEqual(four.map((f) => f.path), PACK_PATHS);
+  assert.deepEqual(
+    four.map((f) => f.path),
+    PACK_PATHS,
+  );
 });
 
 test("every one of the five is reachable from the web root by the path given", () => {
@@ -141,5 +136,43 @@ test("every one of the five is reachable from the web root by the path given", (
     assert.ok(!f.path.startsWith("/"), `${f.path} must be relative to the web root`);
     assert.ok(!f.path.startsWith("public/"), `${f.path} must not carry the repo folder`);
     assert.ok(!f.path.includes(".."), f.path);
+  }
+});
+
+test("named crawlers share the wildcard exclusions instead of overriding them", () => {
+  const robots = packFiles(site()).find((file) => file.path === "robots.txt")!.content;
+  const groups: { agents: string[]; disallowed: string[] }[] = [];
+  let current = { agents: [] as string[], disallowed: [] as string[] };
+  let hasRules = false;
+  for (const line of robots.split("\n")) {
+    const [name, ...parts] = line.split(":");
+    const value = parts.join(":").trim();
+    if (name === "User-agent") {
+      if (hasRules) {
+        groups.push(current);
+        current = { agents: [], disallowed: [] };
+        hasRules = false;
+      }
+      current.agents.push(value);
+    } else if (name === "Allow" || name === "Disallow") {
+      hasRules = true;
+      if (name === "Disallow") current.disallowed.push(value);
+    }
+  }
+  groups.push(current);
+  for (const agent of [
+    "*",
+    "GPTBot",
+    "ChatGPT-User",
+    "OAI-SearchBot",
+    "PerplexityBot",
+    "ClaudeBot",
+    "Google-Extended",
+    "Googlebot",
+    "Bingbot",
+  ]) {
+    const group = groups.find((candidate) => candidate.agents.includes(agent));
+    assert.ok(group, agent);
+    assert.deepEqual(group.disallowed, ["/api/", "/admin", "/settings"], agent);
   }
 });

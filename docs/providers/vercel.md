@@ -1,5 +1,39 @@
 # Vercel
 
+## CiteFleet deployment integration (2026-09-22)
+
+The implementation uses a dedicated Vercel External Integration and the connected
+customer GitHub account. It currently supports verified Next.js projects with files
+in `public/` (including a configured project root). It checks the exact domain,
+project, production branch, repository ownership, and existing-file ownership before
+committing all five files atomically. It then requests a production deployment for
+that commit and checks HTTP status, content type, and exact bytes on all five live URLs.
+A failed application build remains a failed install.
+
+Configure a separate External Integration with Projects Read, Deployments Read/Write,
+and Installation Read/Write permissions and callback
+`https://citefleet.app/api/hosting/vercel/callback`. Set
+`CITEFLEET_VERCEL_INSTALL_INTEGRATION_SLUG`, `CITEFLEET_VERCEL_INSTALL_CLIENT_ID`,
+`CITEFLEET_VERCEL_INSTALL_CLIENT_SECRET`, and `CITEFLEET_VERCEL_INSTALL_TOKEN_KEY`
+(a base64-encoded 32-byte random key). The VPS deploy script can read these four
+values, in that order, from `/root/citefleet-vercel-install.oauth`. This is separate
+from the existing DNS-only integration. Apply the job-storage migration before deploy.
+
+Without these settings the UI reports that the connection is not enabled. Credentials
+are encrypted for the short-lived job and discarded on completion or expiry; the
+Node server runs expiry cleanup every minute. Revocation failures are reported.
+The customer keeps the campaign open while its saved operation advances.
+
+Implementation checks are not evidence of customer OAuth or production success.
+Vercel Ready and five exact public file responses are required for a verified result.
+The verifier currently refuses IPv6-only origins, redirects, private addresses, oversized
+responses, and repository trees too large to inspect safely.
+
+API references: [Create deployment](https://vercel.com/docs/rest-api/deployments/create-a-new-deployment),
+[External Integrations](https://vercel.com/docs/integrations/create-integration/vercel-api-integrations).
+
+The older provider research below describes the filesystem and manual fallback.
+
 - **Market share:** 2.1% of all websites (W3Techs, 2026-09-11)
 - **Category:** git-deploy platform
 - **File access:** none at runtime — files enter only through a deployment (git push, `vercel` CLI, or the REST API)
