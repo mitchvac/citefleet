@@ -9,6 +9,7 @@ import type { StoreShape } from "./types";
  */
 export function maskStoreSecrets(store: StoreShape): StoreShape {
   const clone = structuredClone(store);
+  if (clone.workspace.discoveryKey) clone.workspace.discoveryKey.digest = "";
   if (clone.workspace.githubToken) clone.workspace.githubToken = "set";
   for (const site of clone.sites) {
     if (site.webhook) site.webhook = { ...site.webhook, secret: "" };

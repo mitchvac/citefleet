@@ -285,3 +285,21 @@ export async function membershipsOf(
     isDefault: r.is_default,
   }));
 }
+
+/** Durable exact capability lookup. Revocation is never answered from the handle cache. */
+export async function workspaceForDiscoveryDigest(
+  digest: string,
+  sql?: Sql,
+): Promise<WorkspaceHandle | null> {
+  if (!/^[a-f0-9]{64}$/.test(digest)) return null;
+  const db = sql ?? (await getSql());
+  const rows = await db.query<{ id: string }>(
+    `SELECT s.id FROM citefleet_snapshot s
+       JOIN citefleet_workspaces w ON w.id = s.id
+      WHERE w.archived_at IS NULL
+        AND s.payload->'workspace'->'discoveryKey'->>'digest' = $1
+      LIMIT 2`,
+    [digest],
+  );
+  return rows.length === 1 ? handleFor(asWorkspaceId(rows[0].id)) : null;
+}

@@ -22,6 +22,9 @@ the file map for `src/lib/citefleet/`; it does not assert live production state.
 | `cloudflare-dns.test.ts` | Cloudflare DNS tests. |
 | `control.ts` | Operator controls. |
 | `course.ts` | Training course. |
+| `discovery.ts` | Browser-safe compact discovery record and receipt contract. |
+| `discovery.server.ts` | Scoped capability rotation/intake and bounded hosted five-file discovery delivery. |
+| `discovery.test.ts` | Discovery validation, exact receipts, isolation and delivery tests. |
 | `dispatcher.ts` | Site workflow dispatch. |
 | `dns-oauth-state.server.ts` | DNS authorization state server adapter. |
 | `dns-oauth-state.test.ts` | DNS authorization state tests. |
@@ -35,7 +38,7 @@ the file map for `src/lib/citefleet/`; it does not assert live production state.
 | `entri-webhook.test.ts` | Entri callbacks tests. |
 | `entri-webhook.ts` | Entri callbacks. |
 | `fleet-api-gate.test.ts` | Fleet API access tests. |
-| `fleet-api.ts` | Fleet server API. |
+| `fleet-api.ts` | Operator-gated fleet API including discovery submission and capability management. |
 | `github-connect.test.ts` | GitHub connection tests. |
 | `github.ts` | GitHub integration. |
 | `glossary.ts` | Product glossary. |
@@ -93,7 +96,7 @@ the file map for `src/lib/citefleet/`; it does not assert live production state.
 | `route-discovery.test.ts` | Sitemap URL discovery tests. |
 | `route-discovery.ts` | Sitemap URL discovery. |
 | `secrets.test.ts` | Credential handling tests. |
-| `secrets.ts` | Credential handling. |
+| `secrets.ts` | Masks GitHub/webhook secrets and discovery capability digests. |
 | `seed.ts` | Initial workspace state. |
 | `share-app.test.ts` | App sharing tests. |
 | `share-app.ts` | App sharing. |
@@ -104,7 +107,7 @@ the file map for `src/lib/citefleet/`; it does not assert live production state.
 | `topup.server.ts` | Top-up server adapter. |
 | `topup.test.ts` | Top-up tests. |
 | `topup.ts` | Top-up. |
-| `types.ts` | Domain types. |
+| `types.ts` | Domain types including separate discovery state and workspace capability digest. |
 | `vercel-dns-oauth.server.ts` | Vercel DNS authorization server adapter. |
 | `vercel-dns.server.ts` | Vercel DNS server adapter. |
 | `vercel-dns.test.ts` | Vercel DNS tests. |
@@ -120,7 +123,7 @@ the file map for `src/lib/citefleet/`; it does not assert live production state.
 | `workspace-handle.ts` | Workspace access. |
 | `workspace-id.test.ts` | Workspace identifiers tests. |
 | `workspace-id.ts` | Workspace identifiers. |
-| `workspace-registry.server.ts` | Workspace registry server adapter. |
+| `workspace-registry.server.ts` | Principal/domain registry and durable exact active-workspace discovery digest lookup. |
 | `workspace-registry.test.ts` | Workspace registry tests. |
 
 Update the relevant row when a file changes materially; add a row for every new file.

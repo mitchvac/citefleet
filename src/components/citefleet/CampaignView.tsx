@@ -18,6 +18,7 @@ import { PROVIDER_FLOWS } from "@/lib/citefleet/provider-flows";
 import { siteVerifyToken, verifyLine } from "@/lib/citefleet/verify-token";
 import { proofRecord } from "@/lib/citefleet/proof-record";
 import { DnsProviderPanel } from "./DnsProviderPanel";
+import { DiscoveryPanel } from "./DiscoveryPanel";
 
 function tone(status: string) {
   if (status === "done") return "good" as const;
@@ -199,6 +200,7 @@ export function CampaignView({
         <div className="glass rounded-2xl px-4 py-3 text-sm text-rose-300">{fleet.error}</div>
       )}
 
+      <DiscoveryPanel key={site.id} site={site} fleet={fleet} />
       <AutoListingPanel site={site} fleet={fleet} />
 
       <div className="grid gap-4 md:grid-cols-4">

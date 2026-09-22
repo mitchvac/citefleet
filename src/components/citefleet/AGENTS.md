@@ -13,6 +13,7 @@ covers `src/components/citefleet/`; it describes source files, not live state.
 | `ControlPlane.tsx` | Operator controls. |
 | `Copy.tsx` | Copyable values and rows. |
 | `DnsProviderPanel.tsx` | DNS proof and provider action panel. |
+| `DiscoveryPanel.tsx` | Compact website metadata and five-file BotCentral submissions, receipts, and workspace key creation/revocation. |
 | `DnsProviderPicker.tsx` | DNS provider selector. |
 | `FleetView.tsx` | Fleet status and bot actions. |
 | `GrokHandoff.tsx` | Grok handoff display. |
@@ -28,3 +29,5 @@ covers `src/components/citefleet/`; it describes source files, not live state.
 | `training/` | Training UI assets; `Mocks.tsx` renders example screens. |
 
 When a file here changes materially, update its row in this map.
+
+`CampaignView.tsx` mounts `DiscoveryPanel.tsx` before existing verified-listing and origin-install panels; discovery receipts remain separate from origin proof and IndexNow status.

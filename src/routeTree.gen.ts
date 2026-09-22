@@ -35,6 +35,7 @@ import { Route as LearnSlugRouteImport } from './routes/learn/$slug'
 import { Route as LearnGlossaryRouteImport } from './routes/learn/glossary'
 import { Route as LearnQuizRouteImport } from './routes/learn/quiz'
 import { Route as SitesIdRouteImport } from './routes/sites/$id'
+import { Route as ApiDiscoverySubmissionsRouteImport } from './routes/api/discovery/submissions'
 import { Route as ApiHooksBotcentralRouteImport } from './routes/api/hooks/botcentral'
 import { Route as ApiHooksDeployedRouteImport } from './routes/api/hooks/deployed'
 import { Route as ApiHooksEntriRouteImport } from './routes/api/hooks/entri'
@@ -185,6 +186,11 @@ const SitesIdRoute = SitesIdRouteImport.update({
   path: '/sites/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDiscoverySubmissionsRoute = ApiDiscoverySubmissionsRouteImport.update({
+  id: '/api/discovery/submissions',
+  path: '/api/discovery/submissions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHooksBotcentralRoute = ApiHooksBotcentralRouteImport.update({
   id: '/api/hooks/botcentral',
   path: '/api/hooks/botcentral',
@@ -312,6 +318,7 @@ export interface FileRoutesByFullPath {
   '/learn/quiz': typeof LearnQuizRoute
   '/sites/$id': typeof SitesIdRoute
   '/learn/': typeof LearnIndexRoute
+  '/api/discovery/submissions': typeof ApiDiscoverySubmissionsRoute
   '/api/hooks/botcentral': typeof ApiHooksBotcentralRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
   '/api/hooks/entri': typeof ApiHooksEntriRoute
@@ -359,6 +366,7 @@ export interface FileRoutesByTo {
   '/learn/quiz': typeof LearnQuizRoute
   '/sites/$id': typeof SitesIdRoute
   '/learn': typeof LearnIndexRoute
+  '/api/discovery/submissions': typeof ApiDiscoverySubmissionsRoute
   '/api/hooks/botcentral': typeof ApiHooksBotcentralRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
   '/api/hooks/entri': typeof ApiHooksEntriRoute
@@ -407,6 +415,7 @@ export interface FileRoutesById {
   '/learn/quiz': typeof LearnQuizRoute
   '/sites/$id': typeof SitesIdRoute
   '/learn/': typeof LearnIndexRoute
+  '/api/discovery/submissions': typeof ApiDiscoverySubmissionsRoute
   '/api/hooks/botcentral': typeof ApiHooksBotcentralRoute
   '/api/hooks/deployed': typeof ApiHooksDeployedRoute
   '/api/hooks/entri': typeof ApiHooksEntriRoute
@@ -456,6 +465,7 @@ export interface FileRouteTypes {
     | '/learn/quiz'
     | '/sites/$id'
     | '/learn/'
+    | '/api/discovery/submissions'
     | '/api/hooks/botcentral'
     | '/api/hooks/deployed'
     | '/api/hooks/entri'
@@ -503,6 +513,7 @@ export interface FileRouteTypes {
     | '/learn/quiz'
     | '/sites/$id'
     | '/learn'
+    | '/api/discovery/submissions'
     | '/api/hooks/botcentral'
     | '/api/hooks/deployed'
     | '/api/hooks/entri'
@@ -550,6 +561,7 @@ export interface FileRouteTypes {
     | '/learn/quiz'
     | '/sites/$id'
     | '/learn/'
+    | '/api/discovery/submissions'
     | '/api/hooks/botcentral'
     | '/api/hooks/deployed'
     | '/api/hooks/entri'
@@ -598,6 +610,7 @@ export interface RootRouteChildren {
   LearnQuizRoute: typeof LearnQuizRoute
   SitesIdRoute: typeof SitesIdRoute
   LearnIndexRoute: typeof LearnIndexRoute
+  ApiDiscoverySubmissionsRoute: typeof ApiDiscoverySubmissionsRoute
   ApiHooksBotcentralRoute: typeof ApiHooksBotcentralRoute
   ApiHooksDeployedRoute: typeof ApiHooksDeployedRoute
   ApiHooksEntriRoute: typeof ApiHooksEntriRoute
@@ -803,6 +816,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/discovery/submissions': {
+      id: '/api/discovery/submissions'
+      path: '/api/discovery/submissions'
+      fullPath: '/api/discovery/submissions'
+      preLoaderRoute: typeof ApiDiscoverySubmissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/hooks/botcentral': {
       id: '/api/hooks/botcentral'
       path: '/api/hooks/botcentral'
@@ -966,6 +986,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnQuizRoute: LearnQuizRoute,
   SitesIdRoute: SitesIdRoute,
   LearnIndexRoute: LearnIndexRoute,
+  ApiDiscoverySubmissionsRoute: ApiDiscoverySubmissionsRoute,
   ApiHooksBotcentralRoute: ApiHooksBotcentralRoute,
   ApiHooksDeployedRoute: ApiHooksDeployedRoute,
   ApiHooksEntriRoute: ApiHooksEntriRoute,

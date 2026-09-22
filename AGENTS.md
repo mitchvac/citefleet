@@ -300,3 +300,11 @@ term_days, topup}`; the term and the 402 live on `Site.term` / `Site.payment`, N
   the header shows nothing rather than a placeholder. Sessions are IN-MEMORY, so every deploy signs
   everyone out; that is a known cost of the current design, not a bug to chase.
 - `test-results/` is Playwright output (videos, screenshots, traces); never commit.
+
+## Compact discovery forwarding
+
+- `src/lib/citefleet/discovery.ts` defines compact record validation and receipt types.
+- `src/lib/citefleet/discovery.server.ts` generates the five files, performs bounded authenticated forwarding and manages independent discovery state. `discovery.test.ts` covers the protocol and tenant boundaries.
+- `src/routes/api/discovery/submissions.ts` is the machine intake, authorized by a revocable workspace bearer digest resolved from durable snapshots.
+- `src/components/citefleet/DiscoveryPanel.tsx` is the campaign form and workspace machine-key control.
+- `docs/botcentral-discovery-handoff.md` is the receiving-agent prompt and proposed exact BotCentral contract. The remote endpoint requires separate implementation and cross-service verification.

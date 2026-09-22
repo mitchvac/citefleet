@@ -41,6 +41,22 @@ Docs: [docs/operator-runbook.md](docs/operator-runbook.md) (day to day),
 [deploy/DEPLOY-VPS.md](deploy/DEPLOY-VPS.md) (server), [AGENTS.md](AGENTS.md) (repo map),
 [PRIME_DIRECTIVE.md](PRIME_DIRECTIVE.md) (governance for all code changes).
 
+## Compact discovery forwarding
+
+The campaign also offers a compact discovery submission: website name, original
+URL, short description, up to 20 page links and 10 topics, plus five generated
+files. Authorized AI applications can submit through
+`POST /api/discovery/submissions` using a revocable workspace key created in the
+campaign. BotCentral receives this at the proposed `/internal/discovery` endpoint.
+
+This is separate from origin-verified publishing. Hosted file copies do not
+change origin robots permissions, prove ownership or complete IndexNow.
+**The matching BotCentral endpoint must be implemented before this flow can
+receive a valid acceptance receipt.** Missing configuration or failed delivery
+is shown as a failure, not a successful listing.
+
+[BotCentral implementation prompt and exact contract](docs/botcentral-discovery-handoff.md).
+
 ## Stack
 
 TanStack Start + React 19 + Nitro. Docker on a shared VPS

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AuditResult, StoreShape } from "./types";
 import type { OriginFileVerdict } from "./origin-ownership";
+import type { DiscoveryRecord } from "./discovery";
 import {
   attachGithubFn,
   auditProperty,
@@ -9,6 +10,9 @@ import {
   setProviderFn,
   setIndexNowKeyFn,
   submitIndexNowFn,
+  submitDiscoveryFn,
+  rotateDiscoveryKeyFn,
+  revokeDiscoveryKeyFn,
   dispatchProperty,
   inspectOriginPackFn,
   loadState,
@@ -182,6 +186,24 @@ export function useFleet() {
     publishListing: (siteId: string) =>
       run("publish", async () => {
         await publishListingFn({ data: { siteId } });
+      }),
+    submitDiscovery: (siteId: string, record: DiscoveryRecord) =>
+      run("discovery", async () => {
+        const result = await submitDiscoveryFn({ data: { siteId, record } });
+        if (result.submission.status !== "accepted") {
+          throw new Error(result.submission.error || "BotCentral has not confirmed receipt.");
+        }
+      }),
+    rotateDiscoveryKey: async (): Promise<string | null> => {
+      let token: string | null = null;
+      await run("discovery-key", async () => {
+        token = (await rotateDiscoveryKeyFn()).token;
+      });
+      return token;
+    },
+    revokeDiscoveryKey: () =>
+      run("discovery-key", async () => {
+        await revokeDiscoveryKeyFn();
       }),
     runControlCycle: () =>
       run("control", async () => {

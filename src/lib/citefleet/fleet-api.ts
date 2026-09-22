@@ -370,3 +370,34 @@ export const settleTopupFn = createServerFn({ method: "POST" })
     const { settleTopup } = await import("./ops.server");
     return settleTopup(await wsFor(context), data);
   });
+
+export const submitDiscoveryFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((d: { siteId: string; record: import("./discovery.ts").DiscoveryRecord }) => d)
+  .handler(async ({ data, context }) => {
+    const { submitDiscovery } = await import("./discovery.server.ts");
+    if (typeof data.siteId !== "string" || !data.siteId) throw new Error("Website required.");
+    return submitDiscovery(await wsFor(context), data.siteId, data.record);
+  });
+
+export const discoverySettingsFn = createServerFn({ method: "GET" })
+  .middleware([operatorMiddleware])
+  .handler(async ({ context }) => {
+    const { settingsDiscovery } = await import("./discovery.server.ts");
+    const ws = await wsFor(context);
+    return { ...settingsDiscovery(), keySet: Boolean((await ws.get()).workspace.discoveryKey) };
+  });
+
+export const rotateDiscoveryKeyFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .handler(async ({ context }) => {
+    const { rotateDiscoveryKey } = await import("./discovery.server.ts");
+    return rotateDiscoveryKey(await wsFor(context));
+  });
+
+export const revokeDiscoveryKeyFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .handler(async ({ context }) => {
+    const { revokeDiscoveryKey } = await import("./discovery.server.ts");
+    return revokeDiscoveryKey(await wsFor(context));
+  });

@@ -64,6 +64,7 @@ export interface SiteScores {
 }
 
 export interface Site {
+  discovery?: import("./discovery.ts").SiteDiscovery;
   id: string;
   workspaceId: string;
   name: string;
@@ -259,6 +260,8 @@ export interface ActivityEvent {
 }
 
 export interface Workspace {
+  /** Only SHA-256 persisted; bearer token is revealed once on rotation. */
+  discoveryKey?: { digest: string; createdAt: string };
   id: string;
   name: string;
   plan: "enterprise";
