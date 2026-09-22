@@ -122,6 +122,23 @@ export function OriginPackPanel({
         </button>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-3" data-testid="indexnow-submission">
+        <button
+          type="button"
+          disabled={!!fleet.busy}
+          onClick={() => void fleet.submitIndexNow(site.id)}
+          className="rounded-full border border-sky-400/40 px-4 py-2 text-sm text-sky-200 hover:bg-sky-400/10 disabled:opacity-40"
+          title="CiteFleet checks the live key file and sitemap, then sends the sitemap URLs to IndexNow."
+        >
+          {fleet.busy === "indexnow-submit" ? "Submitting…" : "Notify IndexNow of this site"}
+        </button>
+        <p className="text-xs text-[#b7b0cc]">
+          {site.indexNowSubmission
+            ? `${site.indexNowSubmission.note} Checked ${new Date(site.indexNowSubmission.at).toLocaleString()}.`
+            : "No URL submission recorded. The key file alone does not notify search engines."}
+        </p>
+      </div>
+
       {missingKey && (
         <div
           className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2"

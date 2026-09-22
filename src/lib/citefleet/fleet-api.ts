@@ -236,6 +236,15 @@ export const setBillingKeyFn = createServerFn({ method: "POST" })
     return setBillingKey(await wsFor(context), data.siteId, data.keyPrefix);
   });
 
+/** Verify the live key and sitemap, then submit their URLs to IndexNow. */
+export const submitIndexNowFn = createServerFn({ method: "POST" })
+  .middleware([operatorMiddleware])
+  .validator((d: { siteId: string }) => d)
+  .handler(async ({ data, context }) => {
+    const { submitIndexNowForSite } = await import("./ops.server");
+    return submitIndexNowForSite(await wsFor(context), data.siteId);
+  });
+
 /** Set or rotate a property's IndexNow key. An empty string generates one. */
 export const setIndexNowKeyFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])

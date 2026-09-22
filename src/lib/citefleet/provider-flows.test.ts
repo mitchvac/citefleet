@@ -9,7 +9,7 @@ const docsDir = fileURLToPath(new URL("../../../docs/providers/", import.meta.ur
 
 function docSlugs(): string[] {
   return readdirSync(docsDir)
-    .filter((f) => f.endsWith(".md") && f !== "README.md" && f !== "TEMPLATE.md")
+    .filter((f) => f.endsWith(".md") && !["README.md", "TEMPLATE.md", "AGENTS.md"].includes(f))
     .map((f) => f.replace(/\.md$/, ""))
     .sort();
 }

@@ -985,7 +985,11 @@ function TaskRow({
             className="rounded-full border border-white/10 px-3 py-1.5 text-xs hover:bg-white/5 disabled:opacity-40"
           >
             {/* runTask publishes for the BotCentral task (an outward act behind the catalog door) — say so; every other row audits or advances locally. */}
-            {task.playbookId === "botcentral_list" ? "List on BotCentral" : "Local audit"}
+            {task.playbookId === "botcentral_list"
+              ? "List on BotCentral"
+              : task.playbookId === "indexnow"
+                ? "Notify IndexNow"
+                : "Local audit"}
           </button>
         </div>
       </div>
@@ -995,6 +999,7 @@ function TaskRow({
             <input
               type="checkbox"
               checked={item.done}
+              disabled={task.playbookId === "indexnow"}
               onChange={(e) => onToggle(item.id, e.target.checked)}
               className="mt-1"
             />
