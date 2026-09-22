@@ -81,6 +81,14 @@ Playwright for e2e. **Node 22** (`engines: >=22`, both Dockerfile stages are `no
   proof polls from overwriting newer state. `fleet-api.ts`,
   `dispatcher.ts`, `hook-tenant.server.ts`, `proof.ts`, and `types.ts` connect
   that flow to the tenant-scoped snapshot and an independent DNS-only verification.
+- Hostinger origin installation uses `hostinger-oauth.server.ts`, `hostinger-install.server.ts`,
+  `hostinger-token.ts`, the `/api/hosting/hostinger/*` routes, and migration
+  `20260921120000_citefleet_hostinger_installs.sql`. The customer signs into their
+  own Hostinger account; CiteFleet stores a short-lived encrypted grant in a
+  tenant-bound job. The operator's webhook-triggered Grok Bot receives only a
+  one-use job capability. `HostingerInstallPanel.tsx` reports verified only after
+  all five public files match. Web OAuth on an HTTPS callback and live Hostinger
+  Web/Cloud uploads remain unverified; missing `.well-known` is refused.
 - Porkbun automation also surfaces Porkbun's unavoidable one-time per-domain
   API Access toggle before approval and maps the provider's opt-in rejection to
   that exact recovery step; CiteFleet never asks customers to enable every
