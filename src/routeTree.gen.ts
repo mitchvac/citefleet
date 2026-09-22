@@ -22,6 +22,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetRouteImport } from './routes/reset'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as StartRouteImport } from './routes/start'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TopupRouteImport } from './routes/topup'
 import { Route as ApiForgotRouteImport } from './routes/api/forgot'
@@ -114,6 +115,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const StartRoute = StartRouteImport.update({
   id: '/start',
   path: '/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -272,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/reset': typeof ResetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/start': typeof StartRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/topup': typeof TopupRoute
   '/api/forgot': typeof ApiForgotRoute
@@ -315,6 +322,7 @@ export interface FileRoutesByTo {
   '/reset': typeof ResetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/start': typeof StartRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/topup': typeof TopupRoute
   '/api/forgot': typeof ApiForgotRoute
@@ -359,6 +367,7 @@ export interface FileRoutesById {
   '/reset': typeof ResetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/start': typeof StartRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/topup': typeof TopupRoute
   '/api/forgot': typeof ApiForgotRoute
@@ -404,6 +413,7 @@ export interface FileRouteTypes {
     | '/reset'
     | '/sitemap.xml'
     | '/start'
+    | '/support'
     | '/terms'
     | '/topup'
     | '/api/forgot'
@@ -447,6 +457,7 @@ export interface FileRouteTypes {
     | '/reset'
     | '/sitemap.xml'
     | '/start'
+    | '/support'
     | '/terms'
     | '/topup'
     | '/api/forgot'
@@ -490,6 +501,7 @@ export interface FileRouteTypes {
     | '/reset'
     | '/sitemap.xml'
     | '/start'
+    | '/support'
     | '/terms'
     | '/topup'
     | '/api/forgot'
@@ -534,6 +546,7 @@ export interface RootRouteChildren {
   ResetRoute: typeof ResetRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StartRoute: typeof StartRoute
+  SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
   TopupRoute: typeof TopupRoute
   ApiForgotRoute: typeof ApiForgotRoute
@@ -655,6 +668,13 @@ declare module '@tanstack/react-router' {
       path: '/start'
       fullPath: '/start'
       preLoaderRoute: typeof StartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -870,6 +890,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetRoute: ResetRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StartRoute: StartRoute,
+  SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
   TopupRoute: TopupRoute,
   ApiForgotRoute: ApiForgotRoute,
