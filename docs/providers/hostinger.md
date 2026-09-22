@@ -12,6 +12,8 @@ Hostinger's official API now exposes `GET /api/hosting/v1/websites`, whose exact
 
 The REST API documents bearer API tokens. Hostinger separately offers browser OAuth for its hosted MCP server at `https://mcp.hostinger.com`, including a login and consent step. Whether CiteFleet's web application can reuse that delegated session for the Hosting Files REST API and obtain the required upload URL has **not** been verified with a customer account. Do not mark the Hostinger flow `ready` or tell a customer that login alone installs files until a Web/Cloud test account demonstrates the full sequence: OAuth, exact site selection, ownership-safe upload, live file checks, DNS or origin proof, and IndexNow notification. Hostinger Website Builder remains unsupported for root-file uploads.
 
+CiteFleet now has a server-side Files API adapter (`src/lib/citefleet/hostinger-files.server.ts`) with exact-domain checks, existing-file inspection, ownership guards, TUS upload, and live-byte verification. It is not connected to the customer UI: the delegated sign-in contract and a real Web/Cloud account still need end-to-end validation. The adapter refuses a missing `.well-known` directory until Hostinger directory creation is verified on a live account.
+
 Official sources: [Hosting Files API](https://github.com/hostinger/api-python-sdk/blob/main/docs/HostingFilesApi.md), [website listing API](https://github.com/hostinger/api-python-sdk/blob/main/docs/HostingWebsitesApi.md), [Hostinger MCP OAuth](https://www.hostinger.com/support/11079316-hostinger-api-mcp-server/), [File Manager availability](https://support.hostinger.com/en/articles/4548688-basic-actions-in-the-file-manager).
 
 ## Where the web root is

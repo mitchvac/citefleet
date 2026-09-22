@@ -45,6 +45,8 @@ the file map for `src/lib/citefleet/`; it does not assert live production state.
 | `hosting-hint.ts` | Hosting hints. |
 | `hosting.test.ts` | Hosting guidance tests. |
 | `hosting.ts` | Hosting guidance. |
+| `hostinger-files.server.ts` | Exact-site Hostinger file inspection and ownership-safe TUS upload adapter. |
+| `hostinger-files.test.ts` | Hostinger API adapter tests for upload, existing files, and unsupported sites. |
 | `indexnow-flow.test.ts` | Tests IndexNow task transitions and URL submission. |
 | `indexnow-submit.test.ts` | Tests IndexNow HTTP submission responses and safety checks. |
 | `indexnow-submit.ts` | Checks the live key and sitemap, then submits URLs to IndexNow. |
