@@ -4,6 +4,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 const PAGES = [
   { path: "/about", heading: "About CiteFleet", title: "About CiteFleet | CiteFleet" },
+  { path: "/support", heading: "Support", title: "Support | CiteFleet" },
   { path: "/privacy", heading: "Privacy Notice", title: "Privacy Notice | CiteFleet" },
   { path: "/terms", heading: "Terms of Service", title: "Terms of Service | CiteFleet" },
 ] as const;
@@ -22,6 +23,7 @@ for (const entry of PAGES) {
 
     const footer = page.getByRole("contentinfo");
     await expect(footer.getByRole("link", { name: "About" })).toBeVisible();
+    await expect(footer.getByRole("link", { name: "Support" })).toHaveAttribute("href", "/support");
     await expect(footer.getByRole("link", { name: "Privacy" })).toBeVisible();
     await expect(footer.getByRole("link", { name: "Terms" })).toBeVisible();
   });
@@ -30,7 +32,7 @@ for (const entry of PAGES) {
 test("public pages and auth footer fit a 320px viewport", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 320, height: 844 });
 
-  for (const path of ["/about", "/privacy", "/terms", "/login", "/reset"]) {
+  for (const path of ["/about", "/support", "/privacy", "/terms", "/login", "/reset"]) {
     await page.goto(path);
     await expect(page.getByRole("contentinfo")).toBeVisible();
     const overflow = await page.evaluate(
@@ -71,6 +73,7 @@ test("mobile auth keeps primary controls touch-sized and puts recovery first", a
     page.getByTestId("forgot-password"),
     page.getByRole("button", { name: "Create an account" }),
     page.getByRole("contentinfo").getByRole("link", { name: "About" }),
+    page.getByRole("contentinfo").getByRole("link", { name: "Support" }),
     page.getByRole("contentinfo").getByRole("link", { name: "Privacy" }),
     page.getByRole("contentinfo").getByRole("link", { name: "Terms" }),
   ]) {
@@ -87,7 +90,9 @@ test("mobile auth keeps primary controls touch-sized and puts recovery first", a
   await page.screenshot({ path: testInfo.outputPath("login-recovery-mobile.png"), fullPage: true });
 
   await page.goto("/login?sent=1");
-  const resendBox = await page.getByRole("button", { name: /Request another link in/ }).boundingBox();
+  const resendBox = await page
+    .getByRole("button", { name: /Request another link in/ })
+    .boundingBox();
   expect(resendBox?.height).toBeGreaterThanOrEqual(44);
 
   await page.goto("/reset?token=mobile-layout-check");
@@ -110,6 +115,7 @@ test("public sitemap contains public content and omits workspace screens", async
   for (const path of [
     "/start",
     "/about",
+    "/support",
     "/playbook",
     "/learn",
     "/learn/glossary",
@@ -129,4 +135,25 @@ test("about page has a stable desktop composition", async ({ page }, testInfo) =
     page.getByRole("heading", { name: "From website to verifiable listing" }),
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("about-desktop.png"), fullPage: true });
+});
+
+test("support is reachable from the signed-out footer and exposes email contacts", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByRole("contentinfo").getByRole("link", { name: "Support" }).click();
+  await expect(page).toHaveURL(/\/support$/);
+
+  for (const [heading, email] of [
+    ["General inquiries", "info@citefleet.app"],
+    ["Support", "support@citefleet.app"],
+    ["Sales", "sales@citefleet.app"],
+  ]) {
+    const section = page.locator("section").filter({
+      has: page.getByRole("heading", { level: 2, name: heading, exact: true }),
+    });
+    const link = section.getByRole("link", { name: email, exact: true });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", `mailto:${email}`);
+  }
 });
