@@ -72,6 +72,8 @@ export interface Site {
   status: SiteStatus;
   sitemapUrl: string;
   indexNowKey?: string;
+  /** Last real IndexNow HTTP submission, distinct from the live key-file check. */
+  indexNowSubmission?: import("./indexnow-submit.ts").IndexNowSubmission;
   /** BotCentral proof-of-control token; must appear as botcentral-verify=<token> at the origin. */
   verifyToken?: string;
   /** Where the origin is hosted, from the last Live audit (DNS + response headers). */

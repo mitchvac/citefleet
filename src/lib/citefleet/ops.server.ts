@@ -17,6 +17,7 @@ export {
   setBillingKey,
   setProvider,
   setIndexNowKey,
+  submitIndexNowForSite,
 } from "./dispatcher";
 export {
   handleGithubWebhook,
