@@ -184,11 +184,11 @@ export const PROVIDER_FLOWS: readonly ProviderFlow[] = [
     "Hostinger",
     5.2,
     "https://hpanel.hostinger.com/",
-    "FIRST TARGET. Web root /home/u<id>/public_html, or /home/u<id>/domains/<domain>/public_html " +
-      "for an addon — the u<id> prefix is per-account and must be read, never assumed. hPanel's " +
-      "File Manager shows dotfiles by default, so .well-known/ is straightforward. SFTP is " +
-      "port 65002 (not 22), needs Web Premium or above, and is off until enabled. Selectors " +
-      "not yet captured against the live panel.",
+    "FIRST TARGET. The Hosting Files API now supports exact-site listing, file reads, and TUS " +
+      "upload URLs for Web/Cloud sites. Hostinger's hosted MCP offers browser OAuth, but the " +
+      "delegated REST upload flow and ownership-safe five-file install still need validation " +
+      "against a live customer account. Website Builder has no writable web root. See " +
+      "docs/providers/hostinger.md (2026-09-21 update). SFTP fallback uses port 65002.",
   ),
   pending(
     "godaddy",

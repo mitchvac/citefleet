@@ -5,6 +5,7 @@ import { billingEnabled, billingPrefixFor, publishListing } from "./botcentral";
 import { cleanPrefix } from "./topup.ts";
 import { chooseProvider, providerGuidance } from "./provider-choice.ts";
 import { INDEXNOW_KEY_HELP, cleanIndexNowKey, resolveIndexNowKey } from "./indexnow.ts";
+import { submitIndexNow } from "./indexnow-submit.ts";
 import { PROVIDER_FLOWS } from "./provider-flows.ts";
 import { logActivity, recalcScores, touchBot } from "./store";
 import type { WorkspaceHandle } from "./workspace-handle.ts";
@@ -203,7 +204,7 @@ export async function runAuditAndApply(ws: WorkspaceHandle, siteId: string): Pro
         ok: findingOk,
       });
       if (findingOk && task.status !== "done") {
-        const autoClosable: PlaybookId[] = ["spa_fallback", "robots_ai", "sitemap", "indexnow"];
+        const autoClosable: PlaybookId[] = ["spa_fallback", "robots_ai", "sitemap"];
         if (autoClosable.includes(playbookId)) {
           const related = audit.findings.filter((f) => f.playbookId === playbookId);
           const anyBad = related.some((f) => f.severity === "critical" || f.severity === "warn");
@@ -238,7 +239,26 @@ export async function runAuditAndApply(ws: WorkspaceHandle, siteId: string): Pro
 
     const keyFinding = audit.findings.find((f) => f.id.startsWith("indexnow"));
     if (keyFinding) {
-      apply("indexnow", keyFinding.severity === "ok", keyFinding.title);
+      const task = s.tasks.find((t) => t.siteId === siteId && t.playbookId === "indexnow");
+      if (task) {
+        const keyLive = keyFinding.severity === "ok";
+        if (task.checklist[0]) task.checklist[0].done = keyLive;
+        task.evidence.unshift({ id: crypto.randomUUID(), at: audit.at, kind: "http", label: keyFinding.title, ok: keyLive });
+        // Older audits marked all three steps done on key-file evidence alone.
+        // Without a recorded HTTP submission, that completion was never earned.
+        if (!current.indexNowSubmission?.accepted) {
+          if (task.checklist[1]) task.checklist[1].done = false;
+          if (task.checklist[2]) task.checklist[2].done = false;
+          task.status = keyLive ? "assigned" : "blocked";
+          task.completedAt = undefined;
+          task.blockedReason = keyLive ? undefined : keyFinding.detail;
+        } else if (!keyLive) {
+          task.status = "blocked";
+          task.completedAt = undefined;
+          task.blockedReason = keyFinding.detail;
+        }
+        task.updatedAt = audit.at;
+      }
     }
 
     recalcScores(s, siteId);
@@ -252,6 +272,49 @@ export async function runAuditAndApply(ws: WorkspaceHandle, siteId: string): Pro
   });
 
   return audit;
+}
+
+/** Submit URLs only after the live origin serves the matching key and sitemap. */
+export async function submitIndexNowForSite(
+  ws: WorkspaceHandle,
+  siteId: string,
+  source: "operator" | "deployment" = "operator",
+) {
+  const snapshot = await ws.get();
+  assertCanAct(snapshot, "submissions");
+  const site = snapshot.sites.find((s) => s.id === siteId);
+  if (!site) throw new Error("Site not found");
+  const result = await submitIndexNow(site);
+  await ws.mutate((store) => {
+    const current = store.sites.find((s) => s.id === siteId);
+    if (!current) return;
+    current.indexNowSubmission = result;
+    const task = store.tasks.find((t) => t.siteId === siteId && t.playbookId === "indexnow");
+    if (task) {
+      if (task.checklist[0]) task.checklist[0].done = result.keyVerified;
+      if (task.checklist[1]) task.checklist[1].done = result.accepted;
+      if (source === "deployment" && result.accepted && task.checklist[2]) {
+        task.checklist[2].done = true;
+      }
+      task.status = result.accepted
+        ? task.checklist.every((item) => item.done) ? "done" : "assigned"
+        : "blocked";
+      task.blockedReason = result.accepted ? undefined : result.note;
+      task.completedAt = task.status === "done" ? result.at : undefined;
+      task.updatedAt = result.at;
+      task.evidence.unshift({
+        id: crypto.randomUUID(), at: result.at, kind: "http",
+        label: result.accepted ? `IndexNow received ${result.urlCount} URL(s)` : "IndexNow submission stopped",
+        detail: result.note, url: "https://api.indexnow.org/indexnow", ok: result.accepted,
+      });
+    }
+    recalcScores(store, siteId);
+    logActivity(store, {
+      actor: "Sentinel", kind: "index", siteId,
+      message: `${source === "deployment" ? "Deploy hook" : "Operator"}: ${result.note}`,
+    });
+  });
+  return result;
 }
 
 export async function runTask(ws: WorkspaceHandle, taskId: string) {
@@ -291,8 +354,12 @@ export async function runTask(ws: WorkspaceHandle, taskId: string) {
 
   if (!snapshot) throw new Error("Task not found");
 
+  if (snapshot.playbookId === "indexnow") {
+    return { audit: null, submission: await submitIndexNowForSite(ws, snapshot.siteId) };
+  }
+
   if (
-    ["spa_fallback", "robots_ai", "sitemap", "indexnow", "monitor"].includes(snapshot.playbookId)
+    ["spa_fallback", "robots_ai", "sitemap", "monitor"].includes(snapshot.playbookId)
   ) {
     const audit = await runAuditAndApply(ws, snapshot.siteId);
     const relevant = audit.findings.filter((f) => f.playbookId === snapshot!.playbookId);
@@ -630,6 +697,18 @@ export async function setIndexNowKey(ws: WorkspaceHandle, siteId: string, raw: s
     if (!site) throw new Error("Site not found");
     const previous = site.indexNowKey;
     site.indexNowKey = key;
+    if (previous !== key) {
+      // A response for the old key cannot prove the new key was submitted.
+      site.indexNowSubmission = undefined;
+      const task = store.tasks.find((item) => item.siteId === siteId && item.playbookId === "indexnow");
+      if (task) {
+        task.checklist = task.checklist.map((item) => ({ ...item, done: false }));
+        task.status = "assigned";
+        task.completedAt = undefined;
+        task.blockedReason = undefined;
+        task.updatedAt = new Date().toISOString();
+      }
+    }
     logActivity(store, {
       actor: "Operator",
       kind: "control",
@@ -735,6 +814,15 @@ export async function runWebhookListing(
     const store = await ws.get();
     const site = store.sites.find((s) => s.id === siteId);
     if (!site) return { ok: false, error: "Site not found" };
+    // IndexNow has its own live key gate. BotCentral proof can fail while the
+    // site's IndexNow key and sitemap are already valid, so submit separately.
+    const isDeployment = reason === "deployment succeeded" || reason === "deploy reported";
+    const indexNow = isDeployment && !opts.dnsSetupOperationId && site.indexNowKey
+      ? await submitIndexNowForSite(ws, siteId, "deployment").catch((error) => ({
+          accepted: false,
+          note: error instanceof Error ? error.message : "IndexNow submission failed.",
+        }))
+      : null;
     const wait = opts.dnsSetupOperationId ? waitForDnsProof : waitForProof;
     const proof = await wait(site, {
       attempts: opts.attempts ?? 10,
@@ -749,28 +837,35 @@ export async function runWebhookListing(
       const proofLabel = opts.dnsSetupOperationId ? "DNS proof" : "origin proof";
       await record(
         `proof not live after ${proof.attempts} check(s)`,
-        `Hook (${reason}): ${proofLabel} for ${site.domain} did not appear after ${proof.attempts} checks. ${proof.note}`,
+        `Hook (${reason}): ${proofLabel} for ${site.domain} did not appear after ${proof.attempts} checks. ${proof.note}${indexNow ? ` ${indexNow.note}` : ""}`,
         "audit",
         "failed",
       );
-      return { ok: false, error: proof.note };
+      return { ok: false, error: proof.note, indexNow };
     }
+    // Catalog publication and IndexNow notification are separate outward acts.
+    // A billing or catalog refusal must not suppress a valid deploy notification.
+    let listing: Awaited<ReturnType<typeof publishSiteToBotCentral>> | null = null;
+    let publishError: string | null = null;
     try {
-      const listing = await publishSiteToBotCentral(ws, siteId);
-      await record(
-        `proof ${proof.method} after ${proof.attempts} check(s) · listed`,
-        `Hook (${reason}): ${site.domain} proof ${proof.method}; card ${listing.listed ? "live" : "not listed"}.`,
-        "index",
-      );
-      return { ok: true, listed: listing.listed, href: listing.href };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "publish failed";
-      await record(
-        `proof ${proof.method} · publish refused`,
-        `Hook (${reason}): ${site.domain} proof ok but publish refused — ${msg}`,
-      );
-      return { ok: false, error: msg };
+      listing = await publishSiteToBotCentral(ws, siteId);
+    } catch (error) {
+      publishError = error instanceof Error ? error.message : "publish failed";
     }
+    if (publishError || !listing) {
+      const message = publishError || "publish failed";
+      await record(
+        `proof ${proof.method} · publish refused${indexNow ? ` · IndexNow ${indexNow.accepted ? "received" : "not submitted"}` : ""}`,
+        `Hook (${reason}): ${site.domain} proof ok but publish refused — ${message}.${indexNow ? ` ${indexNow.note}` : ""}`,
+      );
+      return { ok: false, error: message, indexNow };
+    }
+    await record(
+      `proof ${proof.method} after ${proof.attempts} check(s) · listed${indexNow ? ` · IndexNow ${indexNow.accepted ? "received" : "not submitted"}` : ""}`,
+      `Hook (${reason}): ${site.domain} proof ${proof.method}; card live.${indexNow ? ` ${indexNow.note}` : ""}`,
+      "index",
+    );
+    return { ok: true, listed: true, href: listing.href, indexNow };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "unexpected failure";
     console.error("[citefleet] webhook listing failed", err);
@@ -797,6 +892,9 @@ export async function patchTask(
   await ws.mutate((store) => {
     const task = store.tasks.find((t) => t.id === taskId);
     if (!task) throw new Error("Task not found");
+    if (task.playbookId === "indexnow" && (patch.status === "done" || patch.done === true)) {
+      throw new Error("IndexNow checks close only after a verified submission and deployment event.");
+    }
     const door = doorForPlaybook(task.playbookId);
     if (
       door !== "observe" &&

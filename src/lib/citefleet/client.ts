@@ -8,6 +8,7 @@ import {
   setBillingKeyFn,
   setProviderFn,
   setIndexNowKeyFn,
+  submitIndexNowFn,
   dispatchProperty,
   inspectOriginPackFn,
   loadState,
@@ -251,6 +252,10 @@ export function useFleet() {
     setIndexNowKey: (siteId: string, key: string) =>
       run("indexnow", async () => {
         await setIndexNowKeyFn({ data: { siteId, key } });
+      }),
+    submitIndexNow: (siteId: string) =>
+      run("indexnow-submit", async () => {
+        await submitIndexNowFn({ data: { siteId } });
       }),
   };
 }

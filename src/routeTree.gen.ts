@@ -50,6 +50,10 @@ import { Route as ApiDnsPorkbunCallbackRouteImport } from './routes/api/dns/pork
 import { Route as ApiDnsPorkbunStartRouteImport } from './routes/api/dns/porkbun/start'
 import { Route as ApiDnsVercelCallbackRouteImport } from './routes/api/dns/vercel/callback'
 import { Route as ApiDnsVercelStartRouteImport } from './routes/api/dns/vercel/start'
+import { Route as ApiHostingHostingerCallbackRouteImport } from './routes/api/hosting/hostinger/callback'
+import { Route as ApiHostingHostingerRunRouteImport } from './routes/api/hosting/hostinger/run'
+import { Route as ApiHostingHostingerStartRouteImport } from './routes/api/hosting/hostinger/start'
+import { Route as ApiHostingHostingerStatusRouteImport } from './routes/api/hosting/hostinger/status'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -257,6 +261,29 @@ const ApiDnsVercelStartRoute = ApiDnsVercelStartRouteImport.update({
   path: '/api/dns/vercel/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHostingHostingerCallbackRoute =
+  ApiHostingHostingerCallbackRouteImport.update({
+    id: '/api/hosting/hostinger/callback',
+    path: '/api/hosting/hostinger/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiHostingHostingerRunRoute = ApiHostingHostingerRunRouteImport.update({
+  id: '/api/hosting/hostinger/run',
+  path: '/api/hosting/hostinger/run',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHostingHostingerStartRoute =
+  ApiHostingHostingerStartRouteImport.update({
+    id: '/api/hosting/hostinger/start',
+    path: '/api/hosting/hostinger/start',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiHostingHostingerStatusRoute =
+  ApiHostingHostingerStatusRouteImport.update({
+    id: '/api/hosting/hostinger/status',
+    path: '/api/hosting/hostinger/status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -300,6 +327,10 @@ export interface FileRoutesByFullPath {
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
   '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
   '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
+  '/api/hosting/hostinger/callback': typeof ApiHostingHostingerCallbackRoute
+  '/api/hosting/hostinger/run': typeof ApiHostingHostingerRunRoute
+  '/api/hosting/hostinger/start': typeof ApiHostingHostingerStartRoute
+  '/api/hosting/hostinger/status': typeof ApiHostingHostingerStatusRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -343,6 +374,10 @@ export interface FileRoutesByTo {
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
   '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
   '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
+  '/api/hosting/hostinger/callback': typeof ApiHostingHostingerCallbackRoute
+  '/api/hosting/hostinger/run': typeof ApiHostingHostingerRunRoute
+  '/api/hosting/hostinger/start': typeof ApiHostingHostingerStartRoute
+  '/api/hosting/hostinger/status': typeof ApiHostingHostingerStatusRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -387,6 +422,10 @@ export interface FileRoutesById {
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
   '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
   '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
+  '/api/hosting/hostinger/callback': typeof ApiHostingHostingerCallbackRoute
+  '/api/hosting/hostinger/run': typeof ApiHostingHostingerRunRoute
+  '/api/hosting/hostinger/start': typeof ApiHostingHostingerStartRoute
+  '/api/hosting/hostinger/status': typeof ApiHostingHostingerStatusRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -432,6 +471,10 @@ export interface FileRouteTypes {
     | '/api/dns/porkbun/start'
     | '/api/dns/vercel/callback'
     | '/api/dns/vercel/start'
+    | '/api/hosting/hostinger/callback'
+    | '/api/hosting/hostinger/run'
+    | '/api/hosting/hostinger/start'
+    | '/api/hosting/hostinger/status'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -475,6 +518,10 @@ export interface FileRouteTypes {
     | '/api/dns/porkbun/start'
     | '/api/dns/vercel/callback'
     | '/api/dns/vercel/start'
+    | '/api/hosting/hostinger/callback'
+    | '/api/hosting/hostinger/run'
+    | '/api/hosting/hostinger/start'
+    | '/api/hosting/hostinger/status'
   id:
     | '__root__'
     | '/'
@@ -518,6 +565,10 @@ export interface FileRouteTypes {
     | '/api/dns/porkbun/start'
     | '/api/dns/vercel/callback'
     | '/api/dns/vercel/start'
+    | '/api/hosting/hostinger/callback'
+    | '/api/hosting/hostinger/run'
+    | '/api/hosting/hostinger/start'
+    | '/api/hosting/hostinger/status'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -562,6 +613,10 @@ export interface RootRouteChildren {
   ApiDnsPorkbunStartRoute: typeof ApiDnsPorkbunStartRoute
   ApiDnsVercelCallbackRoute: typeof ApiDnsVercelCallbackRoute
   ApiDnsVercelStartRoute: typeof ApiDnsVercelStartRoute
+  ApiHostingHostingerCallbackRoute: typeof ApiHostingHostingerCallbackRoute
+  ApiHostingHostingerRunRoute: typeof ApiHostingHostingerRunRoute
+  ApiHostingHostingerStartRoute: typeof ApiHostingHostingerStartRoute
+  ApiHostingHostingerStatusRoute: typeof ApiHostingHostingerStatusRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -853,6 +908,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDnsVercelStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hosting/hostinger/callback': {
+      id: '/api/hosting/hostinger/callback'
+      path: '/api/hosting/hostinger/callback'
+      fullPath: '/api/hosting/hostinger/callback'
+      preLoaderRoute: typeof ApiHostingHostingerCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hosting/hostinger/run': {
+      id: '/api/hosting/hostinger/run'
+      path: '/api/hosting/hostinger/run'
+      fullPath: '/api/hosting/hostinger/run'
+      preLoaderRoute: typeof ApiHostingHostingerRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hosting/hostinger/start': {
+      id: '/api/hosting/hostinger/start'
+      path: '/api/hosting/hostinger/start'
+      fullPath: '/api/hosting/hostinger/start'
+      preLoaderRoute: typeof ApiHostingHostingerStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/hosting/hostinger/status': {
+      id: '/api/hosting/hostinger/status'
+      path: '/api/hosting/hostinger/status'
+      fullPath: '/api/hosting/hostinger/status'
+      preLoaderRoute: typeof ApiHostingHostingerStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -898,6 +981,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDnsPorkbunStartRoute: ApiDnsPorkbunStartRoute,
   ApiDnsVercelCallbackRoute: ApiDnsVercelCallbackRoute,
   ApiDnsVercelStartRoute: ApiDnsVercelStartRoute,
+  ApiHostingHostingerCallbackRoute: ApiHostingHostingerCallbackRoute,
+  ApiHostingHostingerRunRoute: ApiHostingHostingerRunRoute,
+  ApiHostingHostingerStartRoute: ApiHostingHostingerStartRoute,
+  ApiHostingHostingerStatusRoute: ApiHostingHostingerStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
