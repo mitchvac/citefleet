@@ -114,8 +114,11 @@ Editing your card inside the year is free, reads of the catalog are always
 free, and a failed proof costs nothing. A listing nobody renews lapses: it
 stays in the catalog but stops counting as proven until it is renewed.
 
-1. Create an API key at `https://botcentral.org/keys` and give the operator its
-   prefix (`bc_live_…`). It is not a secret — it is what the top-up links carry.
+1. Create an API key at `https://botcentral.org/keys`. Enter the full key in the
+   campaign billing-key password field to verify possession. CiteFleet forwards
+   it to BotCentral for verification and saves only the public prefix and
+   verification timestamp. Never send the full key in a URL or support message.
+   Legacy prefix-only settings must be verified before billed publishing.
 2. Add credit at `https://citefleet.app/topup?prefix=<your prefix>&product=botcentral`.
    Open it from **Top up** beside that key. BotCentral validates the prefix and
    records the key on the invoice before showing payment instructions. A year
@@ -124,3 +127,7 @@ stays in the catalog but stops counting as proven until it is renewed.
    campaign page then shows when it ends.
 4. About 30 days before the year ends you will hear from the operator; renewal
    is another top-up and a republish, and the new year starts that day.
+
+For Vercel deployment instructions, see the public guide at
+https://citefleet.app/docs/integrations/vercel. It documents GitHub-based file
+installation; it is not a Marketplace installation callback.

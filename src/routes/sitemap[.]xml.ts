@@ -4,6 +4,7 @@ const PATHS = [
   "/start",
   "/about",
   "/support",
+  "/docs/integrations/vercel",
   "/playbook",
   "/learn",
   "/learn/glossary",

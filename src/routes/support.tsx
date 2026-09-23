@@ -45,6 +45,12 @@ function SupportPage() {
         <p className="max-w-3xl text-xl leading-8 text-[#d9d3ee]">
           Get in touch with CiteFleet. Choose the email address that best fits your question.
         </p>
+        <p className="mt-5 text-sm text-[#b7b0cc]">
+          Setting up a Vercel website? Read the{" "}
+          <a className="text-[#4ee0c3] underline underline-offset-4" href="/docs/integrations/vercel">
+            CiteFleet Origin guide
+          </a>.
+        </p>
         <div className="mt-12 grid gap-8 md:grid-cols-3">
           {CONTACTS.map((contact) => (
             <section key={contact.email} className="min-w-0 border-t border-white/10 pt-6">
