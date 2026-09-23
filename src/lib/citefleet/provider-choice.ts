@@ -97,6 +97,14 @@ export function providerGuidance(
     // Reachable only for a choice stored before the provider was dropped.
     return { tone: "warn", headline: `${flow.name} has no web root`, detail: droppedReason(flow) };
   }
+  if (flow.slug === "vercel") {
+    return {
+      tone: "good",
+      headline: "Vercel — connect your project",
+      detail:
+        "Choose your Vercel project, then confirm its production domain, GitHub repository, branch, and public files folder. Authorize GitHub separately to install the discovery files, deploy through your normal Vercel workflow, then verify the live files in CiteFleet.",
+    };
+  }
   if (flow.status === "ready") {
     return {
       tone: "good",

@@ -97,6 +97,28 @@ test("Strawman: production customer flow detects Vercel and exposes every instal
     ).toBeDisabled();
     await expect(github).toContainText("No personal access token needs to be copied");
 
+    const host = page.getByTestId("provider-panel");
+    await host.getByTestId("provider-trigger").click();
+    await host.getByTestId("provider-option-vercel").click();
+    const connectVercel = host.getByRole("link", { name: "Connect Vercel project" });
+    await expect(connectVercel).toBeVisible();
+    await expect(connectVercel).toHaveAttribute("href", "/api/integrations/vercel/start");
+    await expect(host).toContainText("guided setup");
+    await expect(host).toContainText("Authorize GitHub separately");
+    await expect(host).not.toContainText("install by hand for now");
+    await page.reload();
+    await expect(connectVercel).toBeVisible();
+    await expect(page.getByTestId("origin-pack-panel")).toContainText("Choose your Vercel project");
+
+    // A different provider must not inherit the Vercel authorization action.
+    await host.getByTestId("provider-trigger").click();
+    await host.getByTestId("provider-option-hostinger").click();
+    await expect(host).toContainText("Hostinger — install by hand for now");
+    await expect(connectVercel).toHaveCount(0);
+    await host.getByTestId("provider-trigger").click();
+    await host.getByTestId("provider-option-vercel").click();
+    await expect(connectVercel).toBeVisible();
+
     const pack = page.getByTestId("origin-pack-panel");
     await expect(pack).toContainText(`5 of 5 files for ${SITE.domain}`);
     await pack.getByTestId("origin-pack-toggle").click();
