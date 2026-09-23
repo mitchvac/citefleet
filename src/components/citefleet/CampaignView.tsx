@@ -251,6 +251,7 @@ function ProviderPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof u
   const [showDropped, setShowDropped] = useState(false);
   const guidance = providerGuidance(PROVIDER_FLOWS, site.provider);
   const chosen = site.provider;
+  const isVercel = chosen?.slug === "vercel";
   return (
     <section className="glass rounded-3xl p-5" data-testid="provider-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -262,13 +263,19 @@ function ProviderPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof u
             {chosen ? chosen.name : "Which host is this site on?"}
           </h2>
           <p className="mt-1 max-w-xl text-sm text-[#b7b0cc]">
-            Direct host installation is available only after CiteFleet has verified that host’s
-            authorization and upload API. Choose your host to see its current path; GitHub above is
-            the automatic option when the site deploys from a repository.
+            {isVercel
+              ? "Start here to connect the Vercel project for this website. File installation continues through GitHub after you confirm the project details."
+              : "Direct host installation is available only after CiteFleet has verified that host’s authorization and upload API. Choose your host to see its current path; GitHub above is the automatic option when the site deploys from a repository."}
           </p>
         </div>
         <Pill tone={chosen ? (guidance.tone === "good" ? "good" : "warn") : "neutral"}>
-          {chosen ? (guidance.tone === "good" ? "installable" : "manual install") : "no host set"}
+          {isVercel
+            ? "guided setup"
+            : chosen
+              ? guidance.tone === "good"
+                ? "installable"
+                : "manual install"
+              : "no host set"}
         </Pill>
       </div>
       <div className="mt-4 max-w-md">
@@ -283,6 +290,14 @@ function ProviderPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof u
         <p className="mt-1 text-sm text-[#b7b0cc]">{guidance.detail}</p>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
+        {isVercel && (
+          <a
+            href="/api/integrations/vercel/start"
+            className="rounded-full bg-[#00b9f2] px-4 py-2 text-sm font-semibold text-[#080611] hover:brightness-110"
+          >
+            Connect Vercel project
+          </a>
+        )}
         {chosen && (
           <button
             type="button"

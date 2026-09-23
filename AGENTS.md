@@ -334,3 +334,9 @@ This section supersedes the earlier prefix-only billing description.
 - `src/lib/auth/auth-form.server.ts` and `auth-form.test.ts` reject cross-origin or opaque browser login/signup/reset POSTs before session creation. This closes the reproduced login-CSRF path that could bind a pending Origin installation to an attacker account. Non-browser credential requests without Origin and Fetch-Metadata remain supported; public proxy origin comes from CITEFLEET_PUBLIC_URL.
 
 - `.github/workflows/supabase-migrations.yml` clears setup-cli's forced GHCR override so the pinned Supabase CLI can use its official ECR/GHCR/Docker Hub image fallbacks. Two CI attempts failed on GHCR rate limits before any migration executed; schema replay, lint and RLS checks remain mandatory.
+
+## Vercel campaign entry (2026-09-24)
+
+- `src/components/citefleet/CampaignView.tsx` exposes **Connect Vercel project** in the selected Vercel host panel, linking to `/api/integrations/vercel/start`, and labels it guided setup. This connects project metadata; GitHub authorization and file installation remain separate from deployment.
+- `src/lib/citefleet/provider-choice.ts` supplies Vercel guidance shared by the host and Origin Pack panels. The direct-host upload registry status is unchanged; guided project setup does not claim a direct host filesystem adapter.
+- `tests/e2e/strawman-vercel.spec.ts` checks Vercel selection, the start link, saved selection after reload, shared pack guidance, and a non-Vercel negative control without authorizing external writes.
