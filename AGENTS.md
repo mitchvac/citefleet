@@ -332,3 +332,5 @@ This section supersedes the earlier prefix-only billing description.
 - `vercel-origin.test.ts`: hostile provider, missing config/state, CSRF, metadata bounds and cancellation checks. `tests/e2e/vercel-origin.spec.ts` with `vercel-origin.playwright.config.ts` covers real built routes and PostgreSQL with metadata seeded only at the external provider boundary; live Vercel/GitHub consent and file deployment remain a separate E2E gate.
 
 - `src/lib/auth/auth-form.server.ts` and `auth-form.test.ts` reject cross-origin or opaque browser login/signup/reset POSTs before session creation. This closes the reproduced login-CSRF path that could bind a pending Origin installation to an attacker account. Non-browser credential requests without Origin and Fetch-Metadata remain supported; public proxy origin comes from CITEFLEET_PUBLIC_URL.
+
+- `.github/workflows/supabase-migrations.yml` clears setup-cli's forced GHCR override so the pinned Supabase CLI can use its official ECR/GHCR/Docker Hub image fallbacks. Two CI attempts failed on GHCR rate limits before any migration executed; schema replay, lint and RLS checks remain mandatory.
