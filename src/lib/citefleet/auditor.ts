@@ -6,17 +6,12 @@ import {
   checkLlms,
   checkRobots,
   checkSitemapDoc,
+  checkWellKnownFile,
 } from "./origin-file-check.ts";
+import { siteVerifyToken } from "./verify-token.ts";
 import { checkOriginProof } from "./proof.ts";
 
-const AI_AGENTS = [
-  "OAI-SearchBot",
-  "PerplexityBot",
-  "Googlebot",
-  "Bingbot",
-  "ClaudeBot",
-  "GPTBot",
-];
+const AI_AGENTS = ["OAI-SearchBot", "PerplexityBot", "Googlebot", "Bingbot", "ClaudeBot", "GPTBot"];
 
 async function timedGet(
   url: string,
@@ -89,12 +84,17 @@ export async function auditSite(site: Site): Promise<AuditResult> {
     },
   });
   const routes = discovered.routes;
-  let homepage: { responseHeaders: Record<string, string> | null; status: number | null } | undefined;
+  let homepage:
+    { responseHeaders: Record<string, string> | null; status: number | null } | undefined;
   for (const route of routes.slice(0, 12)) {
     const target = `${origin}${route === "/" ? "/" : route}`;
     const bare = await timedGet(target);
     const html = await timedGet(target, { Accept: "text/html" });
-    if (route === "/" || !homepage) homepage = { responseHeaders: html.responseHeaders ?? bare.responseHeaders, status: html.status ?? bare.status };
+    if (route === "/" || !homepage)
+      homepage = {
+        responseHeaders: html.responseHeaders ?? bare.responseHeaders,
+        status: html.status ?? bare.status,
+      };
     const spaFallbackRisk =
       looksLikeJson404(bare.status, bare.text, bare.contentType) &&
       (html.status === 200 || html.contentType.includes("text/html"));
@@ -156,9 +156,7 @@ export async function auditSite(site: Site): Promise<AuditResult> {
     findings.push({
       id: "http-402",
       severity: onHome ? "critical" : "info",
-      title: onHome
-        ? "HTTP 402 on a marketing URL"
-        : "HTTP 402 payment challenge (agent API)",
+      title: onHome ? "HTTP 402 on a marketing URL" : "HTTP 402 payment challenge (agent API)",
       detail: onHome
         ? `Crawlers will not pay: ${paid.map((r) => r.path).join(", ")}. Keep 402 off /, /premium, trust pages.`
         : `402 on ${paid.map((r) => r.path).join(", ")} — treat as a paid door, not a 404.`,
@@ -351,4 +349,35 @@ export async function auditSite(site: Site): Promise<AuditResult> {
     hosting,
     proof,
   };
+}
+
+/** Bounded five-file check for installer progress; no route discovery or paid actions. */
+export async function auditOriginFiles(site: Site) {
+  const origin = site.url.replace(/\/$/, "");
+  const files = [
+    { path: "/robots.txt", check: checkRobots },
+    { path: "/sitemap.xml", check: checkSitemapDoc },
+    { path: "/llms.txt", check: checkLlms },
+    {
+      path: "/.well-known/botcentral.txt",
+      check: (file: Awaited<ReturnType<typeof timedGet>>) =>
+        checkWellKnownFile(file, siteVerifyToken(site)),
+    },
+    {
+      path: site.indexNowKey ? `/${site.indexNowKey}.txt` : "IndexNow key",
+      check: (file: Awaited<ReturnType<typeof timedGet>>) =>
+        checkIndexNowKeyFile(file, site.indexNowKey || ""),
+    },
+  ];
+  return Promise.all(
+    files.map(async ({ path, check }) => {
+      if (!path.startsWith("/"))
+        return {
+          path,
+          ok: false,
+          reason: "Install the discovery files to create the IndexNow key.",
+        };
+      return { path, ...check(await timedGet(`${origin}${path}`)) };
+    }),
+  );
 }

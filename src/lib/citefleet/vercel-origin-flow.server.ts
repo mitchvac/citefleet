@@ -21,8 +21,13 @@ import {
 } from "./vercel-origin-state.server.ts";
 import type { WorkspaceHandle } from "./workspace-handle.ts";
 import type { Sql } from "../db.ts";
+import type { Site } from "./types.ts";
+import type { OriginDeploymentStatus } from "./github.ts";
 
 type FlowDeps = {
+  install?: (ws: WorkspaceHandle, siteId: string, token: string) => Promise<unknown>;
+  audit?: (site: Site) => Promise<Array<{ path: string; ok: boolean; reason: string }>>;
+  deployment?: (ws: WorkspaceHandle, siteId: string) => Promise<OriginDeploymentStatus>;
   env?: NodeJS.ProcessEnv;
   fetch?: typeof fetch;
   sql?: Sql;
@@ -53,9 +58,9 @@ const headers = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
 };
-function page(title: string, content: string, status = 200): Response {
+function page(title: string, content: string, status = 200, refresh = false): Response {
   return new Response(
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escape(title)} | CiteFleet Origin</title><style>body{margin:0;background:#0c0914;color:#e9e4f4;font:17px/1.6 system-ui}main{max-width:760px;margin:4rem auto;padding:0 24px;overflow-wrap:anywhere}a{color:#4ee0c3}h1{line-height:1.2}fieldset{margin:24px 0;padding:20px;border:1px solid #645578;border-radius:12px;min-width:0}label{display:block;margin:12px 0}input[type=text],select,button{box-sizing:border-box;width:100%;min-height:44px;padding:10px;font:inherit;border-radius:6px}input[type=checkbox]{width:20px;height:20px;vertical-align:middle}button{background:#4ee0c3;color:#101820;border:0;font-weight:700;cursor:pointer}code{white-space:normal}small{color:#c0b8ce}.notice{border-left:3px solid #4ee0c3;padding-left:16px}</style></head><body><main><a href="/docs/integrations/vercel">CiteFleet Origin documentation</a><h1>${escape(title)}</h1>${content}<p><a href="/support">Contact support</a></p></main></body></html>`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">${refresh ? '<meta http-equiv="refresh" content="30">' : ""}<title>${escape(title)} | CiteFleet Origin</title><style>body{margin:0;background:#0c0914;color:#e9e4f4;font:17px/1.6 system-ui}main{max-width:760px;margin:4rem auto;padding:0 24px;overflow-wrap:anywhere}a{color:#4ee0c3}h1{line-height:1.2}fieldset{margin:24px 0;padding:20px;border:1px solid #645578;border-radius:12px;min-width:0}label{display:block;margin:12px 0}input[type=text],select,button{box-sizing:border-box;width:100%;min-height:44px;padding:10px;font:inherit;border-radius:6px}input[type=checkbox]{width:20px;height:20px;vertical-align:middle}button{background:#4ee0c3;color:#101820;border:0;font-weight:700;cursor:pointer}code{white-space:normal}small{color:#c0b8ce}.notice{border-left:3px solid #4ee0c3;padding-left:16px}</style></head><body><main><a href="/docs/integrations/vercel">CiteFleet Origin documentation</a><h1>${escape(title)}</h1>${content}<p><a href="/support">Contact support</a></p></main></body></html>`,
     {
       status,
       headers: {
@@ -65,7 +70,7 @@ function page(title: string, content: string, status = 200): Response {
         "Referrer-Policy": "strict-origin",
         "Content-Type": "text/html; charset=utf-8",
         "Content-Security-Policy":
-          "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://github.com https://vercel.com; base-uri 'none'; frame-ancestors 'none'",
       },
     },
   );
@@ -196,7 +201,7 @@ function projectForms(metadata: OriginMetadata, token: string): string {
   return metadata.projects
     .map(
       (p) =>
-        `<fieldset><legend>${escape(p.name)}</legend><p>Repository: <strong>${escape(p.owner)}/${escape(p.repo)}</strong><br>Production branch: <strong>${escape(p.branch || "Not reported by Vercel — confirm below")}</strong><br>Vercel project root: <code>${escape(p.rootDirectory || "/")}</code></p><form method="post" action="${ORIGIN_PATH}"><input type="hidden" name="csrf" value="${token}"><input type="hidden" name="project" value="${escape(p.id)}">${p.branch ? "" : '<label>Production branch<input type="text" name="branch" required maxlength="256" title="Enter the exact production branch configured in Vercel; do not guess."></label>'}<label>Production domain<select name="domain" required title="Choose the verified production domain whose files will be generated.">${p.domains.map((d) => `<option value="${escape(d)}">${escape(d)}</option>`).join("")}</select></label><label>Served static folder (repository-relative)<input type="text" name="root" required maxlength="512" placeholder="public or frontend/public; / for repository root" title="Enter the folder your framework serves as static files, not the build output folder."></label><small>Vercel's project root is not necessarily the static folder. Use public for frameworks that serve public/, or / for repository-root static sites. Confirm the actual layout first.</small><label><input type="checkbox" name="confirm" value="yes" required> I started this Vercel installation, manage this website, and confirm the domain, repository, production branch and served folder.</label><button type="submit">Save project and review GitHub installation</button></form></fieldset>`,
+        `<fieldset><legend>${escape(p.name)}</legend><p>Repository: <strong>${escape(p.owner)}/${escape(p.repo)}</strong><br>Production branch: <strong>${escape(p.branch || "Not reported by Vercel — confirm below")}</strong><br>Vercel project root: <code>${escape(p.rootDirectory || "/")}</code></p><form method="post" action="${ORIGIN_PATH}"><input type="hidden" name="csrf" value="${token}"><input type="hidden" name="project" value="${escape(p.id)}">${p.branch ? "" : '<label>Production branch<input type="text" name="branch" required maxlength="256" title="Enter the exact production branch configured in Vercel; do not guess."></label>'}<label>Production domain<select name="domain" required title="Choose the verified production domain whose files will be generated.">${p.domains.map((d) => `<option value="${escape(d)}">${escape(d)}</option>`).join("")}</select></label><label>Served static folder (repository-relative)<input type="text" name="root" required maxlength="512" placeholder="public or frontend/public; / for repository root" title="Enter the folder your framework serves as static files, not the build output folder."></label><small>Vercel's project root is not necessarily the static folder. Use public for frameworks that serve public/, or / for repository-root static sites. Confirm the actual layout first.</small><label><input type="checkbox" name="confirm" value="yes" required> I manage this website and authorize CiteFleet to install discovery files in this repository, production branch and served folder.</label><button type="submit">Save project and install discovery files</button></form></fieldset>`,
     )
     .join("");
 }
@@ -205,7 +210,7 @@ export async function originSetup(request: Request, deps: FlowDeps = {}): Promis
   if (!token)
     return page(
       "Connect your Vercel project",
-      '<p>Start from Vercel to choose a GitHub-connected project. CiteFleet will ask you to confirm its domain and served folder before creating a property. GitHub authorization is a separate step that can commit discovery files.</p><p><a href="/api/integrations/vercel/start">Start Vercel installation</a></p>',
+      '<p>This browser has no active setup session. If you already saved a project, <a href="/">open your CiteFleet campaigns</a> to continue without reconnecting.</p><p>Start from Vercel to choose a GitHub-connected project. CiteFleet will ask you to confirm its domain and served folder before creating a property. GitHub authorization is a separate step that can commit discovery files.</p><p><a href="/api/integrations/vercel/start">Start Vercel installation</a></p>',
     );
   try {
     let form = new URLSearchParams();
@@ -247,15 +252,19 @@ export async function originSetup(request: Request, deps: FlowDeps = {}): Promis
         `<p>Sign in with the account that began setup, or cancel this browser's installation and restart from Vercel.</p>${cancel}`,
         403,
       );
-    if (request.method === "POST" && form.get("action") === "complete" && pending.site_id)
-      return redirect(pending.metadata.next || `/sites/${pending.site_id}`, [
-        originCookie(request, ORIGIN_COOKIE, "", 0),
-      ]);
-    if (pending.site_id)
-      return page(
-        "Project saved — install and verify files",
-        `<p>Your CiteFleet property is ready for the next step. No deployment or paid listing has been verified by saving it.</p><p><a href="/api/oauth/github?connect=${encodeURIComponent(pending.site_id)}">Connect GitHub and install discovery files</a></p><p>This can commit to the production branch you confirmed. Existing file ownership checks and workspace controls apply. GitHub access is retained for future file updates.</p><p><a href="/sites/${encodeURIComponent(pending.site_id)}">Open the campaign to inspect results and verify live files</a></p><p>After GitHub approval, check the Vercel deployment and return to this setup page to finish the Vercel connection. Listing on BotCentral remains a separate action.</p><form method="post" action="${ORIGIN_PATH}"><input type="hidden" name="csrf" value="${token}"><input type="hidden" name="action" value="complete"><button type="submit">${pending.metadata.next ? "Finish connection and return to Vercel" : "Finish connection and open campaign"}</button></form>`,
+    if (pending.site_id) {
+      if (request.method === "POST" && form.get("action") === "install")
+        return installProject(ws, pending.site_id, deps);
+      return installationProgress(
+        request,
+        ws,
+        pending.site_id,
+        pending.metadata.next,
+        token,
+        form,
+        deps,
       );
+    }
     if (pending.consumed_at)
       return page(
         "Setup was already submitted",
@@ -265,7 +274,7 @@ export async function originSetup(request: Request, deps: FlowDeps = {}): Promis
     if (request.method !== "POST")
       return page(
         "Confirm your Vercel project",
-        `<p class="notice">Signed in as <strong>${escape(user.email)}</strong>. Only continue if you initiated this installation. Saving configures this account's workspace; it does not yet write files or charge a listing fee.</p>${projectForms(pending.metadata, token)}${cancel}`,
+        `<p class="notice">Signed in as <strong>${escape(user.email)}</strong>. Only continue if you initiated this installation. Confirming saves your project and installs discovery files using your connected GitHub account. If needed, you will be sent to GitHub to authorize access. This can commit to the production branch and trigger its deployment. No listing fee is charged.</p>${projectForms(pending.metadata, token)}${cancel}`,
       );
     const project = pending.metadata.projects.find((p) => p.id === form.get("project"));
     const domain = form.get("domain") || "";
@@ -313,7 +322,7 @@ export async function originSetup(request: Request, deps: FlowDeps = {}): Promis
       siteId = (await onboard(ws, { name: project.name, url: `https://${domain}`, github })).id;
     }
     await finishOriginPending(token, user.id, ws.id, siteId, deps.sql);
-    return redirect(ORIGIN_PATH);
+    return installProject(ws, siteId, deps);
   } catch {
     return page(
       "Project setup could not finish",
@@ -321,4 +330,96 @@ export async function originSetup(request: Request, deps: FlowDeps = {}): Promis
       422,
     );
   }
+}
+
+async function installProject(
+  ws: WorkspaceHandle,
+  siteId: string,
+  deps: FlowDeps,
+): Promise<Response> {
+  const credential = (await ws.get()).workspace.githubToken?.trim();
+  if (!credential) return redirect(`/api/oauth/github?connect=${encodeURIComponent(siteId)}`);
+  const install = deps.install ?? (await import("./github.ts")).connectGithubAndInstall;
+  try {
+    await install(ws, siteId, credential);
+    return redirect(ORIGIN_PATH);
+  } catch {
+    // The guarded installer persists the concrete failure on this site.
+    return redirect(`${ORIGIN_PATH}?github=failed`);
+  }
+}
+
+async function installationProgress(
+  request: Request,
+  ws: WorkspaceHandle,
+  siteId: string,
+  next: string | null,
+  token: string,
+  form: URLSearchParams,
+  deps: FlowDeps,
+): Promise<Response> {
+  const site = (await ws.get()).sites.find((s) => s.id === siteId);
+  if (!site)
+    return page(
+      "Property unavailable",
+      "<p>The saved property is no longer in this workspace.</p>",
+      404,
+    );
+  const audit = deps.audit ?? (await import("./auditor.ts")).auditOriginFiles;
+  const deployment = deps.deployment ?? (await import("./github.ts")).originDeploymentStatus;
+  const [live, build] = await Promise.allSettled([audit(site), deployment(ws, siteId)]);
+  const files = live.status === "fulfilled" ? live.value : [];
+  const verified = files.length === 5 && files.every((file) => file.ok);
+  if (request.method === "POST" && form.get("action") === "complete" && verified)
+    return redirect(next || `/sites/${siteId}`, [originCookie(request, ORIGIN_COOKIE, "", 0)]);
+  const status =
+    build.status === "fulfilled"
+      ? build.value
+      : { state: "unknown", description: "Deployment status could not be read." };
+  const outcome = new URL(request.url).searchParams.get("github");
+  const failure =
+    site.github?.lastInstallError ||
+    (outcome && ["failed", "denied", "unavailable"].includes(outcome)
+      ? `GitHub authorization or installation: ${outcome}.`
+      : "");
+  const checks = files
+    .map(
+      (file) =>
+        `<li>${escape(file.path)}: <strong>${file.ok ? "verified live" : "not verified live"}</strong>${file.reason ? ` — ${escape(file.reason)}` : ""}</li>`,
+    )
+    .join("");
+  const submit = (action: string, label: string) =>
+    `<form method="post" action="${ORIGIN_PATH}"><input type="hidden" name="csrf" value="${token}"><input type="hidden" name="action" value="${action}"><button type="submit">${label}</button></form>`;
+  return page(
+    verified
+      ? "Discovery files verified live"
+      : failure
+        ? "Installation stopped"
+        : ["failure", "error"].includes(status.state)
+          ? "Deployment blocked"
+          : "Installing and checking your website",
+    `<p><strong>${escape(site.domain)}</strong></p>${failure ? `<p role="alert">Installation stopped: ${escape(failure)}</p>` : ""}
+    <p>Vercel deployment: <strong>${escape(status.state)}</strong>. ${escape(status.description)}</p>
+    ${"url" in status && status.url ? `<p><a href="${escape(status.url)}" target="_blank" rel="noopener noreferrer">Open deployment details</a></p>` : ""}
+    <ul>${checks}</ul>${live.status === "rejected" ? "<p>Live verification could not complete. No success is assumed.</p>" : ""}
+    ${verified ? submit("complete", "Finish connection and open results") : `<p>CiteFleet checks again every 30 seconds while this page is open. A failed deployment must be repaired before files can go live.</p>${submit("install", "Retry installation using GitHub")}<p><a href="/api/oauth/github?connect=${encodeURIComponent(siteId)}">Reconnect GitHub and install files</a> if its authorization expired or was revoked.</p>`}
+    <p><a href="/sites/${encodeURIComponent(siteId)}">Open campaign results</a> · <a href="${ORIGIN_PATH}">Check again now</a></p><p>File verification does not mean search engines have indexed or cited your URLs. BotCentral listing remains a separate action.</p>`,
+    request.method === "POST" && form.get("action") === "complete" && !verified ? 409 : 200,
+    !verified,
+  );
+}
+
+/** Resume only the same authenticated user's saved installation after GitHub consent. */
+export async function githubOriginReturn(
+  request: Request,
+  siteId: string,
+  deps: FlowDeps = {},
+): Promise<string | null> {
+  const token = originPendingToken(request);
+  if (!token) return null;
+  const user = await sessionUser(request, deps);
+  if (!user) return null;
+  const ws = await workspace(user, deps);
+  const pending = await bindOriginPending(token, user.id, ws.id, deps.sql);
+  return pending?.site_id === siteId ? ORIGIN_PATH : null;
 }

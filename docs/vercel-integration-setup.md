@@ -35,10 +35,22 @@ integration IDs, selected-project permissions, GitHub repository metadata and
 verified, non-redirecting production domains. It retains only bounded metadata
 for 30 minutes behind a hashed random browser cookie, never the Vercel token or
 code. Metadata is bound to the signed-in user and their resolved workspace.
-Explicit CSRF-protected confirmation saves a property; a separate GitHub approval
-can write files through the existing ownership and workspace controls. The
+Explicit CSRF-protected confirmation saves a property and starts the guarded
+GitHub installer with the workspace's explicitly authorized token. If no token
+is connected, it opens GitHub consent and returns to the matching setup session.
+The
 customer chooses the actual served folder and confirms a production branch if
 Vercel omits it. No listing purchase or automatic catalog publication occurs.
+
+The progress page checks the five live discovery files using the shared body and
+content-type predicates, and reads Vercel's status from GitHub for the file commit.
+It refreshes every 30 seconds while unverified. Failed installations have an
+explicit retry POST; GET refreshes never install. A provider failure is shown
+with its Vercel details link when available. Finish is refused until all five
+live files pass; deployment status alone does not establish successful installation.
+After a setup session expires, the page links back to campaigns rather than
+claiming saved work has been lost. GitHub/Vercel consent and fixing application
+build failures still require the customer's authorization or code changes.
 
 Vercel-authorized projects are limited to 20 per setup. Projects with over 100
 production domains, unsupported Git providers, or no verified production domain

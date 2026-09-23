@@ -174,7 +174,11 @@ async function detectFrameworkRoutes(
  * that case explicitly ("N of 5", with a Generate button) rather than leaving
  * the count unexplained.
  */
-export async function inspectOriginPack(ws: WorkspaceHandle, siteId: string) {
+export async function inspectOriginPack(
+  ws: WorkspaceHandle,
+  siteId: string,
+  authorizedToken?: string,
+) {
   const store = await ws.get();
   const site = store.sites.find((s) => s.id === siteId);
   if (!site) throw new Error("Site not found");
@@ -183,7 +187,7 @@ export async function inspectOriginPack(ws: WorkspaceHandle, siteId: string) {
   }
   const conflict = originRepoConflict(site, site.github, store.sites);
   if (conflict) throw new Error(conflict.message);
-  const token = tokenFrom(store);
+  const token = authorizedToken ?? tokenFrom(store);
   if (!token) {
     throw new Error(
       "No GitHub token. Paste a classic PAT with repo scope on Command, or set GITHUB_TOKEN on the server.",
@@ -302,7 +306,7 @@ export async function connectGithubAndInstall(ws: WorkspaceHandle, siteId: strin
   await attachGithub(ws, siteId, site.github);
   await setGithubToken(ws, token);
   try {
-    const result = await pushOriginPack(ws, siteId);
+    const result = await pushOriginPack(ws, siteId, token);
     await recordInstallAttempt(ws, siteId);
     return result;
   } catch (error) {
@@ -311,7 +315,11 @@ export async function connectGithubAndInstall(ws: WorkspaceHandle, siteId: strin
   }
 }
 
-export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
+export async function pushOriginPack(
+  ws: WorkspaceHandle,
+  siteId: string,
+  authorizedToken?: string,
+) {
   const store = await ws.get();
   assertCanAct(store, "submissions");
   const site = store.sites.find((s) => s.id === siteId);
@@ -321,7 +329,7 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
   }
   const conflict = originRepoConflict(site, site.github, store.sites);
   if (conflict) throw new Error(conflict.message);
-  const token = tokenFrom(store);
+  const token = authorizedToken ?? tokenFrom(store);
   if (!token) {
     throw new Error(
       "No GitHub token. Paste a classic PAT with repo scope on Command, or set GITHUB_TOKEN on the server.",
@@ -348,7 +356,7 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
   // Look before writing. `buildOriginPack` generates from campaign state, so a
   // blind PUT replaces a site's own robots policy with a generic one — it did,
   // and the diff is in origin-ownership.ts. Only what the rule accepts is sent.
-  const plan = await inspectOriginPack(ws, siteId);
+  const plan = await inspectOriginPack(ws, siteId, token);
   if (plan.unreadable.length) {
     throw new Error(
       `Refusing to push: the repo would not answer for ${plan.unreadable.length} path(s) — ` +
@@ -398,7 +406,7 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
       ),
     );
   }
-  const last = results.find((r) => r.url) || results[results.length - 1];
+  const last = results[results.length - 1];
   await ws.mutate((s) => {
     const current = s.sites.find((x) => x.id === siteId);
     if (current) current.verifyToken = verifyToken;
@@ -441,4 +449,67 @@ export async function pushOriginPack(ws: WorkspaceHandle, siteId: string) {
 
 export function stripSecrets(store: StoreShape): StoreShape {
   return maskStoreSecrets(store);
+}
+
+export interface OriginDeploymentStatus {
+  state: "success" | "pending" | "failure" | "error" | "unknown";
+  description: string;
+  url?: string;
+}
+
+/** Read the provider's status for the file commit (or branch for an older/no-op install). */
+export async function originDeploymentStatus(
+  ws: WorkspaceHandle,
+  siteId: string,
+): Promise<OriginDeploymentStatus> {
+  const store = await ws.get();
+  const site = store.sites.find((s) => s.id === siteId);
+  if (!site?.github) throw new Error("Site repository unavailable");
+  const repo = githubRepoTarget(site.github.owner, site.github.repo);
+  const ref = site.github.lastPushSha || site.github.branch;
+  const response = await gh(
+    store.workspace.githubToken?.trim() || "",
+    `/repos/${repo.owner}/${repo.repo}/commits/${encodeURIComponent(ref)}/status?per_page=100`,
+  );
+  if (!response.ok || !response.json || typeof response.json !== "object")
+    return {
+      state: "unknown",
+      description: `GitHub could not report deployment status (HTTP ${response.status}).`,
+    };
+  const statuses = (response.json as { statuses?: unknown }).statuses;
+  if (!Array.isArray(statuses))
+    return { state: "unknown", description: "GitHub returned no deployment status data." };
+  const vercelStatuses = statuses.filter((s: unknown): s is Record<string, unknown> =>
+    Boolean(
+      s &&
+      typeof s === "object" &&
+      "context" in s &&
+      typeof s.context === "string" &&
+      /^vercel(?:$|[ /-])/i.test(s.context),
+    ),
+  );
+  if (vercelStatuses.length > 1)
+    return {
+      state: "unknown",
+      description:
+        "Multiple Vercel projects reported statuses for this repository; the selected project's deployment cannot be identified safely.",
+    };
+  const vercel = vercelStatuses[0];
+  if (!vercel || !["success", "pending", "failure", "error"].includes(String(vercel.state)))
+    return {
+      state: "unknown",
+      description: "Vercel has not reported a deployment status for this commit.",
+    };
+  let url: string | undefined;
+  try {
+    const parsed = new URL(String(vercel.target_url));
+    if (parsed.protocol === "https:" && parsed.hostname === "vercel.com") url = parsed.href;
+  } catch {
+    /* Missing provider link is not a successful deployment. */
+  }
+  return {
+    state: vercel.state as OriginDeploymentStatus["state"],
+    description: typeof vercel.description === "string" ? vercel.description.slice(0, 500) : "",
+    url,
+  };
 }

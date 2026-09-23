@@ -340,3 +340,13 @@ This section supersedes the earlier prefix-only billing description.
 - `src/components/citefleet/CampaignView.tsx` exposes **Connect Vercel project** in the selected Vercel host panel, linking to `/api/integrations/vercel/start`, and labels it guided setup. This connects project metadata; GitHub authorization and file installation remain separate from deployment.
 - `src/lib/citefleet/provider-choice.ts` supplies Vercel guidance shared by the host and Origin Pack panels. The direct-host upload registry status is unchanged; guided project setup does not claim a direct host filesystem adapter.
 - `tests/e2e/strawman-vercel.spec.ts` checks Vercel selection, the start link, saved selection after reload, shared pack guidance, and a non-Vercel negative control without authorizing external writes.
+
+
+## Origin installation completion correction (2026-09-24)
+- `vercel-origin-flow.server.ts`: confirmation POST immediately starts the guarded GitHub installer with an explicitly connected workspace token, or redirects to GitHub consent. Refresh never installs; failures have an explicit CSRF-protected retry. Progress automatically probes the five live files and provider commit status; completion cannot clear the setup cookie until all five files validate. No paid listing is initiated.
+- `auth/oauth.server.ts`: GitHub connect outcomes return to Origin progress only when the current user/workspace pending installation matches the installed site; otherwise retain campaign redirect.
+- `github.ts`: explicit OAuth/workspace authorization is passed through inspection and writes rather than overridden by server-global credentials. Deployment tracking records the final file commit and reads Vercel's GitHub status, exposing a vetted Vercel details link and honest unknown/failure states.
+- `auditor.ts`: `auditOriginFiles` reuses the existing file predicates and timed fetch for five parallel live checks, without crawling routes or publishing.
+- `vercel-origin.test.ts`, `github-connect.test.ts`, `tests/e2e/vercel-origin.spec.ts`: confirmation/consent continuation, no GET/replay writes, CSRF retry rejection, failed live verification/finish refusal, final commit tracking and explicit-token tests. Browser navigation reaches GitHub sign-in with dummy client credentials and stops before consent; actual authorized provider installation is a separate live check.
+
+- Origin form CSP permits only self plus GitHub and Vercel for consent/completion redirects; Chrome blocked the real POST→GitHub chain with self-only form-action. Browser regression follows the real OAuth start route to GitHub sign-in with local dummy client credentials; it never enters credentials or approves provider consent.

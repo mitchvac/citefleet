@@ -143,12 +143,41 @@ test("account binding, CSRF refusal, real project save, replay refusal and cross
     const stolen = await b.request.get(`${base}/integrations/vercel`);
     expect(stolen.status()).toBe(403);
     expect(await stolen.text()).not.toContain("origin-test-owner");
+    let consentUrl: string | undefined;
+    const cspErrors: string[] = [];
+    page.on("console", (message) => {
+      if (/Content Security Policy|form-action/i.test(message.text()))
+        cspErrors.push(message.text());
+    });
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (url.origin === "https://github.com" && url.pathname === "/login/oauth/authorize")
+        consentUrl = url.href;
+    });
     await page.getByLabel("Served static folder (repository-relative)").fill("public");
     await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: "Save project and review GitHub installation" }).click();
+    await page.getByRole("button", { name: "Save project and install discovery files" }).click();
+    await expect(page).toHaveURL(/^https:\/\/github\.com\//);
+    await expect(page.getByRole("heading", { name: "Sign in to GitHub" })).toBeVisible();
+    expect(consentUrl).toBeDefined();
+    const authorize = new URL(consentUrl!);
+    expect(authorize.searchParams.get("client_id")).toBe("local-origin-test");
+    expect(authorize.searchParams.get("redirect_uri")).toBe(`${base}/api/oauth/github-callback`);
+    expect(authorize.searchParams.get("scope")).toContain("repo");
+    expect(authorize.searchParams.get("state")).toMatch(/^[a-f0-9]+$/);
+    expect(cspErrors).toEqual([]);
+    await page.goto(`${base}/integrations/vercel`);
     await expect(
-      page.getByRole("heading", { name: "Project saved — install and verify files" }),
+      page.getByRole("heading", { name: "Installing and checking your website" }),
     ).toBeVisible();
+    await expect(page.getByText("not verified live", { exact: true })).toHaveCount(5);
+    const premature = await a.request.post(`${base}/integrations/vercel`, {
+      form: { csrf: token, action: "complete" },
+      headers: { Origin: base },
+      maxRedirects: 0,
+    });
+    expect(premature.status()).toBe(409);
+    expect(premature.headers()["set-cookie"]).toBeUndefined();
     const stored = (
       await pool.query("SELECT payload FROM citefleet_snapshot WHERE id=$1", [userA.workspace_id])
     ).rows[0].payload;
@@ -239,7 +268,18 @@ test("email login resumes pending setup and expired state can be cancelled", asy
     await page.goto(`${base}/login`);
     await page.getByLabel("Email", { exact: true }).fill(user.email);
     await page.getByLabel("Password", { exact: true }).fill(user.password);
+    const loginResponse = page.waitForResponse(
+      (response) =>
+        response.url() === `${base}/api/login` && response.request().method() === "POST",
+    );
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    const loginResult = await loginResponse;
+    expect(
+      loginResult.status(),
+      loginResult.status() === 303
+        ? "login redirect"
+        : `Origin=${loginResult.request().headers().origin}, Sec-Fetch-Site=${loginResult.request().headers()["sec-fetch-site"]}; ${await loginResult.text()}`,
+    ).toBe(303);
     await expect(page).toHaveURL(`${base}/integrations/vercel`);
     await expect(page.getByRole("heading", { name: "Confirm your Vercel project" })).toBeVisible();
     await pool.query(

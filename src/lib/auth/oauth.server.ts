@@ -1,4 +1,7 @@
-import { originLoginContinuation } from "../citefleet/vercel-origin.server.ts";
+import {
+  originPendingToken,
+  originLoginContinuation,
+} from "../citefleet/vercel-origin.server.ts";
 import { randomBytes } from "node:crypto";
 import type { SessionUser } from "./operator-core.ts";
 import { readCookie, sessionCookie } from "./operator-core.ts";
@@ -75,12 +78,23 @@ function loginError(reason: string): Response {
   return redirect(`/login?error=${reason}`);
 }
 
-function githubConnectRedirect(
+async function githubConnectRedirect(
   siteId: string,
   result: GithubConnectResult,
   request: Request,
-): Response {
-  return redirect(`/sites/${siteId}?github=${result}`, {
+): Promise<Response> {
+  let destination = `/sites/${siteId}?github=${result}`;
+  const token = originPendingToken(request);
+  if (token) {
+    try {
+      const { githubOriginReturn } = await import("../citefleet/vercel-origin-flow.server.ts");
+      const path = await githubOriginReturn(request, siteId);
+      if (path) destination = `${path}?github=${result}`;
+    } catch {
+      /* Keep the normal campaign destination when setup cannot be resumed. */
+    }
+  }
+  return redirect(destination, {
     "Set-Cookie": stateCookie("", request, 0),
   });
 }
