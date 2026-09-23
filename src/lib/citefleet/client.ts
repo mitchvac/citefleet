@@ -240,9 +240,9 @@ export function useFleet() {
       run("ghtoken", async () => {
         await setGithubTokenFn({ data: { token } });
       }),
-    setBillingKey: (siteId: string, keyPrefix: string) =>
+    setBillingKey: (siteId: string, keySecret: string) =>
       run("billing", async () => {
-        await setBillingKeyFn({ data: { siteId, keyPrefix } });
+        await setBillingKeyFn({ data: { siteId, keySecret } });
       }),
     setProvider: (siteId: string, slug: string) =>
       run("provider", async () => {

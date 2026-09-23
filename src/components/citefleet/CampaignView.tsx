@@ -466,7 +466,7 @@ function AutoListingPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeo
 // edits inside the year free, reads free. CiteFleet stores the key prefix here;
 // whether a publish actually carries it is the server-side switch, shown as-is.
 function BillingPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof useFleet> }) {
-  const [prefix, setPrefix] = useState(site.billing?.keyPrefix || "");
+  const [prefix, setPrefix] = useState("");
   const settings = fleet.settings;
   const state = renewalState(site.term);
   const left = termDaysLeft(site.term);
@@ -480,7 +480,7 @@ function BillingPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof us
           : state === "unbilled"
             ? { tone: "neutral" as const, text: "unbilled" }
             : { tone: "neutral" as const, text: "no term yet" };
-  const dirty = prefix.trim() !== (site.billing?.keyPrefix || "");
+  const dirty = !!prefix.trim() || !!site.billing;
   return (
     <section className="glass rounded-3xl p-5" data-testid="billing">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -516,14 +516,20 @@ function BillingPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof us
         className="mt-4 flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          void fleet.setBillingKey(site.id, prefix.trim());
+          const secret = prefix.trim();
+          setPrefix("");
+          void fleet.setBillingKey(site.id, secret);
         }}
       >
         <label className="min-w-0 flex-1 text-xs text-[#9b95b3]">
-          BotCentral API key prefix
+          BotCentral secret key
           <input
             className="mono mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/30"
-            placeholder="bc_live_52297216"
+            type="password"
+            autoComplete="off"
+            title="Paste the full key to verify access. Only its public prefix is stored. Leave empty to clear."
+            pattern="bc_live_[a-f0-9]{48}"
+            placeholder="Paste your full bc_live_ key"
             value={prefix}
             onChange={(e) => setPrefix(e.target.value)}
             data-testid="billing-prefix"
@@ -537,6 +543,9 @@ function BillingPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof us
           {fleet.busy === "billing" ? "Saving…" : prefix.trim() ? "Save key" : "Clear key"}
         </button>
       </form>
+      <p className="mt-2 text-xs text-[#9b95b3]">
+        {site.billing ? `${site.billing.keyPrefix} — ${site.billing.verifiedAt ? "verified" : "enter the full key to verify"}` : "No key connected."} Only the public prefix is stored.
+      </p>
       <div className="mt-3 flex flex-wrap gap-3">
         {site.billing?.keyPrefix ? (
           <a
@@ -561,7 +570,7 @@ function BillingPanel({ site, fleet }: { site: Site; fleet: ReturnType<typeof us
         <dd className="mono break-all text-[#cfc8e8]" data-testid="billing-key">
           {site.billing
             ? `${site.billing.keyPrefix} · set ${new Date(site.billing.setAt).toLocaleString()}`
-            : "none — publishes are sent without a key and recorded unbilled"}
+            : "none — connect a verified key before publishing while billing is on"}
         </dd>
         <dt className="text-[11px] uppercase tracking-[0.14em] text-[#9b95b3]">Billing switch</dt>
         <dd className="text-[#cfc8e8]" data-testid="billing-switch">

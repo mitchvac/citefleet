@@ -314,6 +314,11 @@ export async function handleBotcentralWebhook(
     return { status: 202, body: { ok: true, action: "ignore", event, reason: "not a CiteFleet property", domain } };
   }
 
+  const createdMs = typeof payload.created === "string" ? Date.parse(payload.created) : NaN;
+  if (!Number.isFinite(createdMs)) {
+    return { status: 400, body: { error: "valid event created timestamp is required" } };
+  }
+  const created = new Date(createdMs).toISOString();
   const at = (deps.now ?? (() => new Date()))().toISOString();
   const base = deps.catalogUrl.replace(/\/$/, "");
   const term = event === "site.lapsed" ? readTerm(payload.term) : undefined;
@@ -335,10 +340,23 @@ export async function handleBotcentralWebhook(
         };
 
   let move: ListingTransition = "none";
+  let stale = false;
   await deps.mutateStore((s) => {
     const current = s.sites.find((x) => x.id === site.id);
     if (!current) return;
-    current.catalogHook = { lastEventAt: at, lastEvent: event };
+    const lastCreated = Date.parse(current.catalogHook?.lastEventCreatedAt ?? "");
+    const publishedAt = current.term?.source === "publish" ? Date.parse(current.term.at) : NaN;
+    const currentEnd = Date.parse(current.term?.paidUntil ?? "");
+    const incomingEnd = Date.parse(term?.paidUntil ?? "");
+    // Compare while holding the store mutation lock: a renewal can complete
+    // after the initial read. A lapse must never replace a later paid year.
+    if (createdMs < lastCreated || createdMs < publishedAt ||
+        (event === "site.lapsed" && Number.isFinite(currentEnd) &&
+          (!Number.isFinite(incomingEnd) || incomingEnd < currentEnd))) {
+      stale = true;
+      return;
+    }
+    current.catalogHook = { lastEventAt: at, lastEvent: event, lastEventCreatedAt: created };
     current.botcentral = answer.listed
       ? { ...(current.botcentral ?? { listed: false }), ...answer, error: undefined }
       : { ...(current.botcentral ?? {}), listed: false, verified: undefined, verificationMethod: undefined, error: undefined };
@@ -357,5 +375,5 @@ export async function handleBotcentralWebhook(
           : `BotCentral ${event} for ${site.domain}: ${answer.listed ? (answer.verificationMethod ?? "verification unknown") : "card removed"}${answer.verificationNote ? ` — ${answer.verificationNote}` : ""}`,
     });
   });
-  return { status: 202, body: { ok: true, action: move, event, site: site.domain } };
+  return { status: 202, body: { ok: true, action: stale ? "ignore" : move, event, site: site.domain } };
 }

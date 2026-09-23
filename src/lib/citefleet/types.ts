@@ -131,9 +131,10 @@ export interface Site {
    * The customer's own BotCentral API key, by prefix (bc_live_…). Publishing
    * sends it ONLY while CITEFLEET_BOTCENTRAL_BILLING=on; BotCentral debits a
    * listing year from that key when the proven card is written. Never a secret:
-   * the prefix is what BotCentral's own top-up links carry.
+   * the prefix is what BotCentral's own top-up links carry. verifiedAt is set
+   * only after the server verifies full-key possession; legacy prefixes cannot pay.
    */
-  billing?: { keyPrefix: string; setAt: string };
+  billing?: { keyPrefix: string; setAt: string; verifiedAt?: string };
   /**
    * The paid term, as BotCentral last reported it (publish response or the
    * site.lapsed webhook). Lives beside `botcentral`, not inside it, because
@@ -146,7 +147,7 @@ export interface Site {
   /** The `paidUntil` a renewal notice was last sent for, so each term is warned about once. */
   renewalNoticeFor?: string;
   /** Last signed BotCentral event received at /api/hooks/botcentral for this host. */
-  catalogHook?: { lastEventAt: string; lastEvent: string };
+  catalogHook?: { lastEventAt: string; lastEvent: string; lastEventCreatedAt?: string };
   routes: string[];
   createdAt: string;
   lastAuditAt?: string;

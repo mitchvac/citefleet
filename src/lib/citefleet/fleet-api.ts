@@ -227,13 +227,13 @@ export const setGithubTokenFn = createServerFn({ method: "POST" })
     return setGithubToken(await wsFor(context), data.token);
   });
 
-/** The customer's BotCentral key prefix for a property (empty string clears it). Stored, not sent, until billing is switched on. */
+/** Verify the customer's full key transiently; only its prefix persists. Empty clears it. */
 export const setBillingKeyFn = createServerFn({ method: "POST" })
   .middleware([operatorMiddleware])
-  .validator((d: { siteId: string; keyPrefix: string }) => d)
+  .validator((d: { siteId: string; keySecret: string }) => d)
   .handler(async ({ data, context }) => {
     const { setBillingKey } = await import("./ops.server");
-    return setBillingKey(await wsFor(context), data.siteId, data.keyPrefix);
+    return setBillingKey(await wsFor(context), data.siteId, data.keySecret);
   });
 
 /** Set or rotate a property's IndexNow key. An empty string generates one. */
@@ -359,5 +359,12 @@ export const settleTopupFn = createServerFn({ method: "POST" })
   .validator((d: { id: string; tx: string }) => d)
   .handler(async ({ data, context }) => {
     const { settleTopup } = await import("./ops.server");
-    return settleTopup(await wsFor(context), data);
+    return settleTopup(await wsFor(context), data, context.principal);
   });
+
+/** Display permission only; settleTopup independently enforces the same boundary. */
+export const topupAccessFn = createServerFn({ method: "GET" })
+  .middleware([operatorMiddleware])
+  .handler(async ({ context }) => ({
+    manualSettlement: context.principal.kind === "break-glass",
+  }));

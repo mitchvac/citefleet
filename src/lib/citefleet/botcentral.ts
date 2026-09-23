@@ -58,13 +58,17 @@ export function billingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return (env[BILLING_ENV] || "").trim().toLowerCase() === "on";
 }
 
-/** The prefix a publish of this site would carry, or "" — the only place the switch is consulted. */
+/** Billing off omits the key; billing on requires server-verified possession and fails closed. */
 export function billingPrefixFor(
   site: Pick<Site, "billing">,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   if (!billingEnabled(env)) return "";
-  return cleanPrefix(site.billing?.keyPrefix);
+  const prefix = cleanPrefix(site.billing?.keyPrefix);
+  if (!prefix || !site.billing?.verifiedAt || !Number.isFinite(Date.parse(site.billing.verifiedAt))) {
+    throw new Error("Verify a full BotCentral key before publishing with billing enabled.");
+  }
+  return prefix;
 }
 
 function publicOrigin() {
