@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  githubOriginReturn,
   originCallback,
   originSetup,
   originSubmission,
@@ -334,10 +335,180 @@ test("setup forms retain browser Origin while authorization redirects suppress r
     }),
   );
   assert.equal(setup.headers.get("referrer-policy"), "strict-origin");
+  assert.match(
+    setup.headers.get("content-security-policy")!,
+    /form-action 'self' https:\/\/github.com https:\/\/vercel.com;/,
+  );
   assert.match(await setup.text(), /method="post"/);
   const redirect = await startOriginInstall(
     new Request("https://citefleet.app/api/integrations/vercel/start"),
     { env },
   );
   assert.equal(redirect.headers.get("referrer-policy"), "no-referrer");
+});
+
+// These route tests exercise POST authorization and the former false-finish path.
+import type { Sql } from "../db.ts";
+import type { OriginPending } from "./vercel-origin-state.server.ts";
+import { seedStore } from "./seed.ts";
+import { asWorkspaceId } from "./workspace-id.ts";
+import type { Site } from "./types.ts";
+
+function progressFixture(saved = true, credential = true) {
+  const id = asWorkspaceId("ws-origin-progress");
+  const store = seedStore(id, "Origin progress");
+  store.workspace.githubToken = credential ? "gho_existing-authorization" : undefined;
+  const site: Site = {
+    id: "site-origin-progress",
+    workspaceId: id,
+    name: "Origin",
+    domain: "example.com",
+    url: "https://example.com",
+    sitemapUrl: "https://example.com/sitemap.xml",
+    status: "campaign",
+    routes: ["/"],
+    createdAt: new Date().toISOString(),
+    scores: { technical: 0, submissions: 0, mentions: 0, overall: 0 },
+    summary: "",
+    github: { owner: "owner", repo: "repo", branch: "main", root: "public" },
+  };
+  store.sites.push(site);
+  const pending: OriginPending = {
+    user_id: "user-origin",
+    workspace_id: id,
+    consumed_at: saved ? new Date() : null,
+    site_id: saved ? site.id : null,
+    metadata: {
+      configurationId: "icfg_one",
+      teamId: null,
+      next: "https://vercel.com/finish",
+      projects: [
+        {
+          id: "prj_one",
+          name: "Origin",
+          owner: "owner",
+          repo: "repo",
+          branch: "main",
+          rootDirectory: "",
+          domains: ["example.com"],
+        },
+      ],
+    },
+  };
+  const query = async <T>(sql: string, params?: unknown[]): Promise<T[]> => {
+    if (sql.includes("SET site_id=$4")) pending.site_id = String(params![3]);
+    if (sql.includes("SET consumed_at")) pending.consumed_at = new Date();
+    return [pending] as unknown as T[];
+  };
+  const sql = Object.assign(async <T>() => [] as T[], { query }) as Sql;
+  const ws = {
+    id,
+    get: async () => store,
+    mutate: async <T>(fn: (s: typeof store) => T) => fn(store),
+  };
+  let writes = 0;
+  const deps = {
+    sql,
+    user: async () => ({
+      id: "user-origin",
+      email: "owner@example.com",
+      name: "Owner",
+      imageUrl: null,
+    }),
+    workspace: async () => ws,
+    attach: async () => {},
+    install: async () => {
+      writes++;
+    },
+    audit: async () => [{ path: "/robots.txt", ok: false, reason: "HTTP 404" }],
+    deployment: async () => ({
+      state: "failure" as const,
+      description: "Build failed",
+      url: "https://vercel.com/project/deployment",
+    }),
+  };
+  const request = (action?: string, origin = "https://citefleet.app") =>
+    new Request("https://citefleet.app/integrations/vercel", {
+      method: action ? "POST" : "GET",
+      headers: {
+        cookie: `${ORIGIN_COOKIE}=${token}`,
+        origin,
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      ...(action
+        ? {
+            body: new URLSearchParams({
+              csrf: token,
+              action,
+              project: "prj_one",
+              domain: "example.com",
+              root: "public",
+              confirm: "yes",
+            }),
+          }
+        : {}),
+    });
+  return { deps, request, writes: () => writes, pending };
+}
+test("confirm starts existing authorized installation once; GET/replayed confirmation never writes", async () => {
+  const f = progressFixture(false);
+  const saved = await originSetup(f.request("confirm"), f.deps);
+  assert.equal(saved.status, 303);
+  assert.equal(saved.headers.get("location"), "/integrations/vercel");
+  assert.equal(f.writes(), 1);
+  await originSetup(f.request(), f.deps);
+  await originSetup(f.request("confirm"), f.deps);
+  assert.equal(f.writes(), 1);
+});
+test("missing workspace GitHub authorization proceeds directly to consent without writing", async () => {
+  const f = progressFixture(false, false);
+  const res = await originSetup(f.request("confirm"), f.deps);
+  assert.equal(res.headers.get("location"), "/api/oauth/github?connect=site-origin-progress");
+  assert.equal(f.writes(), 0);
+});
+test("live failure prevents Finish and exposes deployment failure instead of pretending success", async () => {
+  const f = progressFixture();
+  const res = await originSetup(f.request("complete"), f.deps);
+  assert.equal(res.status, 409);
+  assert.equal(res.headers.get("set-cookie"), null);
+  const html = await res.text();
+  assert.match(html, /Build failed/);
+  assert.match(html, /https:\/\/vercel.com\/project\/deployment/);
+  assert.match(html, /not verified live/);
+  assert.doesNotMatch(html, /name="action" value="complete"/);
+  assert.equal(f.writes(), 0);
+});
+test("only all five verified live files permit Finish; cross-origin retry cannot write", async () => {
+  const f = progressFixture();
+  const denied = await originSetup(f.request("install", "https://evil.example"), f.deps);
+  assert.equal(denied.status, 403);
+  assert.equal(f.writes(), 0);
+  f.deps.audit = async () =>
+    ["/robots.txt", "/sitemap.xml", "/llms.txt", "/key.txt", "/.well-known/botcentral.txt"].map(
+      (path) => ({ path, ok: true, reason: "" }),
+    );
+  const res = await originSetup(f.request("complete"), f.deps);
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.get("location"), "https://vercel.com/finish");
+  assert.match(res.headers.get("set-cookie")!, /Max-Age=0/);
+});
+
+test("GitHub continuation resumes only the matching saved site and authenticated installation", async () => {
+  const f = progressFixture();
+  assert.equal(
+    await githubOriginReturn(f.request(), "site-origin-progress", f.deps),
+    "/integrations/vercel",
+  );
+  assert.equal(await githubOriginReturn(f.request(), "site-unrelated", f.deps), null);
+  assert.equal(
+    await githubOriginReturn(f.request(), "site-origin-progress", {
+      ...f.deps,
+      user: async () => null,
+    }),
+    null,
+  );
+  assert.equal(
+    await githubOriginReturn(new Request("https://citefleet.app"), "site-origin-progress", f.deps),
+    null,
+  );
 });

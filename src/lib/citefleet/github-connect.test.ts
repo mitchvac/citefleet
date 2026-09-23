@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { connectGithubAndInstall } from "./github.ts";
+import { connectGithubAndInstall, originDeploymentStatus } from "./github.ts";
 import { seedStore } from "./seed.ts";
 import type { Site, StoreShape } from "./types.ts";
 import type { WorkspaceHandle } from "./workspace-handle.ts";
 import { asWorkspaceId } from "./workspace-id.ts";
 
 const realFetch = globalThis.fetch;
+const originalToken = process.env.GITHUB_TOKEN;
 afterEach(() => {
   globalThis.fetch = realFetch;
+  if (originalToken === undefined) delete process.env.GITHUB_TOKEN;
+  else process.env.GITHUB_TOKEN = originalToken;
 });
 
 function workspace(): { ws: WorkspaceHandle; read: () => StoreShape } {
@@ -53,10 +56,12 @@ function workspace(): { ws: WorkspaceHandle; read: () => StoreShape } {
 
 test("GitHub approval repairs a pasted URL and installs all five files without a PAT paste", async () => {
   const { ws, read } = workspace();
+  process.env.GITHUB_TOKEN = "server-global-token-must-not-be-used";
   const remote = new Map<string, string>();
   const requests: Array<{ method: string; pathname: string }> = [];
 
   globalThis.fetch = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    assert.equal(new Headers(init.headers).get("authorization"), "Bearer gho_test-token");
     const url = new URL(String(input));
     const method = init.method || "GET";
     requests.push({ method, pathname: url.pathname });
@@ -95,6 +100,7 @@ test("GitHub approval repairs a pasted URL and installs all five files without a
   assert.equal(saved.sites[0].github?.repo, "marketswarm");
   assert.equal(saved.workspace.githubToken, "gho_test-token");
   assert.equal(saved.sites[0].github?.lastInstallError, undefined);
+  assert.equal(saved.sites[0].github?.lastPushSha, "sha-5", "deployment tracks final file commit");
 
   const writesBeforeRetry = requests.filter((request) => request.method === "PUT").length;
   const current = await connectGithubAndInstall(ws, "site-ac359f9c", "gho_test-token");
@@ -127,4 +133,51 @@ test("GitHub approval records the exact refusal when every target belongs to the
   const saved = read();
   assert.match(saved.sites[0].github?.lastInstallError || "", /every file is spoken for/);
   assert.equal(saved.workspace.githubToken, "gho_test-token");
+});
+
+test("deployment status reports provider failure and rejects untrusted detail links", async () => {
+  const { ws } = workspace();
+  await ws.mutate((s) => {
+    s.sites[0].github!.repo = "marketswarm";
+    s.sites[0].github!.lastPushSha = "final-sha";
+    s.workspace.githubToken = "workspace-only";
+  });
+  globalThis.fetch = async (input, init) => {
+    assert.match(String(input), /commits\/final-sha\/status/);
+    assert.equal(new Headers(init?.headers).get("authorization"), "Bearer workspace-only");
+    return Response.json({
+      statuses: [
+        {
+          context: "Vercel",
+          state: "failure",
+          description: "Build failed",
+          target_url: "javascript:alert(1)",
+        },
+      ],
+    });
+  };
+  assert.deepEqual(await originDeploymentStatus(ws, "site-ac359f9c"), {
+    state: "failure",
+    description: "Build failed",
+    url: undefined,
+  });
+  globalThis.fetch = async () => new Response("<html>fallback</html>");
+  assert.equal((await originDeploymentStatus(ws, "site-ac359f9c")).state, "unknown");
+});
+
+test("multiple Vercel project statuses cannot imply the selected project deployed", async () => {
+  const { ws } = workspace();
+  await ws.mutate((s) => {
+    s.sites[0].github!.repo = "marketswarm";
+  });
+  globalThis.fetch = async () =>
+    Response.json({
+      statuses: [
+        { context: "Vercel – first", state: "success" },
+        { context: "Vercel – second", state: "failure" },
+      ],
+    });
+  const status = await originDeploymentStatus(ws, "site-ac359f9c");
+  assert.equal(status.state, "unknown");
+  assert.match(status.description, /Multiple Vercel projects/);
 });
