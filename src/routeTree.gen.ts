@@ -45,6 +45,7 @@ import { Route as ApiOauthGithubCallbackRouteImport } from './routes/api/oauth/g
 import { Route as ApiOauthGoogleRouteImport } from './routes/api/oauth/google'
 import { Route as ApiOauthGoogleCallbackRouteImport } from './routes/api/oauth/google-callback'
 import { Route as ApiOauthProvidersRouteImport } from './routes/api/oauth/providers'
+import { Route as DocsIntegrationsVercelRouteImport } from './routes/docs.integrations.vercel'
 import { Route as ApiDnsCloudflareCallbackRouteImport } from './routes/api/dns/cloudflare/callback'
 import { Route as ApiDnsCloudflareStartRouteImport } from './routes/api/dns/cloudflare/start'
 import { Route as ApiDnsPorkbunCallbackRouteImport } from './routes/api/dns/porkbun/callback'
@@ -232,6 +233,11 @@ const ApiOauthProvidersRoute = ApiOauthProvidersRouteImport.update({
   path: '/api/oauth/providers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIntegrationsVercelRoute = DocsIntegrationsVercelRouteImport.update({
+  id: '/docs/integrations/vercel',
+  path: '/docs/integrations/vercel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDnsCloudflareCallbackRoute =
   ApiDnsCloudflareCallbackRouteImport.update({
     id: '/api/dns/cloudflare/callback',
@@ -301,6 +307,7 @@ export interface FileRoutesByFullPath {
   '/api/oauth/google': typeof ApiOauthGoogleRoute
   '/api/oauth/google-callback': typeof ApiOauthGoogleCallbackRoute
   '/api/oauth/providers': typeof ApiOauthProvidersRoute
+  '/docs/integrations/vercel': typeof DocsIntegrationsVercelRoute
   '/api/dns/cloudflare/callback': typeof ApiDnsCloudflareCallbackRoute
   '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
   '/api/dns/porkbun/callback': typeof ApiDnsPorkbunCallbackRoute
@@ -345,6 +352,7 @@ export interface FileRoutesByTo {
   '/api/oauth/google': typeof ApiOauthGoogleRoute
   '/api/oauth/google-callback': typeof ApiOauthGoogleCallbackRoute
   '/api/oauth/providers': typeof ApiOauthProvidersRoute
+  '/docs/integrations/vercel': typeof DocsIntegrationsVercelRoute
   '/api/dns/cloudflare/callback': typeof ApiDnsCloudflareCallbackRoute
   '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
   '/api/dns/porkbun/callback': typeof ApiDnsPorkbunCallbackRoute
@@ -390,6 +398,7 @@ export interface FileRoutesById {
   '/api/oauth/google': typeof ApiOauthGoogleRoute
   '/api/oauth/google-callback': typeof ApiOauthGoogleCallbackRoute
   '/api/oauth/providers': typeof ApiOauthProvidersRoute
+  '/docs/integrations/vercel': typeof DocsIntegrationsVercelRoute
   '/api/dns/cloudflare/callback': typeof ApiDnsCloudflareCallbackRoute
   '/api/dns/cloudflare/start': typeof ApiDnsCloudflareStartRoute
   '/api/dns/porkbun/callback': typeof ApiDnsPorkbunCallbackRoute
@@ -436,6 +445,7 @@ export interface FileRouteTypes {
     | '/api/oauth/google'
     | '/api/oauth/google-callback'
     | '/api/oauth/providers'
+    | '/docs/integrations/vercel'
     | '/api/dns/cloudflare/callback'
     | '/api/dns/cloudflare/start'
     | '/api/dns/porkbun/callback'
@@ -480,6 +490,7 @@ export interface FileRouteTypes {
     | '/api/oauth/google'
     | '/api/oauth/google-callback'
     | '/api/oauth/providers'
+    | '/docs/integrations/vercel'
     | '/api/dns/cloudflare/callback'
     | '/api/dns/cloudflare/start'
     | '/api/dns/porkbun/callback'
@@ -524,6 +535,7 @@ export interface FileRouteTypes {
     | '/api/oauth/google'
     | '/api/oauth/google-callback'
     | '/api/oauth/providers'
+    | '/docs/integrations/vercel'
     | '/api/dns/cloudflare/callback'
     | '/api/dns/cloudflare/start'
     | '/api/dns/porkbun/callback'
@@ -569,6 +581,7 @@ export interface RootRouteChildren {
   ApiOauthGoogleRoute: typeof ApiOauthGoogleRoute
   ApiOauthGoogleCallbackRoute: typeof ApiOauthGoogleCallbackRoute
   ApiOauthProvidersRoute: typeof ApiOauthProvidersRoute
+  DocsIntegrationsVercelRoute: typeof DocsIntegrationsVercelRoute
   ApiDnsCloudflareCallbackRoute: typeof ApiDnsCloudflareCallbackRoute
   ApiDnsCloudflareStartRoute: typeof ApiDnsCloudflareStartRoute
   ApiDnsPorkbunCallbackRoute: typeof ApiDnsPorkbunCallbackRoute
@@ -831,6 +844,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthProvidersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/integrations/vercel': {
+      id: '/docs/integrations/vercel'
+      path: '/docs/integrations/vercel'
+      fullPath: '/docs/integrations/vercel'
+      preLoaderRoute: typeof DocsIntegrationsVercelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dns/cloudflare/callback': {
       id: '/api/dns/cloudflare/callback'
       path: '/api/dns/cloudflare/callback'
@@ -913,6 +933,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthGoogleRoute: ApiOauthGoogleRoute,
   ApiOauthGoogleCallbackRoute: ApiOauthGoogleCallbackRoute,
   ApiOauthProvidersRoute: ApiOauthProvidersRoute,
+  DocsIntegrationsVercelRoute: DocsIntegrationsVercelRoute,
   ApiDnsCloudflareCallbackRoute: ApiDnsCloudflareCallbackRoute,
   ApiDnsCloudflareStartRoute: ApiDnsCloudflareStartRoute,
   ApiDnsPorkbunCallbackRoute: ApiDnsPorkbunCallbackRoute,
