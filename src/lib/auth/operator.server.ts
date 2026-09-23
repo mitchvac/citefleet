@@ -1,3 +1,5 @@
+import { trustedAuthPost, rejectedAuthPost } from "./auth-form.server.ts";
+import { originLoginContinuation } from "../citefleet/vercel-origin.server.ts";
 import { getRequest } from "@tanstack/react-start/server";
 import { assertSameSiteRequest } from "./isolation.server";
 import {
@@ -35,7 +37,7 @@ function signedInResponse(request: Request, sessionId: string): Response {
   return new Response(null, {
     status: 303,
     headers: {
-      Location: "/",
+      Location: originLoginContinuation(request),
       "Set-Cookie": sessionCookie(sessionId, { secure: isSecure(request) }),
     },
   });
@@ -113,6 +115,7 @@ async function readFields(request: Request): Promise<{
 
 /** POST /api/login — email/password for users, or the server token for ops. */
 export async function handleLogin(request: Request): Promise<Response> {
+  if (!trustedAuthPost(request)) return rejectedAuthPost();
   const fields = await readFields(request);
   if (fields.email && fields.password) {
     const key = authClientKey(request);
@@ -145,6 +148,7 @@ export async function handleLogin(request: Request): Promise<Response> {
 
 /** POST /api/signup — create a user account and sign in. */
 export async function handleSignup(request: Request): Promise<Response> {
+  if (!trustedAuthPost(request)) return rejectedAuthPost();
   const fields = await readFields(request);
   const { createUser } = await import("./users.server");
   const created = await createUser({

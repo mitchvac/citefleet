@@ -1,3 +1,4 @@
+import { originLoginContinuation } from "../citefleet/vercel-origin.server.ts";
 import { randomBytes } from "node:crypto";
 import type { SessionUser } from "./operator-core.ts";
 import { readCookie, sessionCookie } from "./operator-core.ts";
@@ -95,7 +96,10 @@ async function signedIn(
   const cookies = [session, stateCookie("", request, 0), ...extraCookies];
   return new Response(null, {
     status: 303,
-    headers: [["Location", "/"], ...cookies.map((c) => ["Set-Cookie", c] as [string, string])],
+    headers: [
+      ["Location", originLoginContinuation(request)],
+      ...cookies.map((c) => ["Set-Cookie", c] as [string, string]),
+    ],
   });
 }
 

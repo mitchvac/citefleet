@@ -31,6 +31,7 @@ import { Route as ApiLogoutRouteImport } from './routes/api/logout'
 import { Route as ApiMeRouteImport } from './routes/api/me'
 import { Route as ApiResetRouteImport } from './routes/api/reset'
 import { Route as ApiSignupRouteImport } from './routes/api/signup'
+import { Route as IntegrationsVercelRouteImport } from './routes/integrations.vercel'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
 import { Route as LearnSlugRouteImport } from './routes/learn/$slug'
 import { Route as LearnGlossaryRouteImport } from './routes/learn/glossary'
@@ -52,6 +53,8 @@ import { Route as ApiDnsPorkbunCallbackRouteImport } from './routes/api/dns/pork
 import { Route as ApiDnsPorkbunStartRouteImport } from './routes/api/dns/porkbun/start'
 import { Route as ApiDnsVercelCallbackRouteImport } from './routes/api/dns/vercel/callback'
 import { Route as ApiDnsVercelStartRouteImport } from './routes/api/dns/vercel/start'
+import { Route as ApiIntegrationsVercelCallbackRouteImport } from './routes/api/integrations/vercel/callback'
+import { Route as ApiIntegrationsVercelStartRouteImport } from './routes/api/integrations/vercel/start'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -163,6 +166,11 @@ const ApiSignupRoute = ApiSignupRouteImport.update({
   path: '/api/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntegrationsVercelRoute = IntegrationsVercelRouteImport.update({
+  id: '/integrations/vercel',
+  path: '/integrations/vercel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LearnIndexRoute = LearnIndexRouteImport.update({
   id: '/learn/',
   path: '/learn/',
@@ -269,6 +277,18 @@ const ApiDnsVercelStartRoute = ApiDnsVercelStartRouteImport.update({
   path: '/api/dns/vercel/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiIntegrationsVercelCallbackRoute =
+  ApiIntegrationsVercelCallbackRouteImport.update({
+    id: '/api/integrations/vercel/callback',
+    path: '/api/integrations/vercel/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntegrationsVercelStartRoute =
+  ApiIntegrationsVercelStartRouteImport.update({
+    id: '/api/integrations/vercel/start',
+    path: '/api/integrations/vercel/start',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -293,6 +313,7 @@ export interface FileRoutesByFullPath {
   '/api/me': typeof ApiMeRoute
   '/api/reset': typeof ApiResetRoute
   '/api/signup': typeof ApiSignupRoute
+  '/integrations/vercel': typeof IntegrationsVercelRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -314,6 +335,8 @@ export interface FileRoutesByFullPath {
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
   '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
   '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
+  '/api/integrations/vercel/callback': typeof ApiIntegrationsVercelCallbackRoute
+  '/api/integrations/vercel/start': typeof ApiIntegrationsVercelStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -338,6 +361,7 @@ export interface FileRoutesByTo {
   '/api/me': typeof ApiMeRoute
   '/api/reset': typeof ApiResetRoute
   '/api/signup': typeof ApiSignupRoute
+  '/integrations/vercel': typeof IntegrationsVercelRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -359,6 +383,8 @@ export interface FileRoutesByTo {
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
   '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
   '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
+  '/api/integrations/vercel/callback': typeof ApiIntegrationsVercelCallbackRoute
+  '/api/integrations/vercel/start': typeof ApiIntegrationsVercelStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -384,6 +410,7 @@ export interface FileRoutesById {
   '/api/me': typeof ApiMeRoute
   '/api/reset': typeof ApiResetRoute
   '/api/signup': typeof ApiSignupRoute
+  '/integrations/vercel': typeof IntegrationsVercelRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/learn/glossary': typeof LearnGlossaryRoute
   '/learn/quiz': typeof LearnQuizRoute
@@ -405,6 +432,8 @@ export interface FileRoutesById {
   '/api/dns/porkbun/start': typeof ApiDnsPorkbunStartRoute
   '/api/dns/vercel/callback': typeof ApiDnsVercelCallbackRoute
   '/api/dns/vercel/start': typeof ApiDnsVercelStartRoute
+  '/api/integrations/vercel/callback': typeof ApiIntegrationsVercelCallbackRoute
+  '/api/integrations/vercel/start': typeof ApiIntegrationsVercelStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -431,6 +460,7 @@ export interface FileRouteTypes {
     | '/api/me'
     | '/api/reset'
     | '/api/signup'
+    | '/integrations/vercel'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -452,6 +482,8 @@ export interface FileRouteTypes {
     | '/api/dns/porkbun/start'
     | '/api/dns/vercel/callback'
     | '/api/dns/vercel/start'
+    | '/api/integrations/vercel/callback'
+    | '/api/integrations/vercel/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -476,6 +508,7 @@ export interface FileRouteTypes {
     | '/api/me'
     | '/api/reset'
     | '/api/signup'
+    | '/integrations/vercel'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -497,6 +530,8 @@ export interface FileRouteTypes {
     | '/api/dns/porkbun/start'
     | '/api/dns/vercel/callback'
     | '/api/dns/vercel/start'
+    | '/api/integrations/vercel/callback'
+    | '/api/integrations/vercel/start'
   id:
     | '__root__'
     | '/'
@@ -521,6 +556,7 @@ export interface FileRouteTypes {
     | '/api/me'
     | '/api/reset'
     | '/api/signup'
+    | '/integrations/vercel'
     | '/learn/$slug'
     | '/learn/glossary'
     | '/learn/quiz'
@@ -542,6 +578,8 @@ export interface FileRouteTypes {
     | '/api/dns/porkbun/start'
     | '/api/dns/vercel/callback'
     | '/api/dns/vercel/start'
+    | '/api/integrations/vercel/callback'
+    | '/api/integrations/vercel/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -567,6 +605,7 @@ export interface RootRouteChildren {
   ApiMeRoute: typeof ApiMeRoute
   ApiResetRoute: typeof ApiResetRoute
   ApiSignupRoute: typeof ApiSignupRoute
+  IntegrationsVercelRoute: typeof IntegrationsVercelRoute
   LearnSlugRoute: typeof LearnSlugRoute
   LearnGlossaryRoute: typeof LearnGlossaryRoute
   LearnQuizRoute: typeof LearnQuizRoute
@@ -588,6 +627,8 @@ export interface RootRouteChildren {
   ApiDnsPorkbunStartRoute: typeof ApiDnsPorkbunStartRoute
   ApiDnsVercelCallbackRoute: typeof ApiDnsVercelCallbackRoute
   ApiDnsVercelStartRoute: typeof ApiDnsVercelStartRoute
+  ApiIntegrationsVercelCallbackRoute: typeof ApiIntegrationsVercelCallbackRoute
+  ApiIntegrationsVercelStartRoute: typeof ApiIntegrationsVercelStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -746,6 +787,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/integrations/vercel': {
+      id: '/integrations/vercel'
+      path: '/integrations/vercel'
+      fullPath: '/integrations/vercel'
+      preLoaderRoute: typeof IntegrationsVercelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/learn/': {
       id: '/learn/'
       path: '/learn'
@@ -893,6 +941,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDnsVercelStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/integrations/vercel/callback': {
+      id: '/api/integrations/vercel/callback'
+      path: '/api/integrations/vercel/callback'
+      fullPath: '/api/integrations/vercel/callback'
+      preLoaderRoute: typeof ApiIntegrationsVercelCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integrations/vercel/start': {
+      id: '/api/integrations/vercel/start'
+      path: '/api/integrations/vercel/start'
+      fullPath: '/api/integrations/vercel/start'
+      preLoaderRoute: typeof ApiIntegrationsVercelStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -919,6 +981,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMeRoute: ApiMeRoute,
   ApiResetRoute: ApiResetRoute,
   ApiSignupRoute: ApiSignupRoute,
+  IntegrationsVercelRoute: IntegrationsVercelRoute,
   LearnSlugRoute: LearnSlugRoute,
   LearnGlossaryRoute: LearnGlossaryRoute,
   LearnQuizRoute: LearnQuizRoute,
@@ -940,6 +1003,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDnsPorkbunStartRoute: ApiDnsPorkbunStartRoute,
   ApiDnsVercelCallbackRoute: ApiDnsVercelCallbackRoute,
   ApiDnsVercelStartRoute: ApiDnsVercelStartRoute,
+  ApiIntegrationsVercelCallbackRoute: ApiIntegrationsVercelCallbackRoute,
+  ApiIntegrationsVercelStartRoute: ApiIntegrationsVercelStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
