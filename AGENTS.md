@@ -294,3 +294,15 @@ Release ledger continuity: `supabase/migrations/20260921120000_citefleet_hosting
 records the existing Hostinger migration already applied to production (confirmed with
 `supabase migration list` on 2026-09-22). Including its unchanged source lets the ordered
 release compare matching ledgers; the support page adds no database schema.
+
+## Billing authorization correction (2026-09-23)
+
+This section supersedes the earlier prefix-only billing description.
+- `src/lib/citefleet/billing-key.server.ts` verifies the full secret transiently against BotCentral `/internal/keys/verify`; only the public prefix and `verifiedAt` persist. `dispatcher.ts` re-exports this handler. `fleet-api.ts`, `client.ts` and `CampaignView.tsx` accept the full secret via a password field.
+- `botcentral.ts` requires a verified key when billing is enabled; missing and legacy prefix-only settings require verification before publishing.
+- `topup.server.ts` requires the server-authenticated break-glass operator principal for manual settlement. `fleet-api.ts` supplies that principal; `topupAccessFn` controls visibility only. Ordinary account sessions cannot attest receipt of money.
+- `src/routes/topup.tsx` polls sequentially at six-second intervals using stable invoice identity/status dependencies.
+- `webhook.ts` and `types.ts` track catalog event chronology and reject a lapse of an older paid term.
+- `billing-authorization.test.ts`, `topup-settlement.test.ts`, `topup-polling.test.ts` and `catalog-hook.test.ts` exercise these boundaries.
+- `tests/e2e/billing-polling.spec.ts` and `billing.playwright.config.ts` run the actual built local page in headed Chrome with invoice transport stubbed; this is not live payment E2E.
+- `docs/billing-system.md` contains the billing diagram, audit evidence, limitations and coordinated release order.

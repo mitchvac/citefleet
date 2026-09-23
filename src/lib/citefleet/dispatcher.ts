@@ -1,8 +1,8 @@
 import { PLAYBOOK, applyPlaybookHrefs, playbookToTaskDraft } from "./playbook";
 import { FLEET_TEMPLATE } from "./bots";
 import { auditSite } from "./auditor";
-import { billingEnabled, billingPrefixFor, publishListing } from "./botcentral";
-import { cleanPrefix } from "./topup.ts";
+import { billingPrefixFor, publishListing } from "./botcentral";
+export { setBillingKey } from "./billing-key.server.ts";
 import { chooseProvider, providerGuidance } from "./provider-choice.ts";
 import { INDEXNOW_KEY_HELP, cleanIndexNowKey, resolveIndexNowKey } from "./indexnow.ts";
 import { PROVIDER_FLOWS } from "./provider-flows.ts";
@@ -516,41 +516,6 @@ export async function publishSiteToBotCentral(ws: WorkspaceHandle, siteId: strin
   // return. Callers only need the status fields.
   const { card: _card, ...status } = listing;
   return status;
-}
-
-/**
- * Record the customer's BotCentral key prefix on the property, or clear it.
- * Storing it never sends it: the publish path consults the billing switch
- * (`billingPrefixFor`), so a key can be entered today and start paying only
- * when CITEFLEET_BOTCENTRAL_BILLING is turned on.
- */
-export async function setBillingKey(ws: WorkspaceHandle, siteId: string, raw: string) {
-  const value = raw.trim();
-  const keyPrefix = value ? cleanPrefix(value) : "";
-  if (value && !keyPrefix) {
-    throw new Error(
-      "A BotCentral key prefix looks like bc_live_52297216 — the customer's Keys page shows it, and so does the top-up link on a 402.",
-    );
-  }
-  const billing = billingEnabled();
-  await ws.mutate((store) => {
-    const site = store.sites.find((s) => s.id === siteId);
-    if (!site) throw new Error("Site not found");
-    site.billing = keyPrefix ? { keyPrefix, setAt: new Date().toISOString() } : undefined;
-    logActivity(store, {
-      actor: "Operator",
-      kind: "control",
-      siteId,
-      message: keyPrefix
-        ? `Set BotCentral API key ${keyPrefix} for ${site.domain}. ${
-            billing
-              ? "Billing is on: the next publish of a proven card buys a listing year on that key."
-              : "Billing switch is off (CITEFLEET_BOTCENTRAL_BILLING): the key is stored and not sent yet."
-          }`
-        : `Cleared the BotCentral API key for ${site.domain}. Publishes are sent without a key and recorded unbilled.`,
-    });
-  });
-  return { keyPrefix, billing };
 }
 
 /**

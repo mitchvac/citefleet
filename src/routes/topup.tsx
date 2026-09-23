@@ -4,7 +4,7 @@ import { AssetPicker } from "@/components/citefleet/AssetPicker";
 import { PayQr } from "@/components/citefleet/PayQr";
 import { PayTrust } from "@/components/citefleet/PayTrust";
 import { Shell } from "@/components/citefleet/Shell";
-import { settleTopupFn } from "@/lib/citefleet/fleet-api";
+import { settleTopupFn, topupAccessFn } from "@/lib/citefleet/fleet-api";
 import {
   botcentralBase,
   clampTopupUsd,
@@ -56,6 +56,15 @@ function TopupPage() {
   const [settleBusy, setSettleBusy] = useState(false);
   const [automatic, setAutomatic] = useState<boolean | null>(null);
 
+  const [manualSettlement, setManualSettlement] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void topupAccessFn()
+      .then((access) => { if (!cancelled) setManualSettlement(access.manualSettlement); })
+      .catch(() => { if (!cancelled) setManualSettlement(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   // An invoice id in the URL (BotCentral's invoice link, or a reload) reloads that invoice.
   useEffect(() => {
     if (!parsed.job) return;
@@ -79,34 +88,41 @@ function TopupPage() {
     };
   }, [base, parsed.job, parsed.prefix]);
 
-  // While the invoice is open, ask BotCentral to check the chain. On a watched
-  // coin this settles the moment the payment confirms, with nobody involved.
+  // While the invoice is open, ask BotCentral to check the chain. Keep the
+  // effect keyed to identity/status, not the fresh object from each response.
+  const invoiceId = invoice?.id;
+  const invoiceStatus = invoice?.status;
   useEffect(() => {
-    if (!invoice || invoice.status !== "invoiced") return;
+    if (!invoiceId || invoiceStatus !== "invoiced") return;
     let stop = false;
-    const tick = () => {
-      verifyTopupInvoice(base, invoice.id)
-        .then((next) => {
-          if (stop) return;
-          setInvoice(next);
-          if (typeof next.settles_automatically === "boolean")
-            setAutomatic(next.settles_automatically);
-        })
-        .catch(() => {
-          // Verification unavailable: fall back to simply re-reading the invoice.
-          if (!stop)
-            fetchTopupInvoice(base, invoice.id)
-              .then(setInvoice)
-              .catch(() => {});
-        });
+    let timer = 0;
+    const tick = async () => {
+      try {
+        const next = await verifyTopupInvoice(base, invoiceId);
+        if (stop) return;
+        setInvoice(next);
+        if (typeof next.settles_automatically === "boolean")
+          setAutomatic(next.settles_automatically);
+      } catch {
+        // Verification unavailable: fall back to simply re-reading the invoice.
+        if (stop) return;
+        try {
+          const next = await fetchTopupInvoice(base, invoiceId);
+          if (!stop) setInvoice(next);
+        } catch {
+          // Retain the invoice and retry after the same bounded delay.
+        }
+      } finally {
+        // Schedule after completion so slow network requests never overlap.
+        if (!stop) timer = window.setTimeout(tick, POLL_MS);
+      }
     };
-    tick();
-    const timer = window.setInterval(tick, POLL_MS);
+    void tick();
     return () => {
       stop = true;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
-  }, [base, invoice]);
+  }, [base, invoiceId, invoiceStatus]);
 
   async function open(event: FormEvent) {
     event.preventDefault();
@@ -281,7 +297,7 @@ function TopupPage() {
               </a>
               .
             </p>
-          ) : payable ? (
+          ) : payable && manualSettlement ? (
             <form
               onSubmit={settle}
               className="mt-6 grid gap-3 border-t border-white/10 pt-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
@@ -323,6 +339,10 @@ function TopupPage() {
                 </p>
               ) : null}
             </form>
+          ) : payable ? (
+            <p className="mt-4 text-sm text-[#cfc8e8]">
+              Payment confirmation is handled by a CiteFleet operator.
+            </p>
           ) : null}
         </section>
       ) : (

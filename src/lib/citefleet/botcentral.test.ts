@@ -225,7 +225,7 @@ function billableSite(over: Partial<Site> = {}): Site {
     id: "site-h", workspaceId: "ws", name: "Herald", domain: "herald.example", url: "https://herald.example",
     status: "campaign", sitemapUrl: "https://herald.example/sitemap.xml", routes: ["/"], createdAt: "2026-09-01T00:00:00.000Z",
     scores: { technical: 0, submissions: 0, mentions: 0, overall: 0 }, summary: "A newsroom.",
-    billing: { keyPrefix: "bc_live_52297216", setAt: "2026-09-06T00:00:00.000Z" },
+    billing: { keyPrefix: "bc_live_52297216", setAt: "2026-09-06T00:00:00.000Z", verifiedAt: "2026-09-06T00:00:00.000Z" },
     ...over,
   };
 }
@@ -253,10 +253,10 @@ test("the key prefix is sent only when the switch is on AND the site has a valid
   assert.equal(billingPrefixFor(s, { CITEFLEET_BOTCENTRAL_BILLING: "off" }), "");
   assert.equal(billingPrefixFor(s, { CITEFLEET_BOTCENTRAL_BILLING: "on" }), "bc_live_52297216");
   assert.equal(billingPrefixFor(s, { CITEFLEET_BOTCENTRAL_BILLING: " ON " }), "bc_live_52297216");
-  assert.equal(billingPrefixFor(billableSite({ billing: undefined }), { CITEFLEET_BOTCENTRAL_BILLING: "on" }), "");
+  assert.throws(() => billingPrefixFor(billableSite({ billing: undefined }), { CITEFLEET_BOTCENTRAL_BILLING: "on" }), /Verify/);
   // A malformed or placeholder prefix is never sent either.
-  assert.equal(billingPrefixFor(billableSite({ billing: { keyPrefix: "bc_live_pending", setAt: "" } }), { CITEFLEET_BOTCENTRAL_BILLING: "on" }), "");
-  assert.equal(billingPrefixFor(billableSite({ billing: { keyPrefix: "sk_live_abc", setAt: "" } }), { CITEFLEET_BOTCENTRAL_BILLING: "on" }), "");
+  assert.throws(() => billingPrefixFor(billableSite({ billing: { keyPrefix: "bc_live_pending", setAt: "" } }), { CITEFLEET_BOTCENTRAL_BILLING: "on" }), /Verify/);
+  assert.throws(() => billingPrefixFor(billableSite({ billing: { keyPrefix: "sk_live_abc", setAt: "" } }), { CITEFLEET_BOTCENTRAL_BILLING: "on" }), /Verify/);
 });
 
 test("publish: switch off → body carries no keyPrefix; the interim 201 (no term) still lists", async () => {

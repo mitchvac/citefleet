@@ -7,10 +7,11 @@
  * service token, marks the invoice paid, and credits the bc_live_ prefix.
  * Behind the `spend` kill door: freezing spend on Monitor refuses this.
  */
-import { assertCanAct } from "./control";
-import { logActivity } from "./store";
+import { assertCanAct } from "./control.ts";
+import { logActivity } from "./store.ts";
+import type { Principal } from "../auth/operator.server.ts";
 import type { WorkspaceHandle } from "./workspace-handle.ts";
-import { settleRequestBody, type TopupInvoice } from "./topup";
+import { settleRequestBody, type TopupInvoice } from "./topup.ts";
 
 const DEFAULT_URL = "https://botcentral.org";
 const FETCH_UA = "CiteFleetPublisher/1.0 (+https://citefleet.app)";
@@ -26,7 +27,13 @@ function serviceToken() {
 export async function settleTopup(
   ws: WorkspaceHandle,
   input: { id?: unknown; tx?: unknown },
+  principal: Principal,
 ): Promise<TopupInvoice> {
+  // Workspace sign-in does not authorize attesting receipt of money.
+  // Only a session created using the server operator token may settle manually.
+  if (principal?.kind !== "break-glass") {
+    throw new Error("Forbidden: manual payment confirmation requires an operator-token session.");
+  }
   const body = settleRequestBody(input);
   assertCanAct(await ws.get(), "spend");
   if (serviceToken().length < 16) {
@@ -53,7 +60,7 @@ export async function settleTopup(
   const invoice = payload.invoice;
   await ws.mutate((store) =>
     logActivity(store, {
-      actor: "operator",
+      actor: "operator-token",
       kind: "system",
       message: `Settled BotCentral invoice ${invoice.id}: ${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"} ($${invoice.usd}) credited to ${invoice.key_prefix}; receipt ${body.tx}`,
     }),

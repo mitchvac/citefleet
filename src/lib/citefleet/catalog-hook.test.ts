@@ -118,7 +118,7 @@ test("site.reverified downgrading the card revokes the listing task, with BotCen
   assert.equal(s.botcentral?.listed, true);
   assert.equal(s.botcentral?.verified, false);
   assert.equal(s.botcentral?.verificationNote, note);
-  assert.deepEqual(s.catalogHook, { lastEventAt: NOW.toISOString(), lastEvent: "site.reverified" });
+  assert.deepEqual(s.catalogHook, { lastEventAt: NOW.toISOString(), lastEvent: "site.reverified", lastEventCreatedAt: NOW.toISOString() });
   const task = store.tasks[0];
   assert.equal(task.status, "blocked");
   assert.match(task.blockedReason ?? "", /no longer proven \(unverified\)/);
@@ -172,4 +172,57 @@ test("site.listed grants and clears a pending 402; site.unpublished revokes as g
   assert.equal(gone.body.action, "revoke");
   assert.equal(store.sites[0].botcentral?.listed, false);
   assert.match(store.tasks[0].blockedReason ?? "", /gone from the catalog/);
+});
+
+test("a delayed lapse cannot overwrite a renewed listing term or revoke its task", async () => {
+  const renewed = site({ term: { status: "active", paidUntil: "2027-09-05T00:00:00.000Z", usd: "10.00", termDays: 365, at: "2026-09-06T17:00:00.000Z", source: "publish" } });
+  const { store, deps } = harness([renewed]);
+  const before = JSON.stringify(store);
+  const res = await post(body("site.lapsed", {
+    created: "2026-09-06T16:00:00.000Z",
+    verification: { method: "unverified" },
+    term: { status: "lapsed", paid_until: "2026-09-05T00:00:00.000Z", usd: "10.00", term_days: 365 },
+  }), deps);
+  assert.equal(res.body.action, "ignore");
+  assert.equal(JSON.stringify(store), before);
+});
+
+test("a delayed event cannot reverse a newer signed listing event", async () => {
+  const { store, deps } = harness([site()]);
+  await post(body("site.listed", { created: "2026-09-06T17:00:00.000Z", verification: { method: "dns-txt" } }), deps);
+  const before = JSON.stringify(store);
+  const res = await post(body("site.unpublished", { created: "2026-09-06T16:00:00.000Z" }), deps);
+  assert.equal(res.body.action, "ignore");
+  assert.equal(JSON.stringify(store), before);
+});
+
+test("known-property events without a valid creation timestamp fail closed", async () => {
+  for (const created of [undefined, null, "not-a-date", 42]) {
+    const { store, deps } = harness([site()]);
+    const before = JSON.stringify(store);
+    const res = await post(body("site.lapsed", { created, verification: { method: "unverified" } }), deps);
+    assert.equal(res.status, 400);
+    assert.equal(JSON.stringify(store), before);
+  }
+});
+
+test("a lapse for the current term still applies after a publish", async () => {
+  const { store, deps } = harness([site({ term: { status: "active", paidUntil: "2026-09-05T00:00:00.000Z", usd: "10.00", termDays: 365, at: "2025-09-05T00:00:00.000Z", source: "publish" } })]);
+  const raw = body("site.lapsed", { verification: { method: "unverified" }, term: { status: "lapsed", paid_until: "2026-09-05T00:00:00.000Z", usd: "10.00", term_days: 365 } });
+  assert.equal((await post(raw, deps)).body.action, "revoke");
+  assert.equal((await post(raw, deps)).body.action, "none");
+  assert.equal(store.sites[0].term?.status, "lapsed");
+});
+
+test("a renewal between initial read and mutation wins over an older lapse", async () => {
+  const { store, deps } = harness([site()]);
+  deps.mutateStore = async (fn) => {
+    store.sites[0].term = { status: "active", paidUntil: "2027-09-05T00:00:00.000Z", usd: "10.00", termDays: 365, at: NOW.toISOString(), source: "publish" };
+    fn(store);
+  };
+  const raw = body("site.lapsed", { verification: { method: "unverified" }, term: { status: "lapsed", paid_until: "2026-09-05T00:00:00.000Z", usd: "10.00", term_days: 365 } });
+  assert.equal((await post(raw, deps)).body.action, "ignore");
+  assert.equal(store.sites[0].term?.status, "active");
+  assert.equal(store.tasks[0].status, "done");
+  assert.equal(store.activity.length, 0);
 });
