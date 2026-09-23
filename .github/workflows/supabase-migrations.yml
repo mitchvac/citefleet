@@ -21,6 +21,10 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: 2.116.0
+      # setup-cli forces GHCR; clearing that override restores the pinned CLI's
+      # built-in ECR/GHCR/Docker Hub retries when a shared runner is throttled.
+      - name: Restore supported image registry fallbacks
+        run: echo 'SUPABASE_INTERNAL_IMAGE_REGISTRY=' >> "$GITHUB_ENV"
       - name: Start local Postgres
         run: supabase db start
       - name: Replay all migrations from scratch

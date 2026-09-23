@@ -181,6 +181,26 @@ if [[ -e "$VERCEL_FILE" ]]; then
   fi
 fi
 
+# Origin file installation is a separate integration with Projects Read and
+# Integration Configuration Read. It must never inherit DNS write credentials.
+VERCEL_ORIGIN_FILE="/root/citefleet-vercel-origin.oauth"
+VERCEL_ORIGIN_INTEGRATION_SLUG=""
+VERCEL_ORIGIN_CLIENT_ID=""
+VERCEL_ORIGIN_CLIENT_SECRET=""
+if [[ -e "$VERCEL_ORIGIN_FILE" ]]; then
+  mapfile -t _vercel_origin < "$VERCEL_ORIGIN_FILE"
+  VERCEL_ORIGIN_INTEGRATION_SLUG="${_vercel_origin[0]-}"
+  VERCEL_ORIGIN_CLIENT_ID="${_vercel_origin[1]-}"
+  VERCEL_ORIGIN_CLIENT_SECRET="${_vercel_origin[2]-}"
+  VERCEL_ORIGIN_INTEGRATION_SLUG="${VERCEL_ORIGIN_INTEGRATION_SLUG//$'\r'/}"
+  VERCEL_ORIGIN_CLIENT_ID="${VERCEL_ORIGIN_CLIENT_ID//$'\r'/}"
+  VERCEL_ORIGIN_CLIENT_SECRET="${VERCEL_ORIGIN_CLIENT_SECRET//$'\r'/}"
+  if [[ -z "$VERCEL_ORIGIN_INTEGRATION_SLUG" || -z "$VERCEL_ORIGIN_CLIENT_ID" || -z "$VERCEL_ORIGIN_CLIENT_SECRET" ]]; then
+    echo "deploy: $VERCEL_ORIGIN_FILE must contain integration slug, client ID, and secret on lines 1-3" >&2
+    exit 1
+  fi
+fi
+
 NET="citefleet-net"
 PG_NAME="citefleet-postgres"
 PASS_FILE="/root/citefleet-postgres.pass"
@@ -326,6 +346,11 @@ fi
     printf 'CITEFLEET_VERCEL_INTEGRATION_SLUG=%s\n' "$VERCEL_INTEGRATION_SLUG"
     printf 'CITEFLEET_VERCEL_CLIENT_ID=%s\n' "$VERCEL_CLIENT_ID"
     printf 'CITEFLEET_VERCEL_CLIENT_SECRET=%s\n' "$VERCEL_CLIENT_SECRET"
+  fi
+  if [[ -n "$VERCEL_ORIGIN_CLIENT_ID" ]]; then
+    printf 'CITEFLEET_VERCEL_ORIGIN_INTEGRATION_SLUG=%s\n' "$VERCEL_ORIGIN_INTEGRATION_SLUG"
+    printf 'CITEFLEET_VERCEL_ORIGIN_CLIENT_ID=%s\n' "$VERCEL_ORIGIN_CLIENT_ID"
+    printf 'CITEFLEET_VERCEL_ORIGIN_CLIENT_SECRET=%s\n' "$VERCEL_ORIGIN_CLIENT_SECRET"
   fi
   # Listing-year billing (BotCentral brief, 2026-09-06). OFF until a key has
   # been funded end to end — a publish with an unfunded key is a 402. Turn it

@@ -1,3 +1,5 @@
+import { trustedAuthPost, rejectedAuthPost } from "./auth-form.server.ts";
+import { originLoginContinuation } from "../citefleet/vercel-origin.server.ts";
 import { sessionCookie } from "./operator-core.ts";
 import {
   clearFailures,
@@ -95,6 +97,7 @@ export async function handleForgot(request: Request): Promise<Response> {
  * security and is where people give up.
  */
 export async function handleReset(request: Request): Promise<Response> {
+  if (!trustedAuthPost(request)) return rejectedAuthPost();
   const fields = await readForm(request);
   const key = authClientKey(request);
   const wait = await isLocked(key);
@@ -119,7 +122,7 @@ export async function handleReset(request: Request): Promise<Response> {
   return new Response(null, {
     status: 303,
     headers: {
-      Location: "/",
+      Location: originLoginContinuation(request),
       "Set-Cookie": sessionCookie(sessionId, {
         secure: isSecure(request),
       }),

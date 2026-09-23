@@ -15,29 +15,68 @@ actual guide in production before submitting it as the Documentation URL.
 - Terms URL: https://citefleet.app/terms (use as EULA only if these are the terms the operator intends to apply)
 - Suggested short description: Prepare crawler discovery files for your Vercel site with CiteFleet.
 
-The guide describes the existing GitHub-based installation path. Do not publish
-marketplace copy claiming that installing the Vercel integration already writes
-five files or deploys a website. The current Vercel provider callback handles DNS
-proof and can subsequently attempt catalog listing; it does not install files.
+## Connectable-account integration settings
 
-## The required redirect is separate work
+- Redirect URL: `https://citefleet.app/api/integrations/vercel/callback`
+- Integration Configuration scope: **Read**.
+- Projects scope: **Read** (includes project-domain reads).
+- Other scopes: **None** for this installer.
+- No webhook subscriptions, native Base URL, native SSO or Import Resource URL.
+- Configuration URL may remain blank; `/integrations/vercel` is a temporary
+  browser-bound setup session, not a persistent installation management portal.
 
-The form's validation says a Redirect URL OR the native Base URL plus Redirect
-Login URL/SSO combination is required. It does not require both alternatives.
+This is the connectable-account flow, not a native Marketplace resource server.
+The form accepts Redirect URL OR the native Base URL/SSO combination. Do not use
+`/api/dns/vercel/callback`: that is a separate, property-bound DNS integration.
 
-The implemented `/api/dns/vercel/callback` belongs to the separate temporary DNS
-integration. It consumes an authenticated, property-bound OAuth state. It is not
-a general landing page or the callback for the advertised Origin installer.
-Do not use the documentation page, homepage, GitHub OAuth callback, or DNS
-callback merely to satisfy the Origin Redirect URL field.
+The Origin callback exchanges the single-use code and reads the exact
+configuration under token-derived team scope. It checks configuration and
+integration IDs, selected-project permissions, GitHub repository metadata and
+verified, non-redirecting production domains. It retains only bounded metadata
+for 30 minutes behind a hashed random browser cookie, never the Vercel token or
+code. Metadata is bound to the signed-in user and their resolved workspace.
+Explicit CSRF-protected confirmation saves a property; a separate GitHub approval
+can write files through the existing ownership and workspace controls. The
+customer chooses the actual served folder and confirms a production branch if
+Vercel omits it. No listing purchase or automatic catalog publication occurs.
 
-The five-file Marketplace installer still needs its own implemented and tested
-installation flow before a Redirect URL can be supplied for that purpose.
-A public documentation page does not implement that flow. This change does not
-create native SSO, a Marketplace resource server, an import handler or a Vercel
-webhook receiver. Do not supply invented endpoint URLs or subscribe to events
-without the corresponding handler. Choose scopes from the actual completed
-workflow; no installer scope set is verified by this documentation change.
+Vercel-authorized projects are limited to 20 per setup. Projects with over 100
+production domains, unsupported Git providers, or no verified production domain
+use the documented manual workflow. The setup declines paginated results rather
+than silently treating a truncated list as the complete authorization.
+
+## Credentials and deployment
+
+The callback can be deployed before the integration is created. A callback
+without an installation code explains how to begin (HTTP 400). A real callback
+with missing server credentials returns HTTP 503 with an honest configuration
+message; this is not a completed installation.
+
+1. Save the Vercel integration using the Redirect and Documentation URLs above.
+2. Store its slug, client ID and client secret in the VPS root-only file
+   `/root/citefleet-vercel-origin.oauth`, one per line in that order. Do not paste
+   secrets in a PR, chat, URL or tracked env file.
+3. The deployment script loads these into `CITEFLEET_VERCEL_ORIGIN_INTEGRATION_SLUG`,
+   `CITEFLEET_VERCEL_ORIGIN_CLIENT_ID` and `CITEFLEET_VERCEL_ORIGIN_CLIENT_SECRET`.
+   Redeploy after configuring them. These are separate from DNS credentials in
+   `/root/citefleet-vercel.oauth` and survive the script's `.env` regeneration.
+4. Run a consenting GitHub/Vercel project through authorization, sign-in, project
+   confirmation, GitHub install, production deployment, public body/content-type
+   verification, and Vercel completion. Do not claim live provider E2E before
+   that external-account flow has actually run.
+
+Re-entering a callback while another setup cookie is present does not overwrite
+it. Finish or cancel the browser's current setup before restarting. An expired
+or other-account cookie can be canceled without exposing its metadata.
+
+## Verification boundaries
+
+`vercel-origin.test.ts` exercises provider-response validation, scoped metadata,
+CSRF, callbacks, cancellation and fixed login continuation with controlled
+provider transport. `tests/e2e/vercel-origin.spec.ts` and
+`vercel-origin.playwright.config.ts` exercise the real built routes and database
+using boundary-seeded project metadata. Neither substitutes for live Vercel and
+GitHub authorization and a real production file deployment.
 
 ## Evidence and content decisions
 
