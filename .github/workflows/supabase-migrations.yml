@@ -27,3 +27,7 @@ jobs:
         run: supabase db reset
       - name: Lint the resulting schema
         run: supabase db lint --level warning
+      - name: Verify server-only grants and RLS behavior
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/server-only-rls.sql
